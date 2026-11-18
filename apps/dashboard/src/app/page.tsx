@@ -251,6 +251,7 @@ const INITIAL_MESSAGES: Record<string, Message[]> = {
 // Web Audio Alert Chime for Incoming Customer Messages
 const playAlertChime = () => {
   try {
+    if (typeof window === 'undefined') return;
     const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
     if (!AudioCtx) return;
     const ctx = new AudioCtx();

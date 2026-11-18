@@ -25,6 +25,7 @@ export function useSocket({
   // Native Web Audio chime for incoming messages
   const playChime = () => {
     try {
+      if (typeof window === 'undefined') return;
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
       if (!AudioCtx) return;
       const ctx = new AudioCtx();
