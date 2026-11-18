@@ -1,0 +1,14 @@
+{
+  "name": "@chatechat/widget",
+  "version": "1.0.0",
+  "description": "ChateChat Embeddable Lightweight Live Chat Widget",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5",
+    "vite": "^5.2.11"
+  }
+}

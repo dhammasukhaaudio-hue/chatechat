@@ -1,0 +1,27 @@
+{
+  "name": "chatechat",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ChateChat (ချိတ်ချက်) - High-Performance Real-Time Multi-Channel Customer Communication Platform",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build:api && npm run build:dashboard",
+    "build:api": "npm --workspace=@chatechat/api run build",
+    "build:dashboard": "npm --workspace=@chatechat/dashboard run build",
+    "start:api": "npm --workspace=@chatechat/api run start",
+    "start:dashboard": "npm --workspace=@chatechat/dashboard run start",
+    "dev:api": "npm --workspace=@chatechat/api run dev",
+    "dev:dashboard": "npm --workspace=@chatechat/dashboard run dev",
+    "dev:mobile": "npm --workspace=@chatechat/mobile-android run start",
+    "simulate:webhook": "node scripts/simulate-webhook.js",
+    "db:generate": "npm --workspace=@chatechat/database run generate",
+    "db:push": "npm --workspace=@chatechat/database run push",
+    "db:studio": "npm --workspace=@chatechat/database run studio"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  }
+}

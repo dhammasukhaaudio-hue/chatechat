@@ -1,0 +1,118 @@
+[
+  {
+    "id": "user_1794981705178_434",
+    "name": "lynn",
+    "email": "lynn@gmail.com",
+    "phone": "09970228234",
+    "passwordHash": "f3efb644776d444aba4503db8156c88d3419423421a42b8783433c926ae8c5c9",
+    "role": "AGENT",
+    "status": "ONLINE",
+    "maxConcurrentChats": 10,
+    "channels": [
+      "TELEGRAM",
+      "MESSENGER"
+    ],
+    "createdAt": "2026-11-18T06:01:45.178Z",
+    "updatedAt": "2026-11-18T06:03:30.965Z"
+  },
+  {
+    "id": "user_michael_1",
+    "name": "Michael (Founder & CEO)",
+    "email": "michael@chatechat.com",
+    "phone": "09798888123",
+    "passwordHash": "b8947294fefbb360a103e2891b48f29b95ac2571c852ab5d68a1035135925bb3",
+    "role": "OWNER",
+    "status": "ONLINE",
+    "maxConcurrentChats": 20,
+    "channels": [
+      "MESSENGER",
+      "TELEGRAM",
+      "VIBER"
+    ],
+    "telegramUsername": "@michael_ceo",
+    "createdAt": "2026-01-01T00:00:00.000Z",
+    "updatedAt": "2026-11-18T05:03:37.400Z"
+  },
+  {
+    "id": "user_admin_root",
+    "name": "Admin (System Administrator)",
+    "email": "admin@chatechat.com",
+    "phone": "09798888124",
+    "passwordHash": "b8947294fefbb360a103e2891b48f29b95ac2571c852ab5d68a1035135925bb3",
+    "role": "ADMIN",
+    "status": "ONLINE",
+    "maxConcurrentChats": 20,
+    "channels": [
+      "MESSENGER",
+      "TELEGRAM"
+    ],
+    "telegramUsername": "@chatechat_admin",
+    "createdAt": "2026-01-01T00:00:00.000Z",
+    "updatedAt": "2026-11-18T05:03:37.401Z"
+  },
+  {
+    "id": "user_mexes",
+    "name": "mexes",
+    "email": "mexes@chatechat.com",
+    "phone": "09798888999",
+    "passwordHash": "9a30f7bc21126a4952f90caa403619ac8a693c5cd87bec8fb9ff82d5bb5e7424",
+    "role": "AGENT",
+    "status": "ONLINE",
+    "maxConcurrentChats": 10,
+    "channels": [
+      "TELEGRAM"
+    ],
+    "telegramUsername": "@mexes_bot",
+    "createdAt": "2026-02-15T00:00:00.000Z",
+    "updatedAt": "2026-11-18T05:52:55.215Z"
+  },
+  {
+    "id": "user_susu_2",
+    "name": "Daw Su Su Win (Finance Lead)",
+    "email": "susuwin@chatechat.com",
+    "phone": "09987654321",
+    "passwordHash": "9a30f7bc21126a4952f90caa403619ac8a693c5cd87bec8fb9ff82d5bb5e7424",
+    "role": "ADMIN",
+    "status": "ONLINE",
+    "maxConcurrentChats": 10,
+    "channels": [
+      "KBZPAY",
+      "WAVEPAY",
+      "AYAPAY"
+    ],
+    "createdAt": "2026-01-15T00:00:00.000Z",
+    "updatedAt": "2026-11-18T05:03:37.401Z"
+  },
+  {
+    "id": "user_agent_kyaw",
+    "name": "Ko Kyaw Kyaw (Senior Support Agent)",
+    "email": "kyawkyaw@chatechat.com",
+    "phone": "09450001122",
+    "passwordHash": "9a30f7bc21126a4952f90caa403619ac8a693c5cd87bec8fb9ff82d5bb5e7424",
+    "role": "AGENT",
+    "status": "ONLINE",
+    "maxConcurrentChats": 10,
+    "channels": [
+      "MESSENGER",
+      "TELEGRAM"
+    ],
+    "createdAt": "2026-02-01T00:00:00.000Z",
+    "updatedAt": "2026-11-18T05:03:37.401Z"
+  },
+  {
+    "id": "user_agent_thiri",
+    "name": "Ma Thiri (Customer Service)",
+    "email": "thiri@chatechat.com",
+    "phone": "09250003344",
+    "passwordHash": "9a30f7bc21126a4952f90caa403619ac8a693c5cd87bec8fb9ff82d5bb5e7424",
+    "role": "AGENT",
+    "status": "BUSY",
+    "maxConcurrentChats": 10,
+    "channels": [
+      "VIBER",
+      "TELEGRAM"
+    ],
+    "createdAt": "2026-02-10T00:00:00.000Z",
+    "updatedAt": "2026-11-18T05:03:37.402Z"
+  }
+]

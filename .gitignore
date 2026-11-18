@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build Outputs
+dist/
+.next/
+out/
+build/
+*.tsbuildinfo
+
+# Environment Variables
+.env
+.env*.local
+!.env.example
+
+# Sensitive Data Files (Dynamic Runtime State)
+apps/api/data/telegram-bot.json
+apps/api/data/telegram-chats.json
+
+# Debug Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# IDE & Tooling
+.idea/
+.vscode/
+*.swp
+*.swo
+.gemini/

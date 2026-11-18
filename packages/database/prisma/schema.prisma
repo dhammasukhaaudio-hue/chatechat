@@ -1,0 +1,396 @@
+// ChateChat (ချိတ်ချက်) - High-Performance Real-Time Multi-Channel Customer Communication Platform
+// Tailored for Myanmar Market (Messenger, Telegram, Viber, TikTok)
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// -------------------------------------------------------------
+// ENUMS
+// -------------------------------------------------------------
+
+enum UserRole {
+  OWNER
+  ADMIN
+  AGENT
+}
+
+enum AgentStatus {
+  ONLINE
+  BUSY
+  AWAY
+  OFFLINE
+}
+
+enum PlanTier {
+  TIER_1_CHANNEL   // 5,000 MMK / month - 1 Channel
+  TIER_2_CHANNELS  // 10,000 MMK / month - 2 Channels
+  TIER_3_CHANNELS  // 12,000 MMK / month - 3 Channels
+  TIER_ENTERPRISE  // 15,000+ MMK / month - All Channels (4+)
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PENDING_VERIFICATION // Waiting for KPay/WavePay slip check
+  GRACE_PERIOD
+  EXPIRED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  KBZPAY
+  WAVEPAY
+  CB_PAY
+  AYA_PAY
+  BANK_TRANSFER
+}
+
+enum ChannelType {
+  MESSENGER
+  TELEGRAM
+  VIBER
+  TIKTOK
+  WEB_WIDGET
+}
+
+enum ConversationStatus {
+  UNASSIGNED
+  ACTIVE
+  WAITING
+  RESOLVED
+  CLOSED
+}
+
+enum SenderType {
+  CUSTOMER
+  AGENT
+  BOT
+  SYSTEM
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  FILE
+  AUDIO
+  VIDEO
+  STICKER
+  NOTE       // Internal private agent note
+}
+
+enum HandoverStatus {
+  BOT_HANDLING
+  HUMAN_REQUESTED
+  TRANSFERRED_TO_AGENT
+  RESOLVED
+}
+
+// -------------------------------------------------------------
+// TENANTS (BUSINESS WORKSPACES) & SUBSCRIPTIONS
+// -------------------------------------------------------------
+
+model Organization {
+  id              String                @id @default(uuid())
+  name            String                // Business Name (e.g. "Royal Fashion Myanmar")
+  slug            String                @unique
+  phone           String?               // Merchant contact phone
+  email           String?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  users           User[]
+  subscription    Subscription?
+  paymentSlips    PaymentSlip[]
+  financialLedgers FinancialLedger[]
+  walletBalance   Int                   @default(0)
+  channels        ChannelConnection[]
+  customers       Customer[]
+  conversations   Conversation[]
+  cannedResponses CannedResponse[]
+  aiConfig        AiConfig?
+  ecommerceConfig EcommerceKnowledge?
+
+  @@map("organizations")
+}
+
+model Subscription {
+  id              String             @id @default(uuid())
+  organizationId  String             @unique
+  tier            PlanTier           @default(TIER_1_CHANNEL)
+  priceMmk        Int                @default(5000) // 5000, 10000, 12000 MMK
+  maxChannels     Int                @default(1)    // 1, 2, 3 or 4
+  status          SubscriptionStatus @default(ACTIVE)
+  startDate       DateTime           @default(now())
+  endDate         DateTime           // Expiration date (usually +30 days)
+  autoRenew       Boolean            @default(true)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  organization    Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([status, endDate])
+  @@map("subscriptions")
+}
+
+model PaymentSlip {
+  id              String          @id @default(uuid())
+  organizationId  String
+  amountMmk       Int
+  paymentMethod   PaymentMethod
+  transactionId   String?         // KPay / WavePay Trans ID
+  slipImageUrl    String          // Screenshot of payment
+  slipHash        String?         // SHA-256 hash of receipt file bytes
+  status          String          @default("PENDING") // PENDING, AUTO_APPROVED, MANUAL_REVIEW, REJECTED, FLAGGED_EXPIRED
+  extractedData   Json?           // Structured OCR extraction from Gemini Vision
+  rejectionReason String?         // Reason code if rejected by security gates
+  verifiedBy      String?         // Admin user ID or "AI_AUTO_VERIFIER"
+  verifiedAt      DateTime?
+  notes           String?
+  createdAt       DateTime        @default(now())
+
+  organization    Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status])
+  @@index([transactionId])
+  @@index([slipHash])
+  @@map("payment_slips")
+}
+
+model FinancialLedger {
+  id             String       @id @default(uuid())
+  organizationId String
+  entryType      String       // DEPOSIT, SUBSCRIPTION_DEDUCTION, SEAT_PURCHASE
+  amount         Int          // Amount in MMK (+ for credit, - for debit)
+  runningBalance Int          // Merchant balance after transaction
+  referenceId    String?      // Transaction ID or Slip ID
+  description    String?      // Action audit trail
+  createdAt      DateTime     @default(now())
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+  @@map("financial_ledgers")
+}
+
+// -------------------------------------------------------------
+// USERS & AGENTS
+// -------------------------------------------------------------
+
+model User {
+  id                 String           @id @default(uuid())
+  organizationId     String
+  email              String           @unique
+  phone              String?
+  passwordHash       String
+  name               String
+  avatarUrl          String?
+  role               UserRole         @default(AGENT)
+  status             AgentStatus      @default(OFFLINE)
+  maxConcurrentChats Int              @default(10)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  organization       Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  assignedChats      Conversation[]   @relation("AssignedAgent")
+  sentMessages       Message[]        @relation("AgentMessages")
+  cannedResponses    CannedResponse[]
+
+  @@index([organizationId, role])
+  @@index([organizationId, status])
+  @@map("users")
+}
+
+// -------------------------------------------------------------
+// MULTI-CHANNEL CONNECTIONS & QUOTA BINDING
+// -------------------------------------------------------------
+
+model ChannelConnection {
+  id             String          @id @default(uuid())
+  organizationId String
+  channelType    ChannelType
+  accountName    String          // e.g. "Royal Fashion FB Page", "Royal Telegram Bot"
+  identifier     String          // Page ID, Bot Username, Viber URI, TikTok OpenID
+  isActive       Boolean         @default(true) // Enforces quota count
+  credentials    Json            // Encrypted Access Token, App Secret, Webhook Secret
+  webhookSecret  String?
+  syncStatus     String          @default("HEALTHY") // HEALTHY, ERROR, TOKEN_EXPIRED
+  lastError      String?
+  metadata       Json?           // Channel specific configurations
+  boundAt        DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  identities     CustomerChannelIdentity[]
+  conversations  Conversation[]
+
+  @@unique([organizationId, channelType, identifier])
+  @@index([organizationId, isActive])
+  @@map("channel_connections")
+}
+
+// -------------------------------------------------------------
+// UNIFIED CUSTOMER IDENTITY (Cross-Channel Merging)
+// -------------------------------------------------------------
+
+model Customer {
+  id             String                    @id @default(uuid())
+  organizationId String
+  name           String?                   // Burmese or English Name
+  phone          String?                   // Unified Primary Key (09xxxxxxxxx)
+  email          String?
+  avatarUrl      String?
+  address        String?                   // Delivery Address (e.g. ရန်ကုန်၊ စမ်းချောင်း)
+  city           String?                   // Yangon, Mandalay, etc.
+  notes          String?                   // Agent internal remarks
+  tags           String[]                  @default([]) // VIP, Wholesale, Blacklist
+  totalOrders    Int                       @default(0)
+  totalSpentMmk  Int                       @default(0)
+  firstSeenAt    DateTime                  @default(now())
+  lastActiveAt   DateTime                  @default(now())
+
+  organization   Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  identities     CustomerChannelIdentity[]
+  conversations  Conversation[]
+
+  @@index([organizationId, phone])
+  @@index([organizationId, lastActiveAt])
+  @@map("customers")
+}
+
+// Connects social IDs (PSID, Viber ID, Telegram ChatID, TikTok UserID) to a single Customer
+model CustomerChannelIdentity {
+  id                  String             @id @default(uuid())
+  customerId          String
+  channelConnectionId String
+  channelType         ChannelType
+  externalId          String             // Messenger PSID, Telegram ChatId, Viber SenderId, TikTok OpenId
+  externalUsername    String?
+  rawProfile          Json?              // Raw payload from platform
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  customer            Customer           @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  channelConnection   ChannelConnection  @relation(fields: [channelConnectionId], references: [id], onDelete: Cascade)
+
+  @@unique([channelConnectionId, externalId])
+  @@index([customerId])
+  @@map("customer_channel_identities")
+}
+
+// -------------------------------------------------------------
+// UNIFIED CONVERSATION & REAL-TIME MESSAGING
+// -------------------------------------------------------------
+
+model Conversation {
+  id                  String             @id @default(uuid())
+  organizationId      String
+  customerId          String
+  channelConnectionId String
+  assignedAgentId     String?
+  status              ConversationStatus @default(UNASSIGNED)
+  handoverStatus      HandoverStatus     @default(BOT_HANDLING)
+  channelType         ChannelType
+  externalThreadId    String             // PSID, ChatID, etc.
+  unreadCount         Int                @default(0)
+  lastMessageSnippet  String?
+  lastMessageAt       DateTime           @default(now())
+  closedAt            DateTime?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  organization        Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer            Customer           @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  channelConnection   ChannelConnection  @relation(fields: [channelConnectionId], references: [id], onDelete: Cascade)
+  assignedAgent       User?              @relation("AssignedAgent", fields: [assignedAgentId], references: [id], onDelete: SetNull)
+  messages            Message[]
+
+  @@index([organizationId, status, lastMessageAt])
+  @@index([assignedAgentId, status])
+  @@index([channelType, externalThreadId])
+  @@map("conversations")
+}
+
+model Message {
+  id                String          @id @default(uuid())
+  conversationId    String
+  senderType        SenderType
+  senderId          String?         // Agent UserID if AGENT, null if CUSTOMER/BOT
+  senderName        String          // "မသူဇာ", "AI Bot", "Customer"
+  type              MessageType     @default(TEXT)
+  content           String          // Burmese unicode text or description
+  mediaUrl          String?         // URL for slip, product photo, voice clip
+  isInternal        Boolean         @default(false) // True if private agent note
+  externalMessageId String?         // Platform native message ID for deduplication
+  readAt            DateTime?
+  metadata          Json?           // AI tokens, webhook delivery receipts
+  createdAt         DateTime        @default(now())
+
+  conversation      Conversation    @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  agent             User?           @relation("AgentMessages", fields: [senderId], references: [id], onDelete: SetNull)
+
+  @@index([conversationId, createdAt])
+  @@index([externalMessageId])
+  @@map("messages")
+}
+
+// -------------------------------------------------------------
+// CANNED RESPONSES (BURMESE SHORTCUTS)
+// -------------------------------------------------------------
+
+model CannedResponse {
+  id             String          @id @default(uuid())
+  organizationId String
+  createdById    String
+  shortcut       String          // e.g. "/kpay", "/deli", "/acc", "/price"
+  title          String          // "KBZPay အကောင့်နံပါတ်", "ရန်ကုန် အိမ်ရောက်ငွေချေ ပို့ခ"
+  content        String          // Burmese formatted template text
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy      User            @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, shortcut])
+  @@map("canned_responses")
+}
+
+// -------------------------------------------------------------
+// AI BOT ENGINE (GEMINI FOR MYANMAR E-COMMERCE)
+// -------------------------------------------------------------
+
+model AiConfig {
+  id                    String        @id @default(uuid())
+  organizationId        String        @unique
+  isEnabled             Boolean       @default(true)
+  model                 String        @default("gemini-2.5-flash")
+  systemPrompt          String        @default("သင်သည် မြန်မာအွန်လိုင်းဆိုင်၏ ဖော်ရွေသော AI အရောင်းလက်ထောက်ဖြစ်သည်။ ဝယ်သူမေးမြန်းသော ပစ္စည်းဈေးနှုန်း၊ ပို့ဆောင်ခနှင့် ငွေလွှဲအချက်အလက်များကို ယဉ်ကျေးသိမ်မွေ့စွာ ဖြေကြားပေးပါ။")
+  temperature           Float         @default(0.2)
+  confidenceThreshold   Float         @default(0.75)
+  // Keywords triggering instant handover to human
+  handoverKeywords      String[]      @default(["လူနဲ့ပြောချင်တယ်", "လူနဲ့", "အော်ဒါတင်ချင်တယ်", "ဖုန်းနံပါတ်", "လွှဲပြီးပါပြီ", "agent", "human", "admin"])
+  autoReplyOutOfHours   Boolean       @default(true)
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  organization          Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("ai_configs")
+}
+
+model EcommerceKnowledge {
+  id                 String        @id @default(uuid())
+  organizationId     String        @unique
+  bankAccounts       Json          // { "kpay": "09987654321 (Daw Su)", "wave": "09987654321", "cbbank": "..." }
+  deliveryRates      Json          // { "yangon": "2500 MMK (1-2 days)", "mandalay": "3500 MMK", "other": "Gate Delivery" }
+  standardFaq        Json          // Common Q&As (return policy, exchange, stock availability)
+  updatedAt          DateTime      @updatedAt
+
+  organization       Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("ecommerce_knowledge")
+}

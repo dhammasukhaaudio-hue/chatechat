@@ -1,0 +1,48 @@
+# Render Blueprint Specification for ChateChat (ချိတ်ချက်)
+# High-Performance Real-Time Multi-Channel Customer Communication Platform
+# Documentation: https://render.com/docs/blueprint-spec
+
+version: "1"
+
+services:
+  # ==========================================
+  # 1. ChateChat Backend API & Socket Engine
+  # ==========================================
+  - type: web
+    name: chatechat-api
+    runtime: node
+    plan: free # Change to starter if continuous background polling without 15m idle sleep is needed
+    region: singapore # Recommended region for Myanmar & SE Asia (lowest latency)
+    buildCommand: npm install && npm --workspace=@chatechat/api run build
+    startCommand: npm --workspace=@chatechat/api run start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: TELEGRAM_FINANCE_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_FINANCE_GROUP_ID
+        sync: false
+
+  # ==========================================
+  # 2. ChateChat Unified Inbox Frontend
+  # ==========================================
+  - type: web
+    name: chatechat-dashboard
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: npm install && npm --workspace=@chatechat/dashboard run build
+    startCommand: npm --workspace=@chatechat/dashboard run start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_PUBLIC_API_URL
+        fromService:
+          type: web
+          name: chatechat-api
+          property: host
