@@ -91,7 +91,7 @@ export class SubscriptionQuotaService {
    * Safely bind/activate a channel within an atomic transaction
    */
   public static async activateChannel(organizationId: string, channelId: string) {
-    return await prisma.$transaction(async (tx) => {
+    return await prisma.$transaction(async (tx: any) => {
       // 1. Fetch subscription and lock checks
       const sub = await tx.subscription.findUnique({
         where: { organizationId },

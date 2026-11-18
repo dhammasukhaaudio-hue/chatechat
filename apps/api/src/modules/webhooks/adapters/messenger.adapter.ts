@@ -1,7 +1,6 @@
 import crypto from 'crypto';
-import { IChannelAdapter } from './base.adapter';
+import { IChannelAdapter, ChannelConnection } from './base.adapter';
 import { ChannelType, MessageType, NormalizedInboundMessage, OutboundMessagePayload } from '@chatechat/shared-types';
-import { ChannelConnection } from '@prisma/client';
 
 export class MessengerAdapter implements IChannelAdapter {
   public readonly channelType: ChannelType = 'MESSENGER';

@@ -495,7 +495,7 @@ export class PaymentVerificationEngine {
     const auditNote = 'ACTION: 1-Minute Security Buffer Complete. Auto-Verified & Instant Credit Approved!';
 
     try {
-      const result = await prisma.$transaction(async (tx) => {
+      const result = await prisma.$transaction(async (tx: any) => {
         // 1. Update slip status to AUTO_APPROVED
         const slip = await tx.paymentSlip.update({
           where: { id: slipId },

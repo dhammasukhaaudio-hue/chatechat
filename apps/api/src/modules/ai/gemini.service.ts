@@ -90,7 +90,7 @@ export class GeminiService {
       ];
 
       const lowerContent = messageContent.toLowerCase();
-      const hasHandoverKeyword = handoverKeywords.some((keyword) =>
+      const hasHandoverKeyword = handoverKeywords.some((keyword: string) =>
         lowerContent.includes(keyword.toLowerCase())
       );
 
@@ -112,7 +112,7 @@ export class GeminiService {
       recentMessages.reverse();
 
       // Format conversation history for Gemini
-      const formattedHistory = recentMessages.map((msg) => ({
+      const formattedHistory = recentMessages.map((msg: any) => ({
         role: msg.senderType === 'CUSTOMER' ? 'user' : 'model',
         parts: [{ text: `${msg.senderName}: ${msg.content}` }],
       }));

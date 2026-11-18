@@ -1,6 +1,5 @@
-import { IChannelAdapter } from './base.adapter';
+import { IChannelAdapter, ChannelConnection } from './base.adapter';
 import { ChannelType, MessageType, NormalizedInboundMessage, OutboundMessagePayload } from '@chatechat/shared-types';
-import { ChannelConnection } from '@prisma/client';
 
 export class TelegramAdapter implements IChannelAdapter {
   public readonly channelType: ChannelType = 'TELEGRAM';

@@ -142,7 +142,7 @@ financialRouter.post('/deposit/admin-approve', async (req: Request, res: Respons
     }
 
     if (approved) {
-      const result = await prisma.$transaction(async (tx) => {
+      const result = await prisma.$transaction(async (tx: any) => {
         const updatedSlip = await tx.paymentSlip.update({
           where: { id: slipId },
           data: {

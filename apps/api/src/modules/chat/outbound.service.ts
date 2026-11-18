@@ -48,7 +48,7 @@ export class OutboundService {
       throw new Error(`Channel [${channel?.accountName || 'Unknown'}] is inactive or disconnected.`);
     }
 
-    const adapter = this.adapters[conversation.channelType];
+    const adapter = this.adapters[conversation.channelType as ChannelType];
     const credentials = (channel.credentials as Record<string, any>) || {};
 
     const outboundPayload: OutboundMessagePayload = {

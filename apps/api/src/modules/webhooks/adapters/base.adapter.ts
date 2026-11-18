@@ -1,5 +1,15 @@
 import { ChannelType, NormalizedInboundMessage, OutboundMessagePayload } from '@chatechat/shared-types';
-import { ChannelConnection } from '@prisma/client';
+
+export interface ChannelConnection {
+  id: string;
+  organizationId: string;
+  channelType: ChannelType;
+  accountName?: string;
+  pageId?: string | null;
+  credentials?: any;
+  isActive?: boolean;
+  [key: string]: any;
+}
 
 export interface IChannelAdapter {
   readonly channelType: ChannelType;
