@@ -670,13 +670,13 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
         {/* Footer switch to backend */}
         <div className="pt-4 border-t border-slate-800 text-center">
           <a
-            href={getApiBaseUrl()}
+            href="/admin"
             target="_blank"
             rel="noopener noreferrer"
             className="text-[11px] text-slate-400 hover:text-emerald-400 transition inline-flex items-center gap-1.5"
           >
             <ShieldCheck size={14} className="text-emerald-400" />
-            <span>Super Admin & Payment Engine Backend သို့ သွားမည် &rarr;</span>
+            <span>Super Admin & Payment Engine Backend (:admin) သို့ သွားမည် &rarr;</span>
           </a>
         </div>
 

@@ -14,10 +14,7 @@ export const getApiBaseUrl = (): string => {
   if (typeof window !== 'undefined') {
     const host = window.location.hostname;
     if (host !== 'localhost' && host !== '127.0.0.1') {
-      // Auto-detect Render naming convention (chatechat-dashboard -> chatechat-api)
-      if (host.includes('-dashboard')) {
-        return `${window.location.protocol}//${host.replace('-dashboard', '-api')}`;
-      }
+      return window.location.origin;
     }
   }
   return 'http://localhost:4000';

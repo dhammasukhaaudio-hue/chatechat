@@ -13,7 +13,7 @@ services:
     runtime: node
     plan: free # Change to starter if continuous background polling without 15m idle sleep is needed
     region: singapore # Recommended region for Myanmar & SE Asia (lowest latency)
-    buildCommand: npm install && npm --workspace=@chatechat/api run build
+    buildCommand: npm install && npm run build
     startCommand: npm --workspace=@chatechat/api run start
     healthCheckPath: /health
     envVars:

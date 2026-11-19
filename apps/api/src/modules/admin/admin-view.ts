@@ -121,9 +121,9 @@ export function getAdminPortalHtml(): string {
       </form>
 
       <div class="mt-6 pt-4 border-t border-slate-800 text-center">
-        <a href="http://localhost:3000" target="_blank" class="text-xs text-slate-400 hover:text-brand-400 transition inline-flex items-center gap-1.5">
+        <a href="/" target="_blank" class="text-xs text-slate-400 hover:text-emerald-400 transition inline-flex items-center gap-1.5">
           <i class="fa-solid fa-desktop text-emerald-400"></i>
-          <span>User Interface Frontend (:3000) သို့ သွားမည် &rarr;</span>
+          <span>User Interface Frontend (Agent Workspace) သို့ သွားမည် &rarr;</span>
         </a>
       </div>
     </div>
@@ -156,10 +156,10 @@ export function getAdminPortalHtml(): string {
       </div>
 
       <div class="flex items-center space-x-3">
-        <!-- Quick link to Front-end UI (3000) -->
-        <a href="http://localhost:3000" target="_blank" class="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700 transition flex items-center gap-2 shadow-sm">
+        <!-- Quick link to Front-end UI -->
+        <a href="/" target="_blank" class="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700 transition flex items-center gap-2 shadow-sm">
           <i class="fa-solid fa-desktop text-emerald-400"></i>
-          <span>User Interface Frontend (:3000)</span>
+          <span>User Interface Frontend</span>
           <i class="fa-solid fa-arrow-up-right-from-square text-[10px] text-slate-400"></i>
         </a>
 

@@ -3,6 +3,8 @@ import http from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import fs from 'fs';
+import path from 'path';
 import { webhookRouter } from './modules/webhooks/webhook.controller';
 import { chatRouter } from './modules/chat/chat.controller';
 import { aiRouter } from './modules/ai/ai.controller';
@@ -51,37 +53,19 @@ app.use((req: any, _res, next) => {
   next();
 });
 
-// Root landing & Super Admin Back-Office Portal
-app.get(['/', '/admin', '/admin-login', '/dashboard'], (req, res) => {
-  if (req.headers.accept && req.headers.accept.includes('application/json') && !req.headers.accept.includes('text/html')) {
-    return res.json({
-      status: 'online',
-      service: 'ChateChat API, Super Admin & Real-time Engine',
-      version: '1.0.0',
-      adminPortal: 'http://localhost:4000',
-      agentDashboard: 'http://localhost:3000',
-      endpoints: {
-        admin: '/api/v1/admin',
-        financial: '/api/v1/financial',
-        webhooks: '/api/v1/webhooks',
-        chat: '/api/v1/chat',
-        ai: '/api/v1/ai',
-        health: '/health',
-      },
-    });
-  }
-
-  res.setHeader('Content-Type', 'text/html; charset=utf-8');
-  return res.send(getAdminPortalHtml());
-});
-
-// Health check endpoint
+// Health check endpoint for Render / UptimeRobot Keep-Alive
 app.get('/health', (_req, res) => {
   res.json({
     status: 'ok',
-    service: 'ChateChat API & Multi-Channel Gateway',
+    service: 'ChateChat Fullstack Platform (Frontend & Backend)',
     timestamp: new Date().toISOString(),
   });
+});
+
+// Super Admin & Payment Engine Back-Office Portal
+app.get(['/admin', '/admin-login', '/super-admin', '/admin/portal'], (_req, res) => {
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  return res.send(getAdminPortalHtml());
 });
 
 // Register Webhook Pipeline, Chat REST APIs, Admin & Auth Controllers
@@ -91,6 +75,29 @@ app.use('/api/v1/ai', aiRouter);
 app.use('/api/v1/financial', financialRouter);
 app.use('/api/v1/admin', adminRouter);
 app.use('/api/v1/auth', authRouter);
+
+// Frontend Dashboard: Serve Next.js Static Export on root and all client routes
+const DASHBOARD_OUT = path.resolve(__dirname, '../../dashboard/out');
+if (fs.existsSync(DASHBOARD_OUT)) {
+  console.log(`📦 Serving static dashboard from ${DASHBOARD_OUT}`);
+  app.use(express.static(DASHBOARD_OUT));
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api') || req.path.startsWith('/health') || req.path.startsWith('/admin')) {
+      return next();
+    }
+    const indexPath = path.join(DASHBOARD_OUT, 'index.html');
+    if (fs.existsSync(indexPath)) {
+      return res.sendFile(indexPath);
+    }
+    return next();
+  });
+} else {
+  // Fallback if static dashboard not yet generated
+  app.get('/', (_req, res) => {
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    return res.send(getAdminPortalHtml());
+  });
+}
 
 // Socket.io Real-time Event Management
 io.on('connection', (socket) => {
