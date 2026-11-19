@@ -1,0 +1,10 @@
+{
+  "appId": "com.chatechat.agent",
+  "appName": "ChateChat",
+  "webDir": "public",
+  "server": {
+    "url": "https://chatechat.onrender.com",
+    "cleartext": true,
+    "androidScheme": "https"
+  }
+}

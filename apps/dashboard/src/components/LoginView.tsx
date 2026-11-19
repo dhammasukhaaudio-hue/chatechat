@@ -768,6 +768,18 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
           </div>
         )}
 
+        {/* Android APK Download Link */}
+        <div className="pt-2 text-center">
+          <a
+            href="/download/apk"
+            target="_blank"
+            download="ChateChat.apk"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-800/80 hover:bg-slate-700 text-emerald-400 border border-emerald-500/30 rounded-xl text-xs font-semibold transition"
+          >
+            <span>📲 Android APK ဖိုင် ဒေါင်းလုဒ်ရယူရန် (Download App)</span>
+          </a>
+        </div>
+
         {/* Footer switch to backend */}
         <div className="pt-4 border-t border-slate-800 text-center">
           <a

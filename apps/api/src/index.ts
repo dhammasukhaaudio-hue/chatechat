@@ -76,6 +76,60 @@ app.use('/api/v1/financial', financialRouter);
 app.use('/api/v1/admin', adminRouter);
 app.use('/api/v1/auth', authRouter);
 
+// =========================================================================
+// Mobile Android APK Download Service (Capacitor Standalone APK)
+// =========================================================================
+app.get(['/download/apk', '/app.apk', '/download/chatechat.apk'], (_req, res) => {
+  const possiblePaths = [
+    path.resolve(__dirname, '../static/releases/ChateChat.apk'),
+    path.resolve(__dirname, '../../api/static/releases/ChateChat.apk'),
+    path.resolve(__dirname, '../../dashboard/android/app/build/outputs/apk/debug/app-debug.apk'),
+    path.resolve(__dirname, '../../dashboard/android/app/build/outputs/apk/release/app-release.apk'),
+    path.resolve(__dirname, '../../../releases/ChateChat.apk'),
+  ];
+
+  for (const apkPath of possiblePaths) {
+    if (fs.existsSync(apkPath)) {
+      res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+      return res.download(apkPath, 'ChateChat.apk', (err) => {
+        if (err && !res.headersSent) {
+          res.status(500).json({ status: 'error', message: 'Download error' });
+        }
+      });
+    }
+  }
+
+  // Fallback response with friendly guidance
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  return res.status(200).send(`
+    <!DOCTYPE html>
+    <html lang="my">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Download ChateChat Android APK</title>
+      <style>
+        body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; padding: 24px; text-align: center; }
+        .card { max-width: 480px; margin: 40px auto; background: #1e293b; padding: 32px; border-radius: 24px; border: 1px solid #334155; }
+        .btn { display: inline-block; background: #2563eb; color: white; padding: 12px 24px; border-radius: 12px; font-weight: bold; text-decoration: none; margin-top: 16px; }
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <h2>📱 ChateChat (ချိတ်ချက်) Android App</h2>
+        <p>Capacitor Android APK ထုတ်ယူခြင်း စနစ်ကို အောင်မြင်စွာ တပ်ဆင်ထားပြီး ဖြစ်ပါသည်။</p>
+        <p>မိမိစက်တွင် APK တိုက်ရိုက် ထုတ်ယူလိုပါက Terminal တွင် Run ပါ:</p>
+        <code style="background: #0f172a; display: block; padding: 12px; border-radius: 8px; margin: 16px 0; color: #38bdf8; font-family: monospace;">
+          cd apps/dashboard/android<br>
+          .\\gradlew.bat assembleDebug
+        </code>
+        <a href="/" class="btn">🌐 Web App သို့ ဝင်မည်</a>
+      </div>
+    </body>
+    </html>
+  `);
+});
+
 // Frontend Dashboard: Serve Next.js Static Export on root and all client routes
 const DASHBOARD_OUT = path.resolve(__dirname, '../../dashboard/out');
 if (fs.existsSync(DASHBOARD_OUT)) {

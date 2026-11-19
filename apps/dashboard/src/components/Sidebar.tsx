@@ -201,6 +201,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </div>
 
+      {/* Mobile Android App APK Download */}
+      <a
+        href="/download/apk"
+        target="_blank"
+        download="ChateChat.apk"
+        title="Download Android APK"
+        className="mx-3 mb-2.5 p-2 bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1.5 transition"
+      >
+        <span>📲 Download Android APK</span>
+      </a>
+
       {/* User / Agent Footer */}
       <div className="p-3 border-t border-slate-800 flex items-center justify-between">
         <div className="flex items-center gap-2.5 overflow-hidden">
