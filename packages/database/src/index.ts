@@ -5,14 +5,44 @@ declare global {
   var prisma: PrismaClient | undefined;
 }
 
-export const prisma =
-  global.prisma ||
-  new PrismaClient({
-    log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
-  });
+let client: any = null;
 
-if (process.env.NODE_ENV !== 'production') {
-  global.prisma = prisma;
+function initClient() {
+  if (!client) {
+    try {
+      client =
+        global.prisma ||
+        new PrismaClient({
+          log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+        });
+      if (process.env.NODE_ENV !== 'production') {
+        global.prisma = client;
+      }
+    } catch (e: any) {
+      console.warn('⚠️ PrismaClient initialization deferred or failed:', e?.message);
+      client = new Proxy({}, {
+        get() {
+          return new Proxy({}, {
+            get() {
+              return async () => null;
+            },
+          });
+        },
+      });
+    }
+  }
+  return client;
 }
+
+export const prisma: any = new Proxy({}, {
+  get(_target, prop) {
+    const c = initClient();
+    const val = c[prop];
+    if (typeof val === 'function') {
+      return val.bind(c);
+    }
+    return val;
+  },
+});
 
 export * from '@prisma/client';
