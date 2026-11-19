@@ -67,6 +67,9 @@ webhookRouter.post('/telegram/:channelId', async (req: Request, res: Response) =
 
   const { channelId } = req.params;
   try {
+    // Process immediately via telegramPollingService for Socket.IO dispatch & persistence
+    await telegramPollingService.processTelegramUpdate(req.body);
+
     const rawBody = (req as any).rawBody || JSON.stringify(req.body);
     await WebhookService.processInboundWebhook(
       'TELEGRAM',
@@ -75,7 +78,7 @@ webhookRouter.post('/telegram/:channelId', async (req: Request, res: Response) =
       rawBody,
       req.body,
       (req as any).socketEmitter
-    );
+    ).catch(() => {});
   } catch (error: any) {
     console.error(`❌ Error processing Telegram webhook for ${channelId}:`, error.message);
   }

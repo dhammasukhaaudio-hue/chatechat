@@ -62,10 +62,15 @@ export function useSocket({
       socket.emit(SOCKET_EVENTS.AGENT_AUTH, { organizationId, agentId });
     });
 
-    socket.on(SOCKET_EVENTS.INCOMING_MESSAGE, (data) => {
+    const handleIncoming = (data: any) => {
+      console.log('⚡ [SOCKET EVENT RECEIVED] Inbound customer message:', data);
       playChime();
       if (onIncomingMessage) onIncomingMessage(data);
-    });
+    };
+
+    socket.on(SOCKET_EVENTS.INCOMING_MESSAGE, handleIncoming);
+    socket.on('INCOMING_MESSAGE', handleIncoming);
+    socket.on('chat:incoming_message', handleIncoming);
 
     socket.on(SOCKET_EVENTS.OUTGOING_MESSAGE, (data) => {
       if (onOutgoingMessage) onOutgoingMessage(data);

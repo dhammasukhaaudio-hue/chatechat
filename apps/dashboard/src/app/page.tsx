@@ -393,45 +393,71 @@ export default function InboxPage() {
       }
 
       // Sync any live Telegram conversations received by backend 24/7 Long Polling
-      fetch(`${getApiBaseUrl()}/api/v1/webhooks/telegram/chats`)
-        .then((r) => r.json())
-        .then((data) => {
-          if (data && data.success && data.chats) {
-            const chats = data.chats;
-            const chatKeys = Object.keys(chats);
-            if (chatKeys.length > 0) {
-              setConversations((prev) => {
-                let updated = [...prev];
-                for (const key of chatKeys) {
-                  const entry = chats[key];
-                  if (entry && entry.conv) {
-                    const idx = updated.findIndex((c) => c.id === entry.conv.id);
-                    if (idx >= 0) {
-                      updated[idx] = { ...updated[idx], ...entry.conv };
-                    } else {
-                      updated = [entry.conv, ...updated];
+      const syncTelegramChats = () => {
+        fetch(`${getApiBaseUrl()}/api/v1/webhooks/telegram/chats`)
+          .then((r) => r.json())
+          .then((data) => {
+            if (data && data.success && data.chats) {
+              const chats = data.chats;
+              const chatKeys = Object.keys(chats);
+              if (chatKeys.length > 0) {
+                setConversations((prev) => {
+                  let updated = [...prev];
+                  let hasChange = false;
+                  for (const key of chatKeys) {
+                    const entry = chats[key];
+                    if (entry && entry.conv) {
+                      const idx = updated.findIndex((c) => c.id === entry.conv.id);
+                      if (idx >= 0) {
+                        if (updated[idx].lastMessageAt !== entry.conv.lastMessageAt || updated[idx].lastMessageSnippet !== entry.conv.lastMessageSnippet) {
+                          updated[idx] = { ...updated[idx], ...entry.conv };
+                          hasChange = true;
+                        }
+                      } else {
+                        updated = [entry.conv, ...updated];
+                        hasChange = true;
+                      }
                     }
                   }
-                }
-                try { localStorage.setItem(convStorageKey, JSON.stringify(updated)); } catch {}
-                return updated;
-              });
-
-              setMessages((prev) => {
-                const updated = { ...prev };
-                for (const key of chatKeys) {
-                  const entry = chats[key];
-                  if (entry && Array.isArray(entry.messages)) {
-                    updated[key] = entry.messages;
+                  if (hasChange) {
+                    try { localStorage.setItem(convStorageKey, JSON.stringify(updated)); } catch {}
+                    return updated;
                   }
-                }
-                try { localStorage.setItem(msgStorageKey, JSON.stringify(updated)); } catch {}
-                return updated;
-              });
+                  return prev;
+                });
+
+                setMessages((prev) => {
+                  let updated = { ...prev };
+                  let hasNewMsg = false;
+                  for (const key of chatKeys) {
+                    const entry = chats[key];
+                    if (entry && Array.isArray(entry.messages)) {
+                      const currentLen = prev[key]?.length || 0;
+                      if (currentLen !== entry.messages.length) {
+                        updated[key] = entry.messages;
+                        hasNewMsg = true;
+                      }
+                    }
+                  }
+                  if (hasNewMsg) {
+                    playAlertChime();
+                    try { localStorage.setItem(msgStorageKey, JSON.stringify(updated)); } catch {}
+                    return updated;
+                  }
+                  return prev;
+                });
+              }
             }
-          }
-        })
-        .catch(() => {});
+          })
+          .catch(() => {});
+      };
+
+      // Run once immediately
+      syncTelegramChats();
+
+      // Poll every 2.5 seconds in background for guaranteed instant updates
+      const tgSyncInterval = setInterval(syncTelegramChats, 2500);
+      return () => clearInterval(tgSyncInterval);
     } catch (e) {
       console.error('Failed to load user conversations from localStorage:', e);
     }

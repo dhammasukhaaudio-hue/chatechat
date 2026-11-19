@@ -202,7 +202,7 @@ class TelegramPollingService {
   /**
    * Process a single incoming Telegram Update and dispatch via Socket.IO
    */
-  private async processTelegramUpdate(update: any) {
+  public async processTelegramUpdate(update: any) {
     const msg = update.message || update.edited_message;
     if (!msg || !msg.chat) return;
 
@@ -287,7 +287,9 @@ class TelegramPollingService {
     // Emit live events to all connected agents
     if (this.io) {
       console.log(`⚡ [SOCKET.IO] Emitting INCOMING_MESSAGE for conversation: ${convId}`);
+      this.io.emit('chat:incoming_message', { conversation, message });
       this.io.emit('INCOMING_MESSAGE', { conversation, message });
+      this.io.to(`org:${this.config?.organizationId || 'org_royal'}`).emit('chat:incoming_message', { conversation, message });
       this.io.to(`org:${this.config?.organizationId || 'org_royal'}`).emit('INCOMING_MESSAGE', { conversation, message });
     }
   }
