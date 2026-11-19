@@ -9,7 +9,7 @@
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#2563EB"
+      "backgroundColor": "#1E40AF"
     },
     "ios": {
       "supportsTablet": true
@@ -17,19 +17,26 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#2563EB"
+        "backgroundColor": "#1E40AF"
       },
       "package": "com.chatechat.agent",
       "versionCode": 1,
+      "softwareKeyboardLayoutMode": "pan",
       "permissions": [
         "INTERNET",
         "ACCESS_NETWORK_STATE",
         "CAMERA",
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE",
-        "VIBRATE"
+        "VIBRATE",
+        "WAKE_LOCK",
+        "POST_NOTIFICATIONS"
       ],
-      "usesCleartextTraffic": true
+      "usesCleartextTraffic": true,
+      "navigationBar": {
+        "backgroundColor": "#0F172A",
+        "barStyle": "light-content"
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png"

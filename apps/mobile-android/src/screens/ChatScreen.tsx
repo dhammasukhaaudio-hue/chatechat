@@ -68,7 +68,7 @@ export const ChatScreen: React.FC<Props> = ({ conversation, onBack, lang = 'my' 
     setInputText('');
 
     try {
-      const sent = await mobileApi.sendMessage(conversation.id, textToSend, false);
+      const sent = await mobileApi.sendMessage(conversation.id, textToSend, false, conversation.externalThreadId);
       if (sent) {
         setMessages((prev) => [...prev, sent]);
         flatListRef.current?.scrollToEnd({ animated: true });

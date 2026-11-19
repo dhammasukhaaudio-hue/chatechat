@@ -2,7 +2,7 @@ import { io, Socket } from 'socket.io-client';
 
 class MobileSocketService {
   private socket: Socket | null = null;
-  private serverUrl: string = 'http://10.0.2.2:4000'; // Default Android Emulator to Host loopback
+  private serverUrl: string = 'https://chatechat.onrender.com';
 
   public connect(url: string, agentId: string, orgId: string, onConnect?: () => void) {
     if (this.socket) {
@@ -11,9 +11,10 @@ class MobileSocketService {
 
     this.serverUrl = url;
     this.socket = io(this.serverUrl, {
-      transports: ['websocket'],
-      reconnectionAttempts: 10,
-      reconnectionDelay: 2000,
+      transports: ['websocket', 'polling'], // Fallback polling for Myanmar cellular / firewalls
+      reconnectionAttempts: 15,
+      reconnectionDelay: 1500,
+      timeout: 10000,
     });
 
     this.socket.on('connect', () => {
@@ -36,6 +37,7 @@ class MobileSocketService {
 
   public onIncomingMessage(callback: (data: any) => void) {
     this.socket?.on('chat:incoming_message', callback);
+    this.socket?.on('INCOMING_MESSAGE', callback);
   }
 
   public onOutgoingMessage(callback: (data: any) => void) {
