@@ -573,7 +573,7 @@ export class PaymentVerificationEngine {
     this.dispatchTelegramFinanceAlert({
       amount,
       gateway,
-      orgName: 'Royal Fashion Myanmar',
+      orgName: 'ChateChat Merchant',
       txId: rawTxId,
       status: 'AUTO_APPROVED ✅ (1-Min Delayed Buffer Complete)',
       notes: auditNote,

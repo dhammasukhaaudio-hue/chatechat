@@ -98,7 +98,7 @@ financialRouter.get('/ledger/:organizationId', async (req: Request, res: Respons
     res.json({
       success: true,
       walletBalance: org?.walletBalance || 0,
-      organizationName: org?.name || 'Royal Fashion Myanmar',
+      organizationName: org?.name || 'ChateChat Merchant',
       ledgers,
       slips,
     });
@@ -111,7 +111,7 @@ financialRouter.get('/ledger/:organizationId', async (req: Request, res: Respons
     res.json({
       success: true,
       walletBalance: balance,
-      organizationName: 'Royal Fashion Myanmar',
+      organizationName: 'ChateChat Merchant',
       ledgers,
       slips,
     });

@@ -12,14 +12,64 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ lang }) => {
   const [billingCycle, setBillingCycle] = useState<1 | 3 | 6 | 12>(1);
   const [selectedPlanTier, setSelectedPlanTier] = useState<string>('TIER_3_CHANNELS');
 
-  // User Session
+  // User Session & Organization
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const orgId = currentUser?.organizationId || 'org_royal';
+  const isDemo = orgId === 'org_royal';
+
+  // Business Profile Form State
+  const [businessName, setBusinessName] = useState('');
+  const [businessPhone, setBusinessPhone] = useState('');
+  const [businessAddress, setBusinessAddress] = useState('');
+  const [businessSuccess, setBusinessSuccess] = useState<string | null>(null);
+
   useEffect(() => {
     try {
       const saved = localStorage.getItem('chatechat_agent_session');
-      if (saved) setCurrentUser(JSON.parse(saved));
+      if (saved) {
+        const u = JSON.parse(saved);
+        setCurrentUser(u);
+        const savedBiz = localStorage.getItem('chatechat_biz_' + (u.organizationId || 'org_royal'));
+        if (savedBiz) {
+          const b = JSON.parse(savedBiz);
+          setBusinessName(b.name || u.organizationName || '');
+          setBusinessPhone(b.phone || u.phone || '');
+          setBusinessAddress(b.address || '');
+        } else {
+          setBusinessName(u.organizationName || '');
+          setBusinessPhone(u.phone || '');
+        }
+      }
     } catch {}
   }, []);
+
+  const handleSaveBusinessInfo = (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanName = businessName.trim() || `${currentUser?.name || 'My'} Shop`;
+    const cleanPhone = businessPhone.trim();
+    const cleanAddr = businessAddress.trim();
+
+    if (currentUser) {
+      const updatedUser = {
+        ...currentUser,
+        organizationName: cleanName,
+        phone: cleanPhone || currentUser.phone,
+      };
+      localStorage.setItem('chatechat_agent_session', JSON.stringify(updatedUser));
+      setCurrentUser(updatedUser);
+    }
+
+    try {
+      localStorage.setItem(
+        'chatechat_biz_' + orgId,
+        JSON.stringify({ name: cleanName, phone: cleanPhone, address: cleanAddr })
+      );
+    } catch {}
+
+    window.dispatchEvent(new Event('storage'));
+    setBusinessSuccess(isMy ? 'လုပ်ငန်းအချက်အလက်များ အောင်မြင်စွာ သိမ်းဆည်းပြီးပါပြီခင်ဗျာ!' : 'Business details saved successfully!');
+    setTimeout(() => setBusinessSuccess(null), 3000);
+  };
 
   // Password Change & Security State
   const [currentPassword, setCurrentPassword] = useState('');
@@ -193,12 +243,37 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ lang }) => {
     return () => clearTimeout(timer);
   }, [queuedCountdown, activeSlipId]);
 
-  // Agent team state
-  const [agents, setAgents] = useState([
-    { id: '1', name: 'မသူဇာ', email: 'thuza@royalfashion.com', role: 'Admin', isIncluded: true },
-    { id: '2', name: 'ကိုမင်းသူ', email: 'minthu@royalfashion.com', role: 'Agent', isIncluded: true },
-    { id: '3', name: 'မအေးအေး', email: 'ayeaye@royalfashion.com', role: 'Agent', isIncluded: false },
-  ]);
+  // Agent team state loaded per organization
+  const [agents, setAgents] = useState<Array<{ id: string; name: string; email: string; role: string; isIncluded: boolean }>>([]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    try {
+      const saved = localStorage.getItem('chatechat_agents_' + orgId);
+      if (saved) {
+        setAgents(JSON.parse(saved));
+        return;
+      }
+    } catch {}
+
+    if (isDemo) {
+      setAgents([
+        { id: '1', name: 'မသူဇာ', email: 'thuza@royalfashion.com', role: 'Admin', isIncluded: true },
+        { id: '2', name: 'ကိုမင်းသူ', email: 'minthu@royalfashion.com', role: 'Agent', isIncluded: true },
+      ]);
+    } else {
+      // Clean start for real customer: only themselves as Owner!
+      setAgents([
+        {
+          id: currentUser.id || 'owner_1',
+          name: currentUser.name || 'Owner',
+          email: currentUser.email || `${currentUser.name || 'owner'}@shop.com`,
+          role: currentUser.role || 'OWNER',
+          isIncluded: true,
+        },
+      ]);
+    }
+  }, [currentUser, orgId, isDemo]);
 
   const plans = [
     {
@@ -754,16 +829,21 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ lang }) => {
               <button
                 onClick={() => {
                   const newId = (agents.length + 1).toString();
-                  setAgents([
+                  const shopDomain = (currentUser?.name || 'shop').toLowerCase().replace(/[^a-z0-9]/g, '');
+                  const updated = [
                     ...agents,
                     {
-                      id: newId,
-                      name: `အေးဂျင့် အသစ် ${newId}`,
-                      email: `agent${newId}@royalfashion.com`,
+                      id: `agent_${Date.now()}`,
+                      name: isMy ? `အေးဂျင့် ဝန်ထမ်း ${newId}` : `Support Agent ${newId}`,
+                      email: `staff${newId}@${shopDomain}.com`,
                       role: 'Agent',
                       isIncluded: false,
                     },
-                  ]);
+                  ];
+                  setAgents(updated);
+                  try {
+                    localStorage.setItem('chatechat_agents_' + orgId, JSON.stringify(updated));
+                  } catch {}
                 }}
                 className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-blue-700 shadow-sm"
               >
@@ -818,9 +898,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ lang }) => {
                       <span className="px-2.5 py-1 bg-slate-100 rounded-md text-slate-700 font-semibold text-xs">
                         {agent.role}
                       </span>
-                      {index >= 2 && (
+                      {index >= 1 && (
                         <button
-                          onClick={() => setAgents(agents.filter((a) => a.id !== agent.id))}
+                          onClick={() => {
+                            const updated = agents.filter((a) => a.id !== agent.id);
+                            setAgents(updated);
+                            try {
+                              localStorage.setItem('chatechat_agents_' + orgId, JSON.stringify(updated));
+                            } catch {}
+                          }}
                           className="text-red-500 hover:text-red-700 font-bold px-2 py-1"
                         >
                           {isMy ? 'ဖယ်ရှားရန်' : 'Remove'}
@@ -834,19 +920,83 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ lang }) => {
           </div>
         )}
 
-        {/* General Tab */}
+        {/* General Tab: Business Information */}
         {activeTab === 'general' && (
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4 text-xs">
-            <h2 className="text-sm font-bold text-slate-900">{isMy ? 'လုပ်ငန်းအချက်အလက်' : 'Business Profile'}</h2>
-            <div>
-              <label className="block text-slate-600 font-semibold mb-1">ဆိုင်အမည် / Brand Name</label>
-              <input type="text" defaultValue="Royal Fashion Myanmar" className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg" />
+          <form onSubmit={handleSaveBusinessInfo} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4 text-xs">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div>
+                <h2 className="text-sm font-bold text-slate-900">{isMy ? 'လုပ်ငန်းအချက်အလက် (Business Profile)' : 'Business Profile'}</h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {isMy ? 'မိမိဆိုင်အမည်၊ ဆက်သွယ်ရန် ဖုန်းနှင့် လိပ်စာ အချက်အလက်များကို ပြင်ဆင်သိမ်းဆည်းပါ' : 'Update your official store details, contact phone and address'}
+                </p>
+              </div>
+              <span className="px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg font-mono font-bold text-[11px]">
+                Team Code: {currentUser?.teamCode || 'SOLO'}
+              </span>
             </div>
+
+            {businessSuccess && (
+              <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl flex items-center gap-2 font-semibold">
+                <CheckCircle size={16} className="text-emerald-600 shrink-0" />
+                <span>{businessSuccess}</span>
+              </div>
+            )}
+
             <div>
-              <label className="block text-slate-600 font-semibold mb-1">ဆက်သွယ်ရန် ဖုန်းနံပါတ်</label>
-              <input type="text" defaultValue="09987654321" className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg" />
+              <label className="block text-slate-700 font-semibold mb-1">
+                {isMy ? 'ဆိုင်အမည် / Brand Name' : 'Shop / Brand Name'} <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                required
+                value={businessName}
+                onChange={(e) => setBusinessName(e.target.value)}
+                placeholder={isMy ? 'ဥပမာ - မင်းခန့် ဖက်ရှင် သို့မဟုတ် မိမိဆိုင်အမည်' : 'e.g. Min Khant Fashion'}
+                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+              />
+              <span className="text-[11px] text-slate-400 mt-1 block">
+                {isMy ? 'ဒီအမည်ကို Sidebar Workspace နှင့် အပြန်အလှန် စာတိုများတွင် အသုံးပြုပါမည်' : 'This name will appear on your workspace and customer chats.'}
+              </span>
             </div>
-          </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">
+                  {isMy ? 'ဆက်သွယ်ရန် ဖုန်းနံပါတ်' : 'Contact Phone Number'}
+                </label>
+                <input
+                  type="text"
+                  value={businessPhone}
+                  onChange={(e) => setBusinessPhone(e.target.value)}
+                  placeholder="09..."
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">
+                  {isMy ? 'ဆိုင်တည်နေရာ / မြို့နယ် / လိပ်စာ' : 'Store Address / Location'}
+                </label>
+                <input
+                  type="text"
+                  value={businessAddress}
+                  onChange={(e) => setBusinessAddress(e.target.value)}
+                  placeholder={isMy ? 'ဥပမာ - လှည်းတန်း၊ ကမာရွတ်မြို့နယ်၊ ရန်ကုန်' : 'e.g. Kamayut Township, Yangon'}
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+                />
+              </div>
+            </div>
+
+            <div className="pt-2 flex items-center justify-end">
+              <button
+                type="submit"
+                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm transition"
+              >
+                <CheckCircle size={15} />
+                <span>{isMy ? 'အချက်အလက်များ သိမ်းဆည်းမည် (Save Changes)' : 'Save Business Details'}</span>
+              </button>
+            </div>
+          </form>
         )}
 
         {/* Security & Password Tab */}

@@ -83,8 +83,8 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({ quotaDetails, lang, 
       }
     } catch (e) {}
 
-    // Default channels for NEW user (All external channels start as DISCONNECTED)
-    const isDefaultAdmin = orgId === 'org_royal';
+    // Default channels for any user: all channels start completely CLEAN & DISCONNECTED!
+    const isDefaultAdmin = false;
 
     const initialChannels: ChannelItem[] = [
       {

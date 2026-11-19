@@ -24,25 +24,25 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
   // =====================
   // LOGIN FORM STATES
   // =====================
-  const [identifier, setIdentifier] = useState('admin');
-  const [password, setPassword] = useState('Admin!123');
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
   const [teamCode, setTeamCode] = useState('');
 
   // =====================
   // SIGN UP FORM STATES
   // =====================
   const [signupStep, setSignupStep] = useState<1 | 2>(1);
-  const [signupName, setSignupName] = useState('ကိုအောင်မင်း');
-  const [signupShopName, setSignupShopName] = useState('Aung Min Store');
-  const [signupEmail, setSignupEmail] = useState('aungmin@chatechat.com');
-  const [signupPhone, setSignupPhone] = useState('09450011223');
-  const [signupPassword, setSignupPassword] = useState('Pass!123');
+  const [signupName, setSignupName] = useState('');
+  const [signupShopName, setSignupShopName] = useState('');
+  const [signupEmail, setSignupEmail] = useState('');
+  const [signupPhone, setSignupPhone] = useState('');
+  const [signupPassword, setSignupPassword] = useState('');
   const [signupTeamCode, setSignupTeamCode] = useState('');
   const [signupIsJoinTeam, setSignupIsJoinTeam] = useState(false);
   const [signupMethod, setSignupMethod] = useState<'TELEGRAM' | 'SMS'>('TELEGRAM');
   const [signupOtp, setSignupOtp] = useState('');
-  const [signupDevCode, setSignupDevCode] = useState('849201');
-  const [signupRecipient, setSignupRecipient] = useState('@aungmin_bot');
+  const [signupDevCode, setSignupDevCode] = useState('');
+  const [signupRecipient, setSignupRecipient] = useState('');
 
   // Common Feedback states
   const [loading, setLoading] = useState(false);
@@ -202,9 +202,9 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
       if (cleanId.toLowerCase() === 'admin' || cleanId.toLowerCase().includes('royal')) {
         role = 'ADMIN';
         name = 'Admin (Administrator)';
-        organizationId = 'org_royal';
-        organizationName = 'Royal Fashion Myanmar';
-        finalTeamCode = 'ROYAL-101';
+        organizationId = 'org_admin';
+        organizationName = 'ChateChat Main Hub';
+        finalTeamCode = 'ADMIN-101';
       } else if (cleanId.toLowerCase().includes('michael') || cleanId.toLowerCase() === 'mexes' || cleanId.toLowerCase() === 'owner') {
         role = 'OWNER';
         name = cleanId.toLowerCase() === 'mexes' ? 'mexes' : 'Michael (Founder & CEO)';
@@ -563,9 +563,21 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                     required
                     value={signupName}
                     onChange={(e) => setSignupName(e.target.value)}
-                    placeholder="ကိုအောင်မင်း"
+                    placeholder="ဥပမာ - မောင်မောင်"
                     className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500"
                   />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-300 mb-1">ဆိုင်အမည် / လုပ်ငန်းအမည် (Shop / Brand Name)</label>
+                  <input
+                    type="text"
+                    value={signupShopName}
+                    onChange={(e) => setSignupShopName(e.target.value)}
+                    placeholder="ဥပမာ - Shwe Fashion သို့မဟုတ် မိမိဆိုင်အမည်"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500"
+                  />
+                  <span className="text-[10px] text-slate-500 mt-0.5 block">မဖြည့်ပါက အမည်အတိုင်း အလိုအလျောက် သတ်မှတ်ပေးပါမည်</span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -575,7 +587,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                       type="email"
                       value={signupEmail}
                       onChange={(e) => setSignupEmail(e.target.value)}
-                      placeholder="aungmin@chatechat.com"
+                      placeholder="name@example.com"
                       className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500 font-mono text-[11px]"
                     />
                   </div>
@@ -586,7 +598,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                       type="text"
                       value={signupPhone}
                       onChange={(e) => setSignupPhone(e.target.value)}
-                      placeholder="09450011223"
+                      placeholder="09..."
                       className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500 font-mono text-[11px]"
                     />
                   </div>

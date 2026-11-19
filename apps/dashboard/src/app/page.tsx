@@ -299,39 +299,62 @@ export default function InboxPage() {
   const channelStorageKey = `chatechat_channels_${orgId}`;
 
   // Customer List with rich data
-  const [conversations, setConversations] = useState<Conversation[]>(INITIAL_CONVERSATIONS);
-  const [messages, setMessages] = useState<Record<string, Message[]>>(INITIAL_MESSAGES);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [messages, setMessages] = useState<Record<string, Message[]>>({});
 
-  // Load Session on Mount
+  // Load Session on Mount & Listen for Updates
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem('chatechat_agent_session');
-      if (saved) {
-        const user = JSON.parse(saved);
-        // Backwards compatibility: ensure organizationId and teamCode exist
-        if (!user.organizationId) {
-          if (user.name?.toLowerCase().includes('royal') || user.name?.toLowerCase() === 'mexes' || user.email?.includes('michael')) {
-            user.organizationId = 'org_royal';
-            user.organizationName = 'ChateChat Official (Mexes Shop)';
-            user.teamCode = 'CHATE-101';
-          } else if (user.name?.toLowerCase() === 'lynn') {
-            user.organizationId = 'org_lynn';
-            user.organizationName = "Lynn's Private Shop";
-            user.teamCode = 'LYNN-202';
-          } else {
-            user.organizationId = `org_${(user.name || 'user').toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
-            user.organizationName = `${user.name || 'User'}'s Shop`;
-            user.teamCode = `${(user.name || 'USER').toUpperCase().slice(0, 4)}-101`;
+    const loadSession = () => {
+      try {
+        const saved = localStorage.getItem('chatechat_agent_session');
+        if (saved) {
+          const user = JSON.parse(saved);
+          // Backwards compatibility: ensure organizationId and teamCode exist
+          if (!user.organizationId) {
+            if (user.name?.toLowerCase().includes('royal') || user.name?.toLowerCase() === 'mexes' || user.email?.includes('michael')) {
+              user.organizationId = 'org_royal';
+              user.organizationName = 'ChateChat Official (Mexes Shop)';
+              user.teamCode = 'CHATE-101';
+            } else if (user.name?.toLowerCase() === 'lynn') {
+              user.organizationId = 'org_lynn';
+              user.organizationName = "Lynn's Private Shop";
+              user.teamCode = 'LYNN-202';
+            } else {
+              user.organizationId = `org_${(user.name || 'user').toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+              user.organizationName = `${user.name || 'User'}'s Shop`;
+              user.teamCode = `${(user.name || 'USER').toUpperCase().slice(0, 4)}-101`;
+            }
           }
+
+          // Auto-heal if old template preset 'Aung Min Store' was retained
+          if (user.organizationName === 'Aung Min Store' || (user.organizationName === 'Royal Fashion Myanmar' && user.name?.toLowerCase() !== 'admin')) {
+            try {
+              const savedBiz = localStorage.getItem('chatechat_biz_' + user.organizationId);
+              if (savedBiz) {
+                const b = JSON.parse(savedBiz);
+                if (b.name) user.organizationName = b.name;
+              } else {
+                user.organizationName = `${user.name || 'My'} Shop`;
+              }
+              localStorage.setItem('chatechat_agent_session', JSON.stringify(user));
+            } catch {}
+          }
+
+          setCurrentUser(user);
+          setIsAuthenticated(true);
         }
-        setCurrentUser(user);
-        setIsAuthenticated(true);
+      } catch (e) {
+        // ignore
+      } finally {
+        setAuthLoaded(true);
       }
-    } catch (e) {
-      // ignore
-    } finally {
-      setAuthLoaded(true);
-    }
+    };
+
+    loadSession();
+
+    const handleStorage = () => loadSession();
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
   }, []);
 
   // Hydrate conversations and ensure connected bot threads appear
@@ -342,13 +365,23 @@ export default function InboxPage() {
       const savedConvs = localStorage.getItem(convStorageKey);
       const savedMsgs = localStorage.getItem(msgStorageKey);
 
-      // Multi-tenant isolation: demo mock conversations ONLY for org_royal (Demo Mode)
-      // Any new private organization starts completely clean with an empty inbox!
-      const defaultConvs = (orgId === 'org_royal') ? INITIAL_CONVERSATIONS : [];
-      const defaultMsgs = (orgId === 'org_royal') ? INITIAL_MESSAGES : {};
+      // Multi-tenant isolation: demo mock conversations ONLY for demo mode (e.g. org_demo)
+      // Real user shops start with a 100% clean inbox!
+      const isDemoOrg = orgId === 'org_demo';
+      const defaultConvs = isDemoOrg ? INITIAL_CONVERSATIONS : [];
+      const defaultMsgs = isDemoOrg ? INITIAL_MESSAGES : {};
 
       let initialConvs: Conversation[] = savedConvs ? JSON.parse(savedConvs) : defaultConvs;
       let initialMsgs: Record<string, Message[]> = savedMsgs ? JSON.parse(savedMsgs) : defaultMsgs;
+
+      // Filter out demo mock conversations (conv_1, conv_2, conv_3, conv_4) for real organizations!
+      if (!isDemoOrg && initialConvs.length > 0) {
+        const cleanedConvs = initialConvs.filter((c) => !['conv_1', 'conv_2', 'conv_3', 'conv_4'].includes(c.id));
+        if (cleanedConvs.length !== initialConvs.length) {
+          initialConvs = cleanedConvs;
+          try { localStorage.setItem(convStorageKey, JSON.stringify(initialConvs)); } catch {}
+        }
+      }
 
       // Check if user has an active Telegram bot connected in localStorage
       const savedChannels = localStorage.getItem(channelStorageKey);
@@ -367,7 +400,7 @@ export default function InboxPage() {
             const nowIso = new Date().toISOString();
             const welcomeConv: Conversation = {
               id: botConvId,
-              organizationId: 'org_royal',
+              organizationId: orgId,
               customerId: botCustId,
               channelConnectionId: 'chan_tg_active',
               status: 'ACTIVE',
@@ -593,15 +626,15 @@ export default function InboxPage() {
       id: 'cr_5',
       shortcut: '/acc',
       title: 'ဘဏ်အကောင့်များ အားလုံး',
-      content: 'KBZ Bank: 0123456789\nCB Bank: 9876543210\nAYA Bank: 1122334455\n(အကောင့်အမည်: Royal Fashion Co., Ltd.)',
+      content: 'KBZ Bank: 0123456789\nCB Bank: 9876543210\nAYA Bank: 1122334455\n(အကောင့်အမည်: ဆိုင်ငွေလက်ခံအကောင့်)',
       tags: ['bank'],
     },
   ]);
 
   const quotaDetails: ChannelQuotaDetails = {
     maxChannels: 3,
-    activeChannelsCount: 2,
-    remainingSlots: 1,
+    activeChannelsCount: 1,
+    remainingSlots: 2,
     planConfig: {
       tier: 'TIER_3_CHANNELS',
       name: '3 Channels Pro Plan',
@@ -609,10 +642,10 @@ export default function InboxPage() {
       maxChannels: 3,
     },
     channels: [
-      { channelType: 'MESSENGER', accountName: 'Royal Fashion FB Page', isActive: true },
-      { channelType: 'TELEGRAM', accountName: '@RoyalFashionBot', isActive: true },
-      { channelType: 'VIBER', accountName: 'Royal Viber Official', isActive: false },
-      { channelType: 'TIKTOK', accountName: '@royalfashion_mm', isActive: false },
+      { channelType: 'TELEGRAM', accountName: 'Telegram Bot API', isActive: true },
+      { channelType: 'MESSENGER', accountName: 'Facebook Messenger', isActive: false },
+      { channelType: 'VIBER', accountName: 'Viber Business & Bot', isActive: false },
+      { channelType: 'TIKTOK', accountName: 'TikTok Direct Messages', isActive: false },
     ],
   };
 
