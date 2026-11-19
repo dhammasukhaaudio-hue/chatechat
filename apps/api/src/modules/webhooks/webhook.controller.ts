@@ -203,11 +203,11 @@ webhookRouter.post('/telegram/disconnect', (_req: Request, res: Response) => {
 });
 
 webhookRouter.post('/telegram/send-message', async (req: Request, res: Response) => {
-  const { chatId, text } = req.body;
+  const { chatId, text, agentName } = req.body;
   if (!chatId || !text) {
     return res.status(400).json({ success: false, error: 'chatId and text are required' });
   }
-  const result = await telegramPollingService.sendMessage(chatId.toString(), text);
+  const result = await telegramPollingService.sendMessage(chatId.toString(), text, agentName);
   return res.json(result);
 });
 

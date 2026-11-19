@@ -55,6 +55,29 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({ quotaDetails, lang, 
       if (saved) {
         setChannels(JSON.parse(saved));
         setChannelsLoaded(true);
+
+        // Auto-verify backend polling if telegram token is saved
+        try {
+          const savedToken = localStorage.getItem('chatechat_telegram_token');
+          if (savedToken) {
+            fetch(`${getApiBaseUrl()}/api/v1/webhooks/telegram/status`)
+              .then((r) => r.json())
+              .then((status) => {
+                if (status && status.success && !status.isRunning) {
+                  fetch(`${getApiBaseUrl()}/api/v1/webhooks/connect/telegram`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      botToken: savedToken,
+                      organizationId: 'org_royal',
+                      assignAllAgents: true,
+                    }),
+                  }).catch(() => {});
+                }
+              })
+              .catch(() => {});
+          }
+        } catch {}
         return;
       }
     } catch (e) {}

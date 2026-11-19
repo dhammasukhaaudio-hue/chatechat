@@ -455,6 +455,34 @@ export default function InboxPage() {
       // Run once immediately
       syncTelegramChats();
 
+      // Auto-heal Telegram polling if backend restarted or container was recreated
+      const checkAndAutoResumeTelegram = () => {
+        try {
+          const savedToken = localStorage.getItem('chatechat_telegram_token');
+          if (savedToken) {
+            fetch(`${getApiBaseUrl()}/api/v1/webhooks/telegram/status`)
+              .then((r) => r.json())
+              .then((status) => {
+                if (status && status.success && !status.isRunning) {
+                  console.log('🔄 Telegram polling is idle on backend, auto-resuming...');
+                  fetch(`${getApiBaseUrl()}/api/v1/webhooks/connect/telegram`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      botToken: savedToken,
+                      organizationId: 'org_royal',
+                      assignAllAgents: true,
+                    }),
+                  }).catch(() => {});
+                }
+              })
+              .catch(() => {});
+          }
+        } catch {}
+      };
+
+      checkAndAutoResumeTelegram();
+
       // Poll every 2.5 seconds in background for guaranteed instant updates
       const tgSyncInterval = setInterval(syncTelegramChats, 2500);
       return () => clearInterval(tgSyncInterval);
@@ -651,6 +679,16 @@ export default function InboxPage() {
         agentName: senderName,
         content,
       });
+
+      // Direct fallback dispatch for Telegram messages to guarantee delivery
+      if (activeConversationId.startsWith('conv_tg_')) {
+        const chatId = activeConversationId.replace('conv_tg_', '');
+        fetch(`${getApiBaseUrl()}/api/v1/webhooks/telegram/send-message`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chatId, text: content, agentName: senderName }),
+        }).catch(() => {});
+      }
     }
   };
 

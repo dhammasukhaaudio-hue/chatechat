@@ -220,7 +220,15 @@ class TelegramPollingService {
       msgType = 'IMAGE';
       text = text || '📷 [Customer ပေးပို့သော ဓာတ်ပုံ / Image]';
       const largest = msg.photo[msg.photo.length - 1];
-      mediaUrl = `https://api.telegram.org/bot${this.config?.token}/getFile?file_id=${largest.file_id}`;
+      try {
+        const fileRes = await fetch(`https://api.telegram.org/bot${this.config?.token}/getFile?file_id=${largest.file_id}`);
+        const fileData = await fileRes.json() as any;
+        if (fileData?.ok && fileData.result?.file_path) {
+          mediaUrl = `https://api.telegram.org/file/bot${this.config?.token}/${fileData.result.file_path}`;
+        }
+      } catch {
+        mediaUrl = `https://api.telegram.org/bot${this.config?.token}/getFile?file_id=${largest.file_id}`;
+      }
     } else if (msg.contact) {
       text = `📱 [ဖုန်းနံပါတ် မျှဝေသည်]: ${msg.contact.phone_number}`;
     } else if (msg.sticker) {
@@ -311,7 +319,10 @@ class TelegramPollingService {
         history[convId] = { conv, messages: [msg] };
       } else {
         history[convId].conv = { ...history[convId].conv, ...conv };
-        history[convId].messages.push(msg);
+        const exists = history[convId].messages.some((m) => m.id === msg.id);
+        if (!exists) {
+          history[convId].messages.push(msg);
+        }
       }
 
       fs.writeFileSync(CHATS_FILE, JSON.stringify(history, null, 2), 'utf-8');
@@ -332,7 +343,7 @@ class TelegramPollingService {
   /**
    * Send outbound reply directly to the customer on Telegram!
    */
-  public async sendMessage(chatId: string, text: string): Promise<{ success: boolean; externalMessageId?: string; error?: string }> {
+  public async sendMessage(chatId: string, text: string, agentName: string = 'မသူဇာ (Customer Support)'): Promise<{ success: boolean; externalMessageId?: string; error?: string }> {
     if (!this.config?.token) {
       return { success: false, error: 'Telegram Bot is not connected or active' };
     }
@@ -352,6 +363,20 @@ class TelegramPollingService {
       const data = await res.json() as any;
       if (data && data.ok) {
         console.log(`✅ [TELEGRAM OUTBOUND SUCCESS] Delivered to Telegram Message ID: ${data.result?.message_id}`);
+        const convId = `conv_tg_${chatId}`;
+        const nowIso = new Date().toISOString();
+        const agentMsg = {
+          id: `msg_agent_${Date.now()}`,
+          conversationId: convId,
+          senderType: 'AGENT',
+          senderName: agentName,
+          type: 'TEXT',
+          content: text,
+          isInternal: false,
+          createdAt: nowIso,
+        };
+        this.saveMessageToHistory(convId, { lastMessageSnippet: text, lastMessageAt: nowIso }, agentMsg);
+
         return {
           success: true,
           externalMessageId: data.result?.message_id?.toString(),
@@ -369,6 +394,20 @@ class TelegramPollingService {
       });
       const plainData = await plainRes.json() as any;
       if (plainData?.ok) {
+        const convId = `conv_tg_${chatId}`;
+        const nowIso = new Date().toISOString();
+        const agentMsg = {
+          id: `msg_agent_${Date.now()}`,
+          conversationId: convId,
+          senderType: 'AGENT',
+          senderName: agentName,
+          type: 'TEXT',
+          content: text,
+          isInternal: false,
+          createdAt: nowIso,
+        };
+        this.saveMessageToHistory(convId, { lastMessageSnippet: text, lastMessageAt: nowIso }, agentMsg);
+
         return { success: true, externalMessageId: plainData.result?.message_id?.toString() };
       }
 
@@ -387,9 +426,11 @@ class TelegramPollingService {
    */
   public autoResume(io: SocketIOServer) {
     this.io = io;
-    if (this.config?.token && this.config?.isActive) {
-      console.log(`🔄 [TELEGRAM] Auto-resuming 24/7 Long Polling for @${this.config.username}...`);
-      this.start(this.config.token, this.config.organizationId || 'org_royal', io).catch((e) => {
+    const envToken = process.env.TELEGRAM_BOT_TOKEN || process.env.TELEGRAM_FINANCE_BOT_TOKEN;
+    const tokenToUse = this.config?.token || (envToken ? envToken.trim() : null);
+    if (tokenToUse && (this.config?.isActive || envToken)) {
+      console.log(`🔄 [TELEGRAM] Auto-resuming 24/7 Long Polling for Telegram Bot...`);
+      this.start(tokenToUse, this.config?.organizationId || 'org_royal', io).catch((e) => {
         console.warn('⚠️ Telegram auto-resume warning:', e.message);
       });
     }

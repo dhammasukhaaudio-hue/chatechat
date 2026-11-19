@@ -131,7 +131,7 @@ io.on('connection', (socket) => {
       // 1. Direct Telegram dispatch if conversation is from Telegram
       if (data.conversationId.startsWith('conv_tg_')) {
         const chatId = data.conversationId.replace('conv_tg_', '');
-        await telegramPollingService.sendMessage(chatId, data.content);
+        await telegramPollingService.sendMessage(chatId, data.content, data.agentName);
       }
 
       // 2. Dispatch via OutboundService with database persistence
