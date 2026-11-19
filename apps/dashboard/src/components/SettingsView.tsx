@@ -617,7 +617,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ lang }) => {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                          organizationId: 'org_royal',
+                          organizationId: currentUser?.organizationId || 'org_royal',
                           gateway,
                           transactionId: txIdInput.trim(),
                           amountMmk: totalBillingAmount,

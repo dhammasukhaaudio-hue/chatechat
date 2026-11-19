@@ -20,7 +20,15 @@ interface SidebarProps {
   unreadTotal: number;
   lang: Language;
   setLang: (lang: Language) => void;
-  currentUser?: { id?: string; name?: string; email?: string; role?: string };
+  currentUser?: {
+    id?: string;
+    name?: string;
+    email?: string;
+    role?: string;
+    organizationId?: string;
+    organizationName?: string;
+    teamCode?: string;
+  };
   onLogout?: () => void;
 }
 
@@ -139,6 +147,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <span>{t.navSettings}</span>
         </button>
       </nav>
+
+      {/* Workspace / Organization Card */}
+      <div className="mx-3 mb-2.5 p-2.5 bg-slate-800/90 border border-slate-700/80 rounded-xl text-xs">
+        <div className="flex items-center justify-between text-slate-300 font-semibold mb-1">
+          <span className="truncate text-[11px] text-white" title={currentUser?.organizationName || 'ChateChat Workspace'}>
+            🏢 {currentUser?.organizationName || 'ChateChat Workspace'}
+          </span>
+          <span className="text-[10px] bg-blue-500/20 text-blue-300 border border-blue-500/30 px-1.5 py-0.2 rounded font-mono font-bold shrink-0">
+            {currentUser?.teamCode || 'PRIVATE'}
+          </span>
+        </div>
+        <div className="flex items-center justify-between text-[10px] text-slate-400 mt-1">
+          <span>အဖွဲ့ဝင် Team Code:</span>
+          <span className="text-emerald-400 font-mono font-bold tracking-wider">{currentUser?.teamCode || 'SOLO'}</span>
+        </div>
+      </div>
 
       {/* Subscription Quota Card */}
       <div className="p-3 mx-3 mb-3 bg-slate-800/70 border border-slate-700/60 rounded-xl">

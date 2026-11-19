@@ -189,12 +189,14 @@ webhookRouter.post('/connect/telegram', async (req: Request, res: Response) => {
 /**
  * 6. TELEGRAM POLLING STATUS & DISCONNECT
  */
-webhookRouter.get('/telegram/status', (_req: Request, res: Response) => {
-  return res.json({ success: true, ...telegramPollingService.getStatus() });
+webhookRouter.get('/telegram/status', (req: Request, res: Response) => {
+  const organizationId = (req.query.organizationId as string) || undefined;
+  return res.json({ success: true, ...telegramPollingService.getStatus(organizationId) });
 });
 
-webhookRouter.get('/telegram/chats', (_req: Request, res: Response) => {
-  return res.json({ success: true, chats: telegramPollingService.getSavedChats() });
+webhookRouter.get('/telegram/chats', (req: Request, res: Response) => {
+  const organizationId = (req.query.organizationId as string) || undefined;
+  return res.json({ success: true, chats: telegramPollingService.getSavedChats(organizationId) });
 });
 
 webhookRouter.post('/telegram/disconnect', (_req: Request, res: Response) => {

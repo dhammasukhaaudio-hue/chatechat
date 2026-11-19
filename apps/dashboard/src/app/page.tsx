@@ -277,17 +277,26 @@ export default function InboxPage() {
   const [lang, setLang] = useState<Language>('my');
 
   // Authentication State for Frontend (:3000)
-  const [currentUser, setCurrentUser] = useState<{ id?: string; name?: string; email?: string; role?: string } | null>(null);
+  const [currentUser, setCurrentUser] = useState<{
+    id?: string;
+    name?: string;
+    email?: string;
+    role?: string;
+    organizationId?: string;
+    organizationName?: string;
+    teamCode?: string;
+  } | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [authLoaded, setAuthLoaded] = useState<boolean>(false);
 
-  // Storage key namespaces based on authenticated user
+  // Multi-tenant organization isolation namespaces
   const userStorageKey = (currentUser?.email || currentUser?.name || 'guest')
     .toLowerCase()
     .replace(/[^a-z0-9]/g, '_');
-  const convStorageKey = `chatechat_convs_${userStorageKey}`;
-  const msgStorageKey = `chatechat_msgs_${userStorageKey}`;
-  const channelStorageKey = `chatechat_channels_${userStorageKey}`;
+  const orgId = currentUser?.organizationId || (currentUser?.name?.toLowerCase().includes('royal') || currentUser?.name?.toLowerCase() === 'mexes' ? 'org_royal' : `org_${userStorageKey}`);
+  const convStorageKey = `chatechat_convs_${orgId}`;
+  const msgStorageKey = `chatechat_msgs_${orgId}`;
+  const channelStorageKey = `chatechat_channels_${orgId}`;
 
   // Customer List with rich data
   const [conversations, setConversations] = useState<Conversation[]>(INITIAL_CONVERSATIONS);
@@ -299,6 +308,22 @@ export default function InboxPage() {
       const saved = localStorage.getItem('chatechat_agent_session');
       if (saved) {
         const user = JSON.parse(saved);
+        // Backwards compatibility: ensure organizationId and teamCode exist
+        if (!user.organizationId) {
+          if (user.name?.toLowerCase().includes('royal') || user.name?.toLowerCase() === 'mexes' || user.email?.includes('michael')) {
+            user.organizationId = 'org_royal';
+            user.organizationName = 'ChateChat Official (Mexes Shop)';
+            user.teamCode = 'CHATE-101';
+          } else if (user.name?.toLowerCase() === 'lynn') {
+            user.organizationId = 'org_lynn';
+            user.organizationName = "Lynn's Private Shop";
+            user.teamCode = 'LYNN-202';
+          } else {
+            user.organizationId = `org_${(user.name || 'user').toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+            user.organizationName = `${user.name || 'User'}'s Shop`;
+            user.teamCode = `${(user.name || 'USER').toUpperCase().slice(0, 4)}-101`;
+          }
+        }
         setCurrentUser(user);
         setIsAuthenticated(true);
       }
@@ -316,8 +341,14 @@ export default function InboxPage() {
     try {
       const savedConvs = localStorage.getItem(convStorageKey);
       const savedMsgs = localStorage.getItem(msgStorageKey);
-      let initialConvs: Conversation[] = savedConvs ? JSON.parse(savedConvs) : INITIAL_CONVERSATIONS;
-      let initialMsgs: Record<string, Message[]> = savedMsgs ? JSON.parse(savedMsgs) : INITIAL_MESSAGES;
+
+      // Multi-tenant isolation: demo mock conversations ONLY for org_royal (Demo Mode)
+      // Any new private organization starts completely clean with an empty inbox!
+      const defaultConvs = (orgId === 'org_royal') ? INITIAL_CONVERSATIONS : [];
+      const defaultMsgs = (orgId === 'org_royal') ? INITIAL_MESSAGES : {};
+
+      let initialConvs: Conversation[] = savedConvs ? JSON.parse(savedConvs) : defaultConvs;
+      let initialMsgs: Record<string, Message[]> = savedMsgs ? JSON.parse(savedMsgs) : defaultMsgs;
 
       // Check if user has an active Telegram bot connected in localStorage
       const savedChannels = localStorage.getItem(channelStorageKey);
@@ -394,7 +425,22 @@ export default function InboxPage() {
 
       // Sync any live Telegram conversations received by backend 24/7 Long Polling
       const syncTelegramChats = () => {
-        fetch(`${getApiBaseUrl()}/api/v1/webhooks/telegram/chats`)
+        // Multi-tenant check: ONLY sync Telegram chats if this organization has actually connected Telegram!
+        const savedChannels = localStorage.getItem(channelStorageKey);
+        let isTgConnected = false;
+        if (savedChannels) {
+          try {
+            const channelsList = JSON.parse(savedChannels);
+            isTgConnected = channelsList.some((c: any) => c.type === 'TELEGRAM' && c.isActive);
+          } catch {}
+        }
+
+        // If not connected and not org_royal, do not pull other people's chats!
+        if (!isTgConnected && orgId !== 'org_royal') {
+          return;
+        }
+
+        fetch(`${getApiBaseUrl()}/api/v1/webhooks/telegram/chats?organizationId=${encodeURIComponent(orgId)}`)
           .then((r) => r.json())
           .then((data) => {
             if (data && data.success && data.chats) {
@@ -458,9 +504,9 @@ export default function InboxPage() {
       // Auto-heal Telegram polling if backend restarted or container was recreated
       const checkAndAutoResumeTelegram = () => {
         try {
-          const savedToken = localStorage.getItem('chatechat_telegram_token');
+          const savedToken = localStorage.getItem('chatechat_telegram_token_' + orgId) || (orgId === 'org_royal' ? localStorage.getItem('chatechat_telegram_token') : null);
           if (savedToken) {
-            fetch(`${getApiBaseUrl()}/api/v1/webhooks/telegram/status`)
+            fetch(`${getApiBaseUrl()}/api/v1/webhooks/telegram/status?organizationId=${encodeURIComponent(orgId)}`)
               .then((r) => r.json())
               .then((status) => {
                 if (status && status.success && !status.isRunning) {
@@ -470,7 +516,7 @@ export default function InboxPage() {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                       botToken: savedToken,
-                      organizationId: 'org_royal',
+                      organizationId: orgId,
                       assignAllAgents: true,
                     }),
                   }).catch(() => {});
@@ -491,7 +537,16 @@ export default function InboxPage() {
     }
   }, [currentUser]);
 
-  const handleLoginSuccess = (user: { id: string; name: string; email: string; role: string; phone?: string }) => {
+  const handleLoginSuccess = (user: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    phone?: string;
+    organizationId?: string;
+    organizationName?: string;
+    teamCode?: string;
+  }) => {
     localStorage.setItem('chatechat_agent_session', JSON.stringify(user));
     setCurrentUser(user);
     setIsAuthenticated(true);
@@ -561,9 +616,9 @@ export default function InboxPage() {
     ],
   };
 
-  // Socket.IO hook for real-time live events
+  // Socket.IO hook for real-time live events (isolated per organization)
   const { sendOutgoingMessage, joinConversation } = useSocket({
-    organizationId: 'org_royal',
+    organizationId: orgId,
     agentId: currentUser?.id || 'agent_1',
     onIncomingMessage: (data) => {
       const { message, conversation } = data;

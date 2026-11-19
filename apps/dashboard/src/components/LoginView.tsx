@@ -5,7 +5,16 @@ import { Zap, Send, Phone, KeyRound, ShieldCheck, ArrowRight, RotateCw, CheckCir
 import { getApiBaseUrl } from '../lib/api-config';
 
 interface LoginViewProps {
-  onLoginSuccess: (user: { id: string; name: string; email: string; role: string; phone?: string }) => void;
+  onLoginSuccess: (user: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    phone?: string;
+    organizationId?: string;
+    organizationName?: string;
+    teamCode?: string;
+  }) => void;
 }
 
 export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
@@ -17,15 +26,19 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
   // =====================
   const [identifier, setIdentifier] = useState('admin');
   const [password, setPassword] = useState('Admin!123');
+  const [teamCode, setTeamCode] = useState('');
 
   // =====================
   // SIGN UP FORM STATES
   // =====================
   const [signupStep, setSignupStep] = useState<1 | 2>(1);
   const [signupName, setSignupName] = useState('ကိုအောင်မင်း');
+  const [signupShopName, setSignupShopName] = useState('Aung Min Store');
   const [signupEmail, setSignupEmail] = useState('aungmin@chatechat.com');
   const [signupPhone, setSignupPhone] = useState('09450011223');
   const [signupPassword, setSignupPassword] = useState('Pass!123');
+  const [signupTeamCode, setSignupTeamCode] = useState('');
+  const [signupIsJoinTeam, setSignupIsJoinTeam] = useState(false);
   const [signupMethod, setSignupMethod] = useState<'TELEGRAM' | 'SMS'>('TELEGRAM');
   const [signupOtp, setSignupOtp] = useState('');
   const [signupDevCode, setSignupDevCode] = useState('849201');
@@ -123,9 +136,10 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
   };
 
   // Quick Preset Helper for Sign In
-  const handleSelectPreset = (id: string, pass: string) => {
+  const handleSelectPreset = (id: string, pass: string, tCode: string = '') => {
     setIdentifier(id);
     setPassword(pass);
+    setTeamCode(tCode);
     setError(null);
   };
 
@@ -161,20 +175,53 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
       // Offline fallback: instant resilient authentication
     }
 
-    // Client-side verification
+    // Client-side Multi-Tenant & Team Verification
     let role = 'AGENT';
     let name = cleanId.includes('@') ? cleanId.split('@')[0] : cleanId;
-    
-    if (cleanId.toLowerCase() === 'admin' || cleanId.toLowerCase().includes('admin')) {
-      role = 'ADMIN';
-      name = 'Admin (Administrator)';
-    } else if (cleanId.toLowerCase().includes('michael') || cleanId.toLowerCase() === 'owner') {
-      role = 'OWNER';
-      name = 'Michael (Founder & CEO)';
-    } else if (cleanId.toLowerCase().includes('kyaw')) {
-      name = 'Ko Kyaw Kyaw (Senior Agent)';
-    } else if (cleanId.startsWith('09')) {
-      name = `Phone User (${cleanId})`;
+    const cleanTeam = teamCode.trim().toUpperCase();
+
+    let organizationId = `org_${name.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+    let organizationName = `${name}'s Private Shop`;
+    let finalTeamCode = `${name.toUpperCase().slice(0, 4)}-${Math.floor(100 + Math.random() * 900)}`;
+
+    if (cleanTeam) {
+      // User entered a Team Code to join an existing organization (Multi-Seat Team)
+      if (cleanTeam === 'CHATE-101' || cleanTeam === 'ROYAL-101' || cleanTeam === 'MEXES-101') {
+        organizationId = 'org_royal';
+        organizationName = 'ChateChat Official (Mexes Team)';
+        finalTeamCode = cleanTeam;
+        role = 'AGENT';
+      } else {
+        organizationId = `org_team_${cleanTeam.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+        organizationName = `Team Workspace (${cleanTeam})`;
+        finalTeamCode = cleanTeam;
+        role = 'AGENT';
+      }
+    } else {
+      // Solo / Private Shop
+      if (cleanId.toLowerCase() === 'admin' || cleanId.toLowerCase().includes('royal')) {
+        role = 'ADMIN';
+        name = 'Admin (Administrator)';
+        organizationId = 'org_royal';
+        organizationName = 'Royal Fashion Myanmar';
+        finalTeamCode = 'ROYAL-101';
+      } else if (cleanId.toLowerCase().includes('michael') || cleanId.toLowerCase() === 'mexes' || cleanId.toLowerCase() === 'owner') {
+        role = 'OWNER';
+        name = cleanId.toLowerCase() === 'mexes' ? 'mexes' : 'Michael (Founder & CEO)';
+        organizationId = 'org_royal'; // Primary shop with @chatechatbot
+        organizationName = 'ChateChat Official (Mexes Shop)';
+        finalTeamCode = 'CHATE-101';
+      } else if (cleanId.toLowerCase() === 'lynn') {
+        role = 'OWNER';
+        name = 'lynn';
+        organizationId = 'org_lynn'; // Lynn's OWN 100% PRIVATE account!
+        organizationName = "Lynn's Private Shop";
+        finalTeamCode = 'LYNN-202';
+      } else if (cleanId.toLowerCase().includes('kyaw')) {
+        name = 'Ko Kyaw Kyaw (Senior Agent)';
+      } else if (cleanId.startsWith('09')) {
+        name = `Phone User (${cleanId})`;
+      }
     }
 
     setLoading(false);
@@ -184,6 +231,9 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
       email: cleanId.includes('@') ? cleanId : `${cleanId}@chatechat.com`,
       phone: cleanId.startsWith('09') ? cleanId : '09798888123',
       role,
+      organizationId,
+      organizationName,
+      teamCode: finalTeamCode,
     });
   };
 
@@ -249,12 +299,22 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
     const isMatch = code === signupDevCode || code === '123456' || code.length === 6;
 
     if (isMatch) {
+      const cleanTeam = signupTeamCode.trim().toUpperCase();
+      const cleanShop = signupShopName.trim() || `${signupName.trim()} Online Shop`;
+      let organizationId = cleanTeam
+        ? (cleanTeam === 'CHATE-101' || cleanTeam === 'ROYAL-101' ? 'org_royal' : `org_team_${cleanTeam.toLowerCase().replace(/[^a-z0-9]/g, '_')}`)
+        : `org_${signupName.trim().toLowerCase().replace(/[^a-z0-9]/g, '_')}_${Date.now().toString().slice(-4)}`;
+      let finalTeamCode = cleanTeam || `${signupName.trim().toUpperCase().slice(0, 4)}-${Math.floor(100 + Math.random() * 900)}`;
+
       const newUser = {
         id: `user_${Date.now()}`,
         name: signupName.trim(),
         email: signupEmail.trim() || `${signupPhone.trim()}@chatechat.com`,
         phone: signupPhone.trim(),
-        role: 'AGENT',
+        role: cleanTeam ? 'AGENT' : 'OWNER',
+        organizationId,
+        organizationName: cleanTeam ? `Team Workspace (${cleanTeam})` : cleanShop,
+        teamCode: finalTeamCode,
       };
 
       try {
@@ -267,6 +327,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
             phone: signupPhone.trim(),
             password: signupPassword.trim(),
             code,
+            organizationId,
           }),
         });
       } catch (e) {}
@@ -351,36 +412,47 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
               <div className="flex flex-wrap gap-1.5">
                 <button
                   type="button"
-                  onClick={() => handleSelectPreset('admin', 'Admin!123')}
-                  className={`px-2.5 py-1 rounded-lg border text-[11px] font-medium transition ${
+                  onClick={() => handleSelectPreset('mexes', 'Agent!123', 'CHATE-101')}
+                  className={`px-2 py-1 rounded-lg border text-[11px] font-medium transition ${
+                    identifier === 'mexes'
+                      ? 'bg-blue-600 border-blue-400 text-white'
+                      : 'bg-slate-800 border-slate-700 text-slate-300 hover:text-white'
+                  }`}
+                >
+                  👑 mexes (Mexes Team Owner)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSelectPreset('lynn', 'Agent!123', '')}
+                  className={`px-2 py-1 rounded-lg border text-[11px] font-medium transition ${
+                    identifier === 'lynn' && !teamCode
+                      ? 'bg-emerald-600 border-emerald-400 text-white'
+                      : 'bg-slate-800 border-slate-700 text-slate-300 hover:text-white'
+                  }`}
+                >
+                  👤 lynn (Private Solo Shop - သီးသန့်)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSelectPreset('lynn', 'Agent!123', 'CHATE-101')}
+                  className={`px-2 py-1 rounded-lg border text-[11px] font-medium transition ${
+                    identifier === 'lynn' && teamCode === 'CHATE-101'
+                      ? 'bg-purple-600 border-purple-400 text-white'
+                      : 'bg-slate-800 border-slate-700 text-slate-300 hover:text-white'
+                  }`}
+                >
+                  👥 lynn (Join Mexes 3-Seat Team - ပူးတွဲသုံး)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSelectPreset('admin', 'Admin!123', 'ROYAL-101')}
+                  className={`px-2 py-1 rounded-lg border text-[11px] font-medium transition ${
                     identifier === 'admin'
                       ? 'bg-blue-600 border-blue-400 text-white'
                       : 'bg-slate-800 border-slate-700 text-slate-300 hover:text-white'
                   }`}
                 >
-                  🛡️ admin (Username)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSelectPreset('michael@chatechat.com', 'Agent!123')}
-                  className={`px-2.5 py-1 rounded-lg border text-[11px] font-medium transition ${
-                    identifier === 'michael@chatechat.com'
-                      ? 'bg-blue-600 border-blue-400 text-white'
-                      : 'bg-slate-800 border-slate-700 text-slate-300 hover:text-white'
-                  }`}
-                >
-                  ✉️ Email (michael@...)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSelectPreset('09798888123', 'Agent!123')}
-                  className={`px-2.5 py-1 rounded-lg border text-[11px] font-medium transition ${
-                    identifier === '09798888123'
-                      ? 'bg-blue-600 border-blue-400 text-white'
-                      : 'bg-slate-800 border-slate-700 text-slate-300 hover:text-white'
-                  }`}
-                >
-                  📱 Phone (09798888123)
+                  🛡️ admin (Demo Shop)
                 </button>
               </div>
             </div>
@@ -426,6 +498,23 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                 placeholder="••••••••"
                 className="w-full bg-slate-800/90 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-blue-500 font-mono transition"
               />
+            </div>
+
+            <div>
+              <label className="block font-semibold text-slate-300 mb-1.5 flex items-center justify-between">
+                <span>Team Code / ကုမ္ပဏီကုဒ် <span className="text-slate-500 font-normal">(မရှိပါက ချန်ထားနိုင်ပါသည်)</span></span>
+                <span className="text-[10px] text-blue-400 font-normal">အကောင့် ၃ ခု ပူးတွဲသုံးရန်</span>
+              </label>
+              <input
+                type="text"
+                value={teamCode}
+                onChange={(e) => setTeamCode(e.target.value.toUpperCase())}
+                placeholder="ဥပမာ: CHATE-101 (ချန်ထားပါက သီးသန့် Private Account ဖြစ်ပါမည်)"
+                className="w-full bg-slate-800/90 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-blue-500 font-mono transition uppercase placeholder:normal-case"
+              />
+              <p className="text-[10px] text-slate-400 mt-1">
+                💡 အကောင့် ၃ ခု ဝယ်ထားသော Customer များသည် မိမိ ဝန်ထမ်းများနှင့် Chat History တူတူမျှဝေသုံးရန် Team Code ထည့်ပါ။ ချန်ထားပါက မိမိ သီးသန့် Private Account ဖြစ်ပါမည်။
+              </p>
             </div>
 
             <button

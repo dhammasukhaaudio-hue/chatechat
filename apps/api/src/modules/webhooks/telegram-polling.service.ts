@@ -52,15 +52,17 @@ class TelegramPollingService {
     }
   }
 
-  public getStatus() {
+  public getStatus(organizationId?: string) {
+    const isThisOrg = !organizationId || (this.config?.organizationId || 'org_royal') === organizationId;
     return {
-      isRunning: this.isRunning,
-      botUsername: this.config?.username ? `@${this.config.username}` : null,
-      botName: this.config?.firstName || null,
-      botId: this.config?.botId || null,
-      isActive: !!this.config?.isActive,
-      lastMessageTimestamp: this.lastMessageTimestamp,
-      lastOffset: this.config?.lastOffset || 0,
+      isRunning: this.isRunning && isThisOrg,
+      botUsername: isThisOrg && this.config?.username ? `@${this.config.username}` : null,
+      botName: isThisOrg ? (this.config?.firstName || null) : null,
+      botId: isThisOrg ? (this.config?.botId || null) : null,
+      isActive: isThisOrg && !!this.config?.isActive,
+      lastMessageTimestamp: isThisOrg ? this.lastMessageTimestamp : null,
+      lastOffset: isThisOrg ? (this.config?.lastOffset || 0) : 0,
+      organizationId: this.config?.organizationId || 'org_royal',
     };
   }
 
@@ -292,13 +294,12 @@ class TelegramPollingService {
     // Save to persistent file
     this.saveMessageToHistory(convId, conversation, message);
 
-    // Emit live events to all connected agents
+    // Emit live events ONLY to connected agents of THIS specific organization
     if (this.io) {
-      console.log(`⚡ [SOCKET.IO] Emitting INCOMING_MESSAGE for conversation: ${convId}`);
-      this.io.emit('chat:incoming_message', { conversation, message });
-      this.io.emit('INCOMING_MESSAGE', { conversation, message });
-      this.io.to(`org:${this.config?.organizationId || 'org_royal'}`).emit('chat:incoming_message', { conversation, message });
-      this.io.to(`org:${this.config?.organizationId || 'org_royal'}`).emit('INCOMING_MESSAGE', { conversation, message });
+      const orgId = this.config?.organizationId || 'org_royal';
+      console.log(`⚡ [SOCKET.IO] Emitting chat:incoming_message strictly to room: org:${orgId}`);
+      this.io.to(`org:${orgId}`).emit('chat:incoming_message', { conversation, message });
+      this.io.to(`org:${orgId}`).emit('INCOMING_MESSAGE', { conversation, message });
     }
   }
 
@@ -331,10 +332,22 @@ class TelegramPollingService {
     }
   }
 
-  public getSavedChats() {
+  public getSavedChats(organizationId?: string) {
     try {
       if (fs.existsSync(CHATS_FILE)) {
-        return JSON.parse(fs.readFileSync(CHATS_FILE, 'utf-8'));
+        const history = JSON.parse(fs.readFileSync(CHATS_FILE, 'utf-8'));
+        if (!organizationId || organizationId === 'all') {
+          return history;
+        }
+        // Multi-tenant: filter chats strictly for the requesting organization
+        const filtered: Record<string, { conv: any; messages: any[] }> = {};
+        for (const [key, value] of Object.entries(history as Record<string, { conv: any; messages: any[] }>)) {
+          const convOrg = value?.conv?.organizationId || 'org_royal';
+          if (convOrg === organizationId) {
+            filtered[key] = value;
+          }
+        }
+        return filtered;
       }
     } catch {}
     return {};

@@ -28,8 +28,9 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({ quotaDetails, lang, 
   const isMy = lang === 'my';
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
-  // Storage key based on user email or name
-  const storageKey = `chatechat_channels_${(currentUser?.email || currentUser?.name || 'guest').toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+  // Multi-tenant organization isolation
+  const orgId = (currentUser as any)?.organizationId || (currentUser?.name?.toLowerCase().includes('royal') || currentUser?.name?.toLowerCase() === 'mexes' ? 'org_royal' : `org_${(currentUser?.email || currentUser?.name || 'guest').toLowerCase().replace(/[^a-z0-9]/g, '_')}`);
+  const storageKey = `chatechat_channels_${orgId}`;
 
   // Channels state
   const [channels, setChannels] = useState<ChannelItem[]>([]);
@@ -56,11 +57,11 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({ quotaDetails, lang, 
         setChannels(JSON.parse(saved));
         setChannelsLoaded(true);
 
-        // Auto-verify backend polling if telegram token is saved
+        // Auto-verify backend polling if telegram token is saved for this organization
         try {
-          const savedToken = localStorage.getItem('chatechat_telegram_token');
+          const savedToken = localStorage.getItem('chatechat_telegram_token_' + orgId) || (orgId === 'org_royal' ? localStorage.getItem('chatechat_telegram_token') : null);
           if (savedToken) {
-            fetch(`${getApiBaseUrl()}/api/v1/webhooks/telegram/status`)
+            fetch(`${getApiBaseUrl()}/api/v1/webhooks/telegram/status?organizationId=${encodeURIComponent(orgId)}`)
               .then((r) => r.json())
               .then((status) => {
                 if (status && status.success && !status.isRunning) {
@@ -69,7 +70,7 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({ quotaDetails, lang, 
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                       botToken: savedToken,
-                      organizationId: 'org_royal',
+                      organizationId: orgId,
                       assignAllAgents: true,
                     }),
                   }).catch(() => {});
@@ -83,7 +84,7 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({ quotaDetails, lang, 
     } catch (e) {}
 
     // Default channels for NEW user (All external channels start as DISCONNECTED)
-    const isDefaultAdmin = currentUser?.name?.toLowerCase().includes('royal') || currentUser?.email?.toLowerCase().includes('royal');
+    const isDefaultAdmin = orgId === 'org_royal';
 
     const initialChannels: ChannelItem[] = [
       {
@@ -184,7 +185,7 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({ quotaDetails, lang, 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           botToken: cleanToken,
-          organizationId: 'org_royal',
+          organizationId: orgId,
           assignAllAgents,
         }),
       });
@@ -193,7 +194,8 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({ quotaDetails, lang, 
       if (data.success) {
         if (data.botUsername) botName = data.botUsername.startsWith('@') ? data.botUsername : `@${data.botUsername}`;
         if (data.botId) botId = data.botId;
-        localStorage.setItem('chatechat_telegram_token', cleanToken);
+        localStorage.setItem('chatechat_telegram_token_' + orgId, cleanToken);
+        if (orgId === 'org_royal') localStorage.setItem('chatechat_telegram_token', cleanToken);
       } else {
         setConnectError(data.error || 'Telegram Token ချိတ်ဆက်မှု မအောင်မြင်ပါ');
         setIsConnecting(false);
@@ -281,8 +283,11 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({ quotaDetails, lang, 
     });
 
     if (type === 'TELEGRAM') {
-      fetch(`${getApiBaseUrl()}/api/v1/webhooks/telegram/disconnect`, { method: 'POST' }).catch(() => {});
-      try { localStorage.removeItem('chatechat_telegram_token'); } catch {}
+      fetch(`${getApiBaseUrl()}/api/v1/webhooks/telegram/disconnect?organizationId=${encodeURIComponent(orgId)}`, { method: 'POST' }).catch(() => {});
+      try {
+        localStorage.removeItem('chatechat_telegram_token_' + orgId);
+        if (orgId === 'org_royal') localStorage.removeItem('chatechat_telegram_token');
+      } catch {}
     }
 
     saveChannels(updatedChannels);
