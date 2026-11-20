@@ -301,6 +301,59 @@ class TelegramPollingService {
       this.io.to(`org:${orgId}`).emit('chat:incoming_message', { conversation, message });
       this.io.to(`org:${orgId}`).emit('INCOMING_MESSAGE', { conversation, message });
     }
+
+    // =========================================================================
+    // Automated Bot Responder: "/start", "hi", "hello", "apk", "download"
+    // =========================================================================
+    const lowerText = text.trim().toLowerCase();
+    const isStartCmd = lowerText.startsWith('/start');
+    const isGreeting = lowerText === 'hi' || lowerText === 'hello' || lowerText === 'hey' || lowerText.includes('မင်္ဂလာပါ');
+    const isApkQuery =
+      lowerText.includes('apk') ||
+      lowerText.includes('app') ||
+      lowerText.includes('download') ||
+      lowerText.includes('လင့်') ||
+      lowerText.includes('လင့်') ||
+      lowerText.includes('ဒေါင်း');
+
+    if (isStartCmd || isGreeting || isApkQuery) {
+      const apkUrl = process.env.APK_DOWNLOAD_URL || 'https://chatechat.onrender.com/download/apk';
+      const webUrl = 'https://chatechat.onrender.com';
+
+      const replyText = `မင်္ဂလာပါခင်ဗျာ 🙏 <b>ChateChat (ချိတ်ချက်)</b> မှ နွေးထွေးစွာ ကြိုဆိုပါသည်! 📱
+
+Android ဖုန်းအတွက် Mobile App (APK) အား အောက်ပါ Download Link မှတစ်ဆင့် တိုက်ရိုက် ရယူနိုင်ပါပြီခင်ဗျာ -
+
+📲 <b>APK တိုက်ရိုက် ဒေါင်းလုဒ် Link:</b>
+${apkUrl}
+
+🌐 <b>Web Dashboard ဖြင့် တိုက်ရိုက်သုံးရန်:</b>
+${webUrl}
+
+စတင်အသုံးပြုရန် အောက်ပါ ခလုတ်ကို နှိပ်၍လည်း Download ဆွဲနိုင်ပါသည်ခင်ဗျာ။ 👇`;
+
+      const replyMarkup = {
+        inline_keyboard: [
+          [
+            {
+              text: '📲 Download Android APK',
+              url: apkUrl,
+            },
+          ],
+          [
+            {
+              text: '🌐 Open Web App',
+              url: webUrl,
+            },
+          ],
+        ],
+      };
+
+      console.log(`🤖 [TELEGRAM BOT AUTO-REPLY] Sending APK link & Welcome to Chat ID: ${chatId}`);
+      this.sendMessage(chatId, replyText, 'ChateChat Bot', replyMarkup).catch((e) =>
+        console.warn('⚠️ Telegram auto-reply warning:', e)
+      );
+    }
   }
 
   /**
@@ -356,21 +409,31 @@ class TelegramPollingService {
   /**
    * Send outbound reply directly to the customer on Telegram!
    */
-  public async sendMessage(chatId: string, text: string, agentName: string = 'မသူဇာ (Customer Support)'): Promise<{ success: boolean; externalMessageId?: string; error?: string }> {
+  public async sendMessage(
+    chatId: string,
+    text: string,
+    agentName: string = 'ChateChat Bot',
+    replyMarkup?: any
+  ): Promise<{ success: boolean; externalMessageId?: string; error?: string }> {
     if (!this.config?.token) {
       return { success: false, error: 'Telegram Bot is not connected or active' };
     }
 
     try {
-      console.log(`📤 [TELEGRAM OUTBOUND] Sending reply to Chat ID [${chatId}]: "${text}"`);
+      console.log(`📤 [TELEGRAM OUTBOUND] Sending reply to Chat ID [${chatId}]: "${text.slice(0, 50)}..."`);
+      const bodyPayload: any = {
+        chat_id: chatId,
+        text,
+        parse_mode: 'HTML',
+      };
+      if (replyMarkup) {
+        bodyPayload.reply_markup = replyMarkup;
+      }
+
       const res = await fetch(`https://api.telegram.org/bot${this.config.token}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: chatId,
-          text,
-          parse_mode: 'HTML',
-        }),
+        body: JSON.stringify(bodyPayload),
       });
 
       const data = await res.json() as any;
@@ -390,6 +453,14 @@ class TelegramPollingService {
         };
         this.saveMessageToHistory(convId, { lastMessageSnippet: text, lastMessageAt: nowIso }, agentMsg);
 
+        if (this.io) {
+          const orgId = this.config?.organizationId || 'org_royal';
+          this.io.to(`org:${orgId}`).emit('chat:incoming_message', {
+            conversation: { id: convId, lastMessageSnippet: text, lastMessageAt: nowIso },
+            message: agentMsg,
+          });
+        }
+
         return {
           success: true,
           externalMessageId: data.result?.message_id?.toString(),
@@ -397,13 +468,18 @@ class TelegramPollingService {
       }
 
       // If HTML parse fails, retry with plain text
+      const plainPayload: any = {
+        chat_id: chatId,
+        text: text.replace(/<[^>]*>?/gm, ''),
+      };
+      if (replyMarkup) {
+        plainPayload.reply_markup = replyMarkup;
+      }
+
       const plainRes = await fetch(`https://api.telegram.org/bot${this.config.token}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: chatId,
-          text,
-        }),
+        body: JSON.stringify(plainPayload),
       });
       const plainData = await plainRes.json() as any;
       if (plainData?.ok) {
@@ -420,6 +496,14 @@ class TelegramPollingService {
           createdAt: nowIso,
         };
         this.saveMessageToHistory(convId, { lastMessageSnippet: text, lastMessageAt: nowIso }, agentMsg);
+
+        if (this.io) {
+          const orgId = this.config?.organizationId || 'org_royal';
+          this.io.to(`org:${orgId}`).emit('chat:incoming_message', {
+            conversation: { id: convId, lastMessageSnippet: text, lastMessageAt: nowIso },
+            message: agentMsg,
+          });
+        }
 
         return { success: true, externalMessageId: plainData.result?.message_id?.toString() };
       }
@@ -439,9 +523,10 @@ class TelegramPollingService {
    */
   public autoResume(io: SocketIOServer) {
     this.io = io;
+    const defaultToken = '9252822157:AAE3ZuoAfPEjZemm8BvS5tNEToL07t3AWKM';
     const envToken = process.env.TELEGRAM_BOT_TOKEN || process.env.TELEGRAM_FINANCE_BOT_TOKEN;
-    const tokenToUse = this.config?.token || (envToken ? envToken.trim() : null);
-    if (tokenToUse && (this.config?.isActive || envToken)) {
+    const tokenToUse = this.config?.token || envToken?.trim() || defaultToken;
+    if (tokenToUse) {
       console.log(`🔄 [TELEGRAM] Auto-resuming 24/7 Long Polling for Telegram Bot...`);
       this.start(tokenToUse, this.config?.organizationId || 'org_royal', io).catch((e) => {
         console.warn('⚠️ Telegram auto-resume warning:', e.message);
