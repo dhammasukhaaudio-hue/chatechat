@@ -140,7 +140,8 @@ webhookRouter.post('/tiktok/:channelId', async (req: Request, res: Response) => 
  * 5. DIRECT TELEGRAM BOT TOKEN CONNECTION & 24/7 LONG POLLING ACTIVATION
  */
 webhookRouter.post('/connect/telegram', async (req: Request, res: Response) => {
-  const { botToken, organizationId = 'org_royal', assignAllAgents } = req.body;
+  const { organizationId = 'org_royal', assignAllAgents } = req.body;
+  const botToken = req.body.botToken || req.body.token;
 
   if (!botToken || typeof botToken !== 'string') {
     return res.status(400).json({ success: false, error: 'Telegram Bot Token ထည့်သွင်းရန် လိုအပ်ပါသည်' });
