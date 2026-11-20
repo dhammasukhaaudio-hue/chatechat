@@ -39,7 +39,7 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({
   };
 
   return (
-    <aside className="w-80 bg-white border-l border-slate-200 flex flex-col h-full overflow-y-auto select-none p-5 space-y-6">
+    <aside className="w-full md:w-80 bg-white border-l border-slate-200 flex flex-col h-full overflow-y-auto select-none p-5 space-y-6">
       {/* Customer Avatar & Name */}
       <div className="text-center pb-4 border-b border-slate-100">
         <div className="w-16 h-16 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-xl mx-auto mb-3 border border-slate-200">

@@ -12,6 +12,8 @@ import {
   FileCheck,
   Paperclip,
   Smile,
+  ArrowLeft,
+  Info,
 } from 'lucide-react';
 
 interface ChatAreaProps {
@@ -21,6 +23,8 @@ interface ChatAreaProps {
   onSendMessage: (content: string, isInternal: boolean) => void;
   onAssignToMe: () => void;
   onResolve: () => void;
+  onBack?: () => void;
+  onToggleProfile?: () => void;
 }
 
 export const ChatArea: React.FC<ChatAreaProps> = ({
@@ -30,6 +34,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   onSendMessage,
   onAssignToMe,
   onResolve,
+  onBack,
+  onToggleProfile,
 }) => {
   const [inputText, setInputText] = useState('');
   const [isInternalNote, setIsInternalNote] = useState(false);
@@ -80,46 +86,71 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   return (
     <div className="flex-1 bg-white flex flex-col h-full relative">
       {/* Chat Area Header */}
-      <header className="h-16 border-b border-slate-200 px-6 flex items-center justify-between bg-white z-10">
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-sm">
+      <header className="h-16 border-b border-slate-200 px-3 md:px-6 flex items-center justify-between bg-white z-10 shrink-0">
+        <div className="flex items-center gap-2 md:gap-3 min-w-0">
+          {/* Back Button on Mobile */}
+          {onBack && (
+            <button
+              onClick={onBack}
+              className="p-1.5 -ml-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg md:hidden transition shrink-0"
+              title="စာရင်းသို့ ပြန်သွားမည်"
+            >
+              <ArrowLeft size={20} />
+            </button>
+          )}
+
+          <div className="relative shrink-0">
+            <div className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs md:text-sm">
               {conversation.customer.name ? conversation.customer.name.slice(0, 2).toUpperCase() : 'CU'}
             </div>
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-sm font-bold text-slate-900 leading-tight">
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 md:gap-2">
+              <h2 className="text-xs md:text-sm font-bold text-slate-900 leading-tight truncate max-w-[105px] sm:max-w-[180px] md:max-w-xs">
                 {conversation.customer.name || 'ဧည့်သည်ဝယ်သူ'}
               </h2>
-              <ChannelBadge channel={conversation.channelType} showLabel />
+              <div className="shrink-0">
+                <ChannelBadge channel={conversation.channelType} showLabel />
+              </div>
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-[11px] md:text-xs text-slate-500 mt-0.5 truncate">
               {conversation.customer.phone || 'ဖုန်းနံပါတ် မဖြည့်ရသေးပါ'}
             </p>
           </div>
         </div>
 
         {/* Handover & Action Buttons */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
+          {/* Customer CRM Profile Toggle on screens smaller than xl */}
+          {onToggleProfile && (
+            <button
+              onClick={onToggleProfile}
+              className="p-1.5 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg xl:hidden transition"
+              title="ဝယ်သူမှတ်တမ်း (CRM Profile)"
+            >
+              <Info size={18} />
+            </button>
+          )}
+
           {isBotHandling ? (
             <button
               onClick={onAssignToMe}
-              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-colors"
+              className="px-2.5 md:px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[11px] md:text-xs font-semibold flex items-center gap-1 shadow-sm transition-colors"
             >
               <UserCheck size={14} />
-              <span>ကိုယ်တိုင်လက်ခံပြောကြားမည်</span>
+              <span className="hidden sm:inline">ကိုယ်တိုင်လက်ခံပြောကြားမည်</span>
+              <span className="sm:hidden">လက်ခံမည်</span>
             </button>
           ) : (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-              <UserCheck size={13} />
-              <span>{conversation.assignedAgent?.name || 'မသူဇာ'} မှ တာဝန်ယူထားသည်</span>
+            <span className="inline-flex items-center gap-1 px-2 md:px-2.5 py-1 rounded-md text-[11px] md:text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 truncate max-w-[110px] sm:max-w-none">
+              <UserCheck size={13} className="shrink-0" />
+              <span className="truncate">{conversation.assignedAgent?.name || 'မသူဇာ'}</span>
             </span>
           )}
 
           <button
             onClick={onResolve}
-            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors"
+            className="px-2.5 md:px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[11px] md:text-xs font-semibold flex items-center gap-1 transition-colors"
           >
             <FileCheck size={14} />
             <span>ပြီးစီး</span>

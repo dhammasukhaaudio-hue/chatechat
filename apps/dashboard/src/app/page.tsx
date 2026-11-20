@@ -14,6 +14,16 @@ import { useSocket } from '../hooks/useSocket';
 import { Conversation, Message, CannedResponse, ChannelQuotaDetails, ChannelType, ConversationStatus, HandoverStatus } from '../types';
 import { Language } from '../lib/translations';
 import { getApiBaseUrl } from '../lib/api-config';
+import {
+  Menu,
+  Zap,
+  Globe,
+  MessageSquare,
+  Users,
+  Layers,
+  Bot,
+  Settings as SettingsIcon,
+} from 'lucide-react';
 
 // Initial Mock Conversations
 const INITIAL_CONVERSATIONS: Conversation[] = [
@@ -275,6 +285,15 @@ export default function InboxPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeConversationId, setActiveConversationId] = useState<string | null>('conv_1');
   const [lang, setLang] = useState<Language>('my');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showMobileProfile, setShowMobileProfile] = useState(false);
+
+  // Responsive: On mobile screens upon initial load, show conversation list instead of defaulting to a selected chat
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      setActiveConversationId(null);
+    }
+  }, []);
 
   // Authentication State for Frontend (:3000)
   const [currentUser, setCurrentUser] = useState<{
@@ -905,12 +924,18 @@ export default function InboxPage() {
   }
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-slate-100 font-burmese">
-      {/* 1. Navigation & Quota Sidebar (Renamed to စုပေါင်း inbox + Language Toggle) */}
+    <div className="flex flex-col md:flex-row h-screen w-screen overflow-hidden bg-slate-100 font-burmese">
+      {/* 1. Navigation & Quota Sidebar (Desktop static sidebar, Mobile slide-over drawer) */}
       <Sidebar
+        isOpen={isMobileMenuOpen}
+        onClose={() => setIsMobileMenuOpen(false)}
         quotaDetails={quotaDetails}
         activeNav={activeNav}
-        setActiveNav={setActiveNav}
+        setActiveNav={(nav) => {
+          setActiveNav(nav);
+          if (nav === 'inbox') setActiveConversationId(null);
+          setIsMobileMenuOpen(false);
+        }}
         unreadTotal={unreadTotal}
         lang={lang}
         setLang={setLang}
@@ -918,109 +943,287 @@ export default function InboxPage() {
         onLogout={handleLogout}
       />
 
-      {/* Main Content Area switched by activeNav */}
-      {activeNav === 'inbox' && (
-        <>
-          {/* 2. Conversation Triage List */}
-          <ConversationList
-            conversations={conversations}
-            activeId={activeConversationId}
-            onSelect={(id) => {
-              setActiveConversationId(id);
-              setConversations((prev) => {
-                const updated = prev.map((c) => (c.id === id ? { ...c, unreadCount: 0 } : c));
-                try { localStorage.setItem(convStorageKey, JSON.stringify(updated)); } catch {}
-                return updated;
-              });
-            }}
-            activeFilter={activeFilter}
-            setActiveFilter={setActiveFilter}
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-            onSimulateTelegramMessage={() => {
-              let botName = '@MyTelegramBot';
-              try {
-                const rawChan = localStorage.getItem(channelStorageKey);
-                if (rawChan) {
-                  const parsed = JSON.parse(rawChan);
-                  const tg = parsed.find((c: any) => c.type === 'TELEGRAM' && c.isActive);
-                  if (tg?.accountName && tg.accountName !== 'မချိတ်ဆက်ရသေးပါ') {
-                    botName = tg.accountName;
-                  }
-                }
-              } catch {}
-              handleSimulateInboundMessage('TELEGRAM', botName);
-            }}
-          />
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col h-full overflow-hidden relative">
+        {/* Mobile Top Header (Hidden on desktop md:hidden; also hidden when actively chatting on mobile) */}
+        {!(activeNav === 'inbox' && activeConversationId) && (
+          <header className="h-14 bg-slate-900 border-b border-slate-800 px-4 flex items-center justify-between md:hidden shrink-0 z-30 select-none">
+            <div className="flex items-center gap-2.5">
+              <button
+                onClick={() => setIsMobileMenuOpen(true)}
+                className="p-2 -ml-1 text-slate-300 hover:text-white hover:bg-slate-800 rounded-xl transition"
+                title="Open Menu"
+              >
+                <Menu size={20} />
+              </button>
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-sm shadow">
+                  <Zap size={16} />
+                </div>
+                <span className="text-white font-bold text-sm leading-tight">ChateChat</span>
+                <span className="text-[10px] bg-blue-500/20 text-blue-300 border border-blue-500/30 px-1.5 py-0.5 rounded font-mono font-bold">
+                  {currentUser?.teamCode || 'SAFE-692'}
+                </span>
+              </div>
+            </div>
 
-          {/* 3. Active Chat Window */}
-          <ChatArea
-            conversation={activeConversation}
-            messages={currentMessages}
-            cannedResponses={cannedResponses}
-            onSendMessage={handleSendMessage}
-            onAssignToMe={handleAssignToMe}
-            onResolve={handleResolve}
-          />
+            {/* Quick Language Toggle */}
+            <button
+              onClick={() => setLang(lang === 'my' ? 'en' : 'my')}
+              className="px-2 py-1 bg-slate-800 text-slate-200 rounded-lg text-xs font-bold border border-slate-700 flex items-center gap-1 transition"
+            >
+              <Globe size={12} className="text-blue-400" />
+              <span>{lang === 'my' ? '🇲🇲 MM' : '🇬🇧 EN'}</span>
+            </button>
+          </header>
+        )}
 
-          {/* 4. Customer Unified Profile & CRM Info */}
-          {activeConversation && (
-            <CustomerProfile
-              customer={activeConversation.customer}
-              conversation={activeConversation}
-              onUpdateCustomer={(updated) => {
-                setConversations((prev) => {
-                  const updatedList = prev.map((c) =>
-                    c.id === activeConversationId
-                      ? {
-                          ...c,
-                          customer: { ...c.customer, ...updated },
+        {/* Dynamic Views Container */}
+        <div className="flex-1 flex overflow-hidden relative">
+          {activeNav === 'inbox' && (
+            <div className="flex flex-1 h-full overflow-hidden relative">
+              {/* 2. Conversation Triage List */}
+              <div
+                className={`h-full flex-col ${
+                  activeConversationId ? 'hidden md:flex w-80 lg:w-96 shrink-0' : 'flex w-full md:w-80 lg:w-96 shrink-0'
+                }`}
+              >
+                <ConversationList
+                  conversations={conversations}
+                  activeId={activeConversationId}
+                  onSelect={(id) => {
+                    setActiveConversationId(id);
+                    setConversations((prev) => {
+                      const updated = prev.map((c) => (c.id === id ? { ...c, unreadCount: 0 } : c));
+                      try { localStorage.setItem(convStorageKey, JSON.stringify(updated)); } catch {}
+                      return updated;
+                    });
+                  }}
+                  activeFilter={activeFilter}
+                  setActiveFilter={setActiveFilter}
+                  searchQuery={searchQuery}
+                  setSearchQuery={setSearchQuery}
+                  onSimulateTelegramMessage={() => {
+                    let botName = '@MyTelegramBot';
+                    try {
+                      const rawChan = localStorage.getItem(channelStorageKey);
+                      if (rawChan) {
+                        const parsed = JSON.parse(rawChan);
+                        const tg = parsed.find((c: any) => c.type === 'TELEGRAM' && c.isActive);
+                        if (tg?.accountName && tg.accountName !== 'မချိတ်ဆက်ရသေးပါ') {
+                          botName = tg.accountName;
                         }
-                      : c
-                  );
-                  try { localStorage.setItem(convStorageKey, JSON.stringify(updatedList)); } catch {}
-                  return updatedList;
-                });
-              }}
-              onRequestContact={() => {
-                handleSendMessage(
-                  'လူကြီးမင်း၏ အော်ဒါအား အမြန်ဆုံး ပို့ဆောင်ပေးနိုင်ရန် ဆက်သွယ်ရမည့် ဖုန်းနံပါတ်နှင့် ပို့ဆောင်ရမည့် လိပ်စာလေး ပြောပြပေးပါခင်ဗျာ။ 🙏',
-                  false
-                );
-              }}
-            />
+                      }
+                    } catch {}
+                    handleSimulateInboundMessage('TELEGRAM', botName);
+                  }}
+                />
+              </div>
+
+              {/* 3. Active Chat Window */}
+              <div
+                className={`h-full flex-1 flex-col ${
+                  activeConversationId ? 'flex' : 'hidden md:flex'
+                }`}
+              >
+                <ChatArea
+                  conversation={activeConversation}
+                  messages={currentMessages}
+                  cannedResponses={cannedResponses}
+                  onSendMessage={handleSendMessage}
+                  onAssignToMe={handleAssignToMe}
+                  onResolve={handleResolve}
+                  onBack={() => setActiveConversationId(null)}
+                  onToggleProfile={() => setShowMobileProfile((p) => !p)}
+                />
+              </div>
+
+              {/* 4. Customer Unified Profile & CRM Info (Desktop Panel: xl and above) */}
+              {activeConversation && (
+                <div className="hidden xl:flex h-full shrink-0">
+                  <CustomerProfile
+                    customer={activeConversation.customer}
+                    conversation={activeConversation}
+                    onUpdateCustomer={(updated) => {
+                      setConversations((prev) => {
+                        const updatedList = prev.map((c) =>
+                          c.id === activeConversationId
+                            ? {
+                                ...c,
+                                customer: { ...c.customer, ...updated },
+                              }
+                            : c
+                        );
+                        try { localStorage.setItem(convStorageKey, JSON.stringify(updatedList)); } catch {}
+                        return updatedList;
+                      });
+                    }}
+                    onRequestContact={() => {
+                      handleSendMessage(
+                        'လူကြီးမင်း၏ အော်ဒါအား အမြန်ဆုံး ပို့ဆောင်ပေးနိုင်ရန် ဆက်သွယ်ရမည့် ဖုန်းနံပါတ်နှင့် ပို့ဆောင်ရမည့် လိပ်စာလေး ပြောပြပေးပါခင်ဗျာ။ 🙏',
+                        false
+                      );
+                    }}
+                  />
+                </div>
+              )}
+
+              {/* Mobile / Tablet Slide-Up Drawer for Customer Profile */}
+              {activeConversation && showMobileProfile && (
+                <div className="fixed inset-0 z-50 xl:hidden flex flex-col justify-end">
+                  <div
+                    className="fixed inset-0 bg-black/60 backdrop-blur-xs"
+                    onClick={() => setShowMobileProfile(false)}
+                  />
+                  <div className="relative z-10 w-full bg-white rounded-t-3xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-200">
+                    <div className="px-5 py-3 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+                      <span className="font-bold text-sm text-slate-800">ဝယ်သူ အချက်အလက် (Customer Profile)</span>
+                      <button
+                        onClick={() => setShowMobileProfile(false)}
+                        className="px-2.5 py-1 bg-slate-200 hover:bg-slate-300 rounded-lg text-xs font-bold text-slate-700"
+                      >
+                        ✕ ပိတ်မည်
+                      </button>
+                    </div>
+                    <div className="flex-1 overflow-y-auto">
+                      <CustomerProfile
+                        customer={activeConversation.customer}
+                        conversation={activeConversation}
+                        onUpdateCustomer={(updated) => {
+                          setConversations((prev) => {
+                            const updatedList = prev.map((c) =>
+                              c.id === activeConversationId
+                                ? {
+                                    ...c,
+                                    customer: { ...c.customer, ...updated },
+                                  }
+                                : c
+                            );
+                            try { localStorage.setItem(convStorageKey, JSON.stringify(updatedList)); } catch {}
+                            return updatedList;
+                          });
+                        }}
+                        onRequestContact={() => {
+                          handleSendMessage(
+                            'လူကြီးမင်း၏ အော်ဒါအား အမြန်ဆုံး ပို့ဆောင်ပေးနိုင်ရန် ဆက်သွယ်ရမည့် ဖုန်းနံပါတ်နှင့် ပို့ဆောင်ရမည့် လိပ်စာလေး ပြောပြပေးပါခင်ဗျာ။ 🙏',
+                            false
+                          );
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
-        </>
-      )}
 
-      {/* 2. Full Customer CRM View */}
-      {activeNav === 'customers' && (
-        <CustomersView
-          customers={conversations.map((c) => c.customer)}
-          lang={lang}
-        />
-      )}
+          {/* 2. Full Customer CRM View */}
+          {activeNav === 'customers' && (
+            <div className="flex-1 h-full overflow-y-auto pb-16 md:pb-0">
+              <CustomersView
+                customers={conversations.map((c) => c.customer)}
+                lang={lang}
+              />
+            </div>
+          )}
 
-      {/* 3. Multi-Channel Integration Hub View */}
-      {activeNav === 'channels' && (
-        <ChannelsView
-          quotaDetails={quotaDetails}
-          lang={lang}
-          currentUser={currentUser || undefined}
-          onBotConnected={(botName) => {
-            handleSimulateInboundMessage('TELEGRAM', botName);
-          }}
-          onSendTestMessage={(channelType, botName) => {
-            handleSimulateInboundMessage(channelType, botName);
-          }}
-        />
-      )}
+          {/* 3. Multi-Channel Integration Hub View */}
+          {activeNav === 'channels' && (
+            <div className="flex-1 h-full overflow-y-auto pb-16 md:pb-0">
+              <ChannelsView
+                quotaDetails={quotaDetails}
+                lang={lang}
+                currentUser={currentUser || undefined}
+                onBotConnected={(botName) => {
+                  handleSimulateInboundMessage('TELEGRAM', botName);
+                }}
+                onSendTestMessage={(channelType, botName) => {
+                  handleSimulateInboundMessage(channelType, botName);
+                }}
+              />
+            </div>
+          )}
 
-      {/* 4. Gemini AI Sales Bot Assistant View */}
-      {activeNav === 'ai' && <AiBotView lang={lang} />}
+          {/* 4. Gemini AI Sales Bot Assistant View */}
+          {activeNav === 'ai' && (
+            <div className="flex-1 h-full overflow-y-auto pb-16 md:pb-0">
+              <AiBotView lang={lang} />
+            </div>
+          )}
 
-      {/* 5. Settings & Subscription Billing View */}
-      {activeNav === 'settings' && <SettingsView lang={lang} />}
+          {/* 5. Settings & Subscription Billing View */}
+          {activeNav === 'settings' && (
+            <div className="flex-1 h-full overflow-y-auto pb-16 md:pb-0">
+              <SettingsView lang={lang} />
+            </div>
+          )}
+        </div>
+
+        {/* Mobile Bottom Navigation Bar (Hidden when actively chatting or on desktop) */}
+        {!(activeNav === 'inbox' && activeConversationId) && (
+          <nav className="h-16 bg-slate-900 border-t border-slate-800 flex items-center justify-around px-2 md:hidden shrink-0 z-30 select-none">
+            <button
+              onClick={() => {
+                setActiveNav('inbox');
+                setActiveConversationId(null);
+              }}
+              className={`flex flex-col items-center justify-center flex-1 py-1 relative ${
+                activeNav === 'inbox' ? 'text-blue-400 font-bold' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <div className="relative">
+                <MessageSquare size={19} />
+                {unreadTotal > 0 && (
+                  <span className="absolute -top-1 -right-2 px-1.5 py-0.2 bg-blue-500 text-white rounded-full text-[9px] font-bold">
+                    {unreadTotal}
+                  </span>
+                )}
+              </div>
+              <span className="text-[10px] mt-1">Inbox</span>
+            </button>
+
+            <button
+              onClick={() => setActiveNav('customers')}
+              className={`flex flex-col items-center justify-center flex-1 py-1 ${
+                activeNav === 'customers' ? 'text-blue-400 font-bold' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Users size={19} />
+              <span className="text-[10px] mt-1">CRM</span>
+            </button>
+
+            <button
+              onClick={() => setActiveNav('channels')}
+              className={`flex flex-col items-center justify-center flex-1 py-1 ${
+                activeNav === 'channels' ? 'text-blue-400 font-bold' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Layers size={19} />
+              <span className="text-[10px] mt-1">ချန်နယ်</span>
+            </button>
+
+            <button
+              onClick={() => setActiveNav('ai')}
+              className={`flex flex-col items-center justify-center flex-1 py-1 ${
+                activeNav === 'ai' ? 'text-blue-400 font-bold' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Bot size={19} />
+              <span className="text-[10px] mt-1">AI စက်</span>
+            </button>
+
+            <button
+              onClick={() => setActiveNav('settings')}
+              className={`flex flex-col items-center justify-center flex-1 py-1 ${
+                activeNav === 'settings' ? 'text-blue-400 font-bold' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <SettingsIcon size={19} />
+              <span className="text-[10px] mt-1">ဆက်တင်</span>
+            </button>
+          </nav>
+        )}
+      </div>
     </div>
   );
 }
