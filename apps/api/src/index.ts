@@ -79,10 +79,13 @@ app.use('/api/v1/auth', authRouter);
 // =========================================================================
 // Mobile Android APK Download Service (Capacitor Standalone APK)
 // =========================================================================
-app.get(['/download/apk', '/app.apk', '/download/chatechat.apk'], (_req, res) => {
+app.get(['/download/apk', '/app.apk', '/apk', '/dl', '/download/chatechat.apk'], (_req, res) => {
   const possiblePaths = [
     path.resolve(__dirname, '../static/releases/ChateChat.apk'),
     path.resolve(__dirname, '../../api/static/releases/ChateChat.apk'),
+    path.resolve(__dirname, '../../apps/api/static/releases/ChateChat.apk'),
+    path.resolve(process.cwd(), 'apps/api/static/releases/ChateChat.apk'),
+    path.resolve(process.cwd(), 'static/releases/ChateChat.apk'),
     path.resolve(__dirname, '../../dashboard/android/app/build/outputs/apk/debug/app-debug.apk'),
     path.resolve(__dirname, '../../dashboard/android/app/build/outputs/apk/release/app-release.apk'),
     path.resolve(__dirname, '../../../releases/ChateChat.apk'),
@@ -91,6 +94,7 @@ app.get(['/download/apk', '/app.apk', '/download/chatechat.apk'], (_req, res) =>
   for (const apkPath of possiblePaths) {
     if (fs.existsSync(apkPath)) {
       res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+      res.setHeader('Content-Disposition', 'attachment; filename="ChateChat.apk"');
       return res.download(apkPath, 'ChateChat.apk', (err) => {
         if (err && !res.headersSent) {
           res.status(500).json({ status: 'error', message: 'Download error' });

@@ -317,14 +317,14 @@ class TelegramPollingService {
       lowerText.includes('ဒေါင်း');
 
     if (isStartCmd || isGreeting || isApkQuery) {
-      const apkUrl = process.env.APK_DOWNLOAD_URL || 'https://chatechat.onrender.com/download/apk';
+      const apkUrl = process.env.APK_DOWNLOAD_URL || 'https://tinyurl.com/chatechat-app';
       const webUrl = 'https://chatechat.onrender.com';
 
       const replyText = `မင်္ဂလာပါခင်ဗျာ 🙏 <b>ChateChat (ချိတ်ချက်)</b> မှ နွေးထွေးစွာ ကြိုဆိုပါသည်! 📱
 
-Android ဖုန်းအတွက် Mobile App (APK) အား အောက်ပါ Download Link မှတစ်ဆင့် တိုက်ရိုက် ရယူနိုင်ပါပြီခင်ဗျာ -
+Android ဖုန်းအတွက် Mobile App (APK) အား အောက်ပါ Short Link မှတစ်ဆင့် တိုက်ရိုက် ရယူနိုင်ပါပြီခင်ဗျာ -
 
-📲 <b>APK တိုက်ရိုက် ဒေါင်းလုဒ် Link:</b>
+📲 <b>APK ဒေါင်းလုဒ် Short Link:</b>
 ${apkUrl}
 
 🌐 <b>Web Dashboard ဖြင့် တိုက်ရိုက်သုံးရန်:</b>
