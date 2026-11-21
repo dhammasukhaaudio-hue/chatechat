@@ -129,7 +129,7 @@ class TelegramPollingService {
     try {
       // 1. Validate token with getMe
       console.log(`🤖 [TELEGRAM] Verifying Bot Token with Telegram API...`);
-      const meRes = await fetch(`https://api.telegram.org/bot${cleanToken}/getMe`, { signal: AbortSignal.timeout(8000) });
+      const meRes = await fetch(`https://api.telegram.org/bot${cleanToken}/getMe`, { signal: AbortSignal.timeout(15000) });
       const meData = await meRes.json() as any;
 
       if (!meData || !meData.ok || !meData.result) {

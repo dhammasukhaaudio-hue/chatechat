@@ -577,7 +577,7 @@ export default function InboxPage() {
       // Auto-heal Telegram polling if backend restarted or container was recreated
       const checkAndAutoResumeTelegram = () => {
         try {
-          const savedToken = localStorage.getItem('chatechat_telegram_token_' + orgId) || (orgId === 'org_royal' ? localStorage.getItem('chatechat_telegram_token') : null);
+          const savedToken = localStorage.getItem('chatechat_telegram_token_' + orgId) || localStorage.getItem('chatechat_telegram_token');
           if (savedToken) {
             fetch(`${getApiBaseUrl()}/api/v1/webhooks/telegram/status?organizationId=${encodeURIComponent(orgId)}`)
               .then((r) => r.json())
