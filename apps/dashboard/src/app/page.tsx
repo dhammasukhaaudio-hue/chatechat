@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Sidebar } from '../components/Sidebar';
 import { ConversationList } from '../components/ConversationList';
 import { ChatArea } from '../components/ChatArea';
@@ -284,6 +284,10 @@ export default function InboxPage() {
   const [activeFilter, setActiveFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeConversationId, setActiveConversationId] = useState<string | null>('conv_1');
+  const activeConvIdRef = useRef<string | null>(activeConversationId);
+  useEffect(() => {
+    activeConvIdRef.current = activeConversationId;
+  }, [activeConversationId]);
   const [lang, setLang] = useState<Language>('my');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showMobileProfile, setShowMobileProfile] = useState(false);
@@ -502,7 +506,7 @@ export default function InboxPage() {
                     const entry = chats[key];
                     if (entry && entry.conv) {
                       const idx = updated.findIndex((c) => c.id === entry.conv.id);
-                      const isCurrentlyActive = activeConversationId === entry.conv.id;
+                      const isCurrentlyActive = activeConvIdRef.current === entry.conv.id;
                       const targetUnread = isCurrentlyActive ? 0 : entry.conv.unreadCount;
                       if (idx >= 0) {
                         if (
@@ -537,12 +541,18 @@ export default function InboxPage() {
                   for (const key of chatKeys) {
                     const entry = chats[key];
                     if (entry && Array.isArray(entry.messages)) {
-                      // Deduplicate server messages strictly by id
-                      const seen = new Set<string>();
+                      // Deduplicate server messages by id AND content/sender/timestamp
                       const cleanServerMessages: Message[] = [];
                       for (const msg of entry.messages) {
-                        if (!seen.has(msg.id)) {
-                          seen.add(msg.id);
+                        const isDup = cleanServerMessages.some(
+                          (m) =>
+                            m.id === msg.id ||
+                            (msg.clientMessageId && (m.id === msg.clientMessageId || m.clientMessageId === msg.clientMessageId)) ||
+                            (m.senderType === msg.senderType &&
+                              m.content?.trim() === msg.content?.trim() &&
+                              Math.abs(new Date(m.createdAt).getTime() - new Date(msg.createdAt).getTime()) < 15000)
+                        );
+                        if (!isDup) {
                           cleanServerMessages.push(msg);
                         }
                       }
@@ -802,13 +812,22 @@ export default function InboxPage() {
     onIncomingMessage: (data) => {
       const { message, conversation } = data;
       if (!message || !message.conversationId) return;
+      const convId = message.conversationId;
+      const isCurrentlyActive = activeConvIdRef.current === convId;
+
       setMessages((prev) => {
-        const currentList = prev[message.conversationId] || [];
-        const isDuplicate = currentList.some((m) => m.id === message.id);
+        const currentList = prev[convId] || [];
+        const isDuplicate = currentList.some(
+          (m) =>
+            m.id === message.id ||
+            (m.senderType === message.senderType &&
+              m.content?.trim() === message.content?.trim() &&
+              Math.abs(new Date(m.createdAt).getTime() - new Date(message.createdAt).getTime()) < 15000)
+        );
         if (isDuplicate) return prev;
         const next = {
           ...prev,
-          [message.conversationId]: [...currentList, message],
+          [convId]: [...currentList, message],
         };
         try { localStorage.setItem(msgStorageKey, JSON.stringify(next)); } catch {}
         return next;
@@ -816,7 +835,6 @@ export default function InboxPage() {
       if (conversation && conversation.id) {
         setConversations((prev) => {
           const exists = prev.some((c) => c.id === conversation.id);
-          const isCurrentlyActive = activeConversationId === conversation.id;
           const next = exists
             ? prev.map((c) =>
                 c.id === conversation.id
@@ -829,7 +847,7 @@ export default function InboxPage() {
                     }
                   : c
               )
-            : [conversation, ...prev];
+            : [{ ...conversation, unreadCount: isCurrentlyActive ? 0 : 1 }, ...prev];
           try { localStorage.setItem(convStorageKey, JSON.stringify(next)); } catch {}
           return next;
         });
@@ -846,9 +864,8 @@ export default function InboxPage() {
           (m) =>
             m.id === message.id ||
             (clientMsgId && (m.id === clientMsgId || m.clientMessageId === clientMsgId)) ||
-            (m.id.startsWith('m_') &&
-              m.senderType === 'AGENT' &&
-              m.content === message.content &&
+            (m.senderType === message.senderType &&
+              m.content?.trim() === message.content?.trim() &&
               Math.abs(new Date(m.createdAt).getTime() - new Date(message.createdAt).getTime()) < 15000)
         );
         let nextList: Message[];
@@ -1220,6 +1237,7 @@ export default function InboxPage() {
                   activeId={activeConversationId}
                   onSelect={(id) => {
                     setActiveConversationId(id);
+                    activeConvIdRef.current = id;
                     setConversations((prev) => {
                       const updated = prev.map((c) => (c.id === id ? { ...c, unreadCount: 0 } : c));
                       try { localStorage.setItem(convStorageKey, JSON.stringify(updated)); } catch {}

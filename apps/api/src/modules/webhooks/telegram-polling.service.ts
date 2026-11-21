@@ -89,6 +89,24 @@ class TelegramPollingService {
   private lastMessageTimestamp: string | null = null;
   private idleCheckerTimer: NodeJS.Timeout | null = null;
   private sentClientMessageIds = new Map<string, number>();
+  private processedUpdateKeys = new Map<string, number>();
+  private lastAutoReplyPerChat = new Map<string, number>();
+
+  private isUpdateProcessed(key: string): boolean {
+    const now = Date.now();
+    if (this.processedUpdateKeys.size > 2000) {
+      const cutoff = now - 300000; // 5 mins TTL
+      for (const [k, v] of this.processedUpdateKeys) {
+        if (v < cutoff) this.processedUpdateKeys.delete(k);
+      }
+    }
+    const lastTime = this.processedUpdateKeys.get(key);
+    if (lastTime && now - lastTime < 180000) { // 3 mins dedupe window
+      return true;
+    }
+    this.processedUpdateKeys.set(key, now);
+    return false;
+  }
 
   constructor() {
     this.loadConfig();
@@ -351,6 +369,16 @@ class TelegramPollingService {
     const chatId = chat.id.toString();
     const convId = `conv_tg_${chatId}`;
 
+    // Deduplication check: drop duplicate update_id or message_id arriving within 3 minutes
+    if (update.update_id && this.isUpdateProcessed(`upd_${update.update_id}`)) {
+      console.log(`🛡️ [TELEGRAM DEDUPE] Dropping duplicate update_id: ${update.update_id}`);
+      return;
+    }
+    if (msg?.message_id && this.isUpdateProcessed(`msg_${chatId}_${msg.message_id}`)) {
+      console.log(`🛡️ [TELEGRAM DEDUPE] Dropping duplicate message_id: ${msg.message_id} in chat ${chatId}`);
+      return;
+    }
+
     // Check if human agent is currently active on this conversation
     const savedConv = this.getSavedConversation(convId);
     let isAgentActive = savedConv?.handoverStatus === 'TRANSFERRED_TO_AGENT';
@@ -467,10 +495,9 @@ class TelegramPollingService {
     // Save to persistent file
     this.saveMessageToHistory(convId, conversation, message);
 
-    // Emit live events to connected agents of THIS specific organization and all agents
+    // Emit live event once to all connected agents across the workspace
     if (this.io) {
-      console.log(`⚡ [SOCKET.IO] Emitting chat:incoming_message to room: org:${orgId} and broadcast`);
-      this.io.to(`org:${orgId}`).emit('chat:incoming_message', { conversation, message });
+      console.log(`⚡ [SOCKET.IO] Emitting chat:incoming_message for conv: ${convId}`);
       this.io.emit('chat:incoming_message', { conversation, message });
     }
 
@@ -492,6 +519,12 @@ class TelegramPollingService {
         lowerText.includes('ဒေါင်း');
 
       if (isStartCmd || isGreeting || isApkQuery) {
+        const lastAutoTime = this.lastAutoReplyPerChat.get(chatId) || 0;
+        if (Date.now() - lastAutoTime < 15000) {
+          console.log(`🛡️ [TELEGRAM DEDUPE] Auto-reply already sent to chat ${chatId} within 15s. Skipping duplicate.`);
+          return;
+        }
+        this.lastAutoReplyPerChat.set(chatId, Date.now());
         const apkUrl = process.env.APK_DOWNLOAD_URL || 'https://tinyurl.com/chatechat-app';
         const webUrl = 'https://chatechat.onrender.com';
 
@@ -578,7 +611,7 @@ ${webUrl}
             (msg.clientMessageId && (m.id === msg.clientMessageId || m.clientMessageId === msg.clientMessageId)) ||
             (m.senderType === msg.senderType &&
               m.content?.trim() === msg.content?.trim() &&
-              Math.abs(new Date(m.createdAt).getTime() - new Date(msg.createdAt).getTime()) < 1500)
+              Math.abs(new Date(m.createdAt).getTime() - new Date(msg.createdAt).getTime()) < 15000)
         );
         if (existingIdx >= 0) {
           messages[existingIdx] = { ...messages[existingIdx], ...msg };
@@ -608,7 +641,7 @@ ${webUrl}
                 (m.clientMessageId && prev.clientMessageId === m.clientMessageId) ||
                 (prev.senderType === m.senderType &&
                   prev.content?.trim() === m.content?.trim() &&
-                  Math.abs(new Date(prev.createdAt).getTime() - new Date(m.createdAt).getTime()) < 1500)
+                  Math.abs(new Date(prev.createdAt).getTime() - new Date(m.createdAt).getTime()) < 15000)
             );
             if (!isDup) clean.push(m);
           }
@@ -835,14 +868,12 @@ ${webUrl}
         this.saveMessageToHistory(convId, convUpdates, agentMsg);
 
         if (this.io) {
-          const orgId = this.config?.organizationId || 'org_royal';
           const payload = {
             conversation: { id: convId, lastMessageSnippet: text, lastMessageAt: nowIso, handoverStatus: convUpdates.handoverStatus || 'BOT_HANDLING' },
             message: agentMsg,
             conversationId: convId,
             clientMessageId,
           };
-          this.io.to(`org:${orgId}`).emit('chat:outgoing_message', payload);
           this.io.emit('chat:outgoing_message', payload);
         }
 

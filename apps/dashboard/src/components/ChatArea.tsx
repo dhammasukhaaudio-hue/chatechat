@@ -27,6 +27,49 @@ interface ChatAreaProps {
   onToggleProfile?: () => void;
 }
 
+// Safely render message text with bold tags and clickable hyperlinks without showing raw <b> tags
+const renderFormattedContent = (content: string, isCustomer: boolean, isBot: boolean) => {
+  if (!content) return null;
+
+  const parts = content.split(/(<b>[\s\S]*?<\/b>|<strong>[\s\S]*?<\/strong>|https?:\/\/[^\s]+)/g);
+
+  return parts.map((part, idx) => {
+    if (!part) return null;
+
+    const boldMatch = part.match(/^<(?:b|strong)>([\s\S]*?)<\/(?:b|strong)>$/);
+    if (boldMatch) {
+      return (
+        <strong key={idx} className="font-bold">
+          {boldMatch[1]}
+        </strong>
+      );
+    }
+
+    if (/^https?:\/\/[^\s]+$/.test(part)) {
+      return (
+        <a
+          key={idx}
+          href={part}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`underline underline-offset-2 break-all ${
+            isCustomer
+              ? 'text-blue-600 hover:text-blue-800'
+              : isBot
+              ? 'text-blue-700 hover:text-blue-900 font-medium'
+              : 'text-white underline hover:text-blue-100 font-medium'
+          }`}
+        >
+          {part}
+        </a>
+      );
+    }
+
+    const cleanText = part.replace(/<\/?[^>]+(>|$)/g, '');
+    return <span key={idx}>{cleanText}</span>;
+  });
+};
+
 export const ChatArea: React.FC<ChatAreaProps> = ({
   conversation,
   messages,
@@ -225,7 +268,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 </div>
 
                 <div
-                  className={`p-3.5 rounded-2xl text-sm leading-relaxed shadow-sm break-words ${
+                  className={`p-3.5 rounded-2xl text-sm leading-relaxed shadow-sm break-words whitespace-pre-wrap ${
                     isCustomer
                       ? 'bg-white text-slate-800 border border-slate-200/80 rounded-tl-sm'
                       : isBot
@@ -242,7 +285,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                       />
                     </div>
                   )}
-                  <p>{msg.content}</p>
+                  <div className="whitespace-pre-wrap leading-relaxed">{renderFormattedContent(msg.content, isCustomer, isBot)}</div>
                 </div>
 
                 {!isCustomer && (

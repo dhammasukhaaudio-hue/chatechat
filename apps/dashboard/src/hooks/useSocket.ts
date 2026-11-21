@@ -22,6 +22,18 @@ export function useSocket({
 }: UseSocketProps) {
   const socketRef = useRef<Socket | null>(null);
 
+  const onIncomingMessageRef = useRef(onIncomingMessage);
+  onIncomingMessageRef.current = onIncomingMessage;
+
+  const onOutgoingMessageRef = useRef(onOutgoingMessage);
+  onOutgoingMessageRef.current = onOutgoingMessage;
+
+  const onConversationAssignedRef = useRef(onConversationAssigned);
+  onConversationAssignedRef.current = onConversationAssigned;
+
+  const onConversationResolvedRef = useRef(onConversationResolved);
+  onConversationResolvedRef.current = onConversationResolved;
+
   // Native Web Audio chime for incoming messages
   const playChime = () => {
     try {
@@ -65,12 +77,12 @@ export function useSocket({
     const handleIncoming = (data: any) => {
       console.log('⚡ [SOCKET EVENT RECEIVED] Inbound customer message:', data);
       playChime();
-      if (onIncomingMessage) onIncomingMessage(data);
+      if (onIncomingMessageRef.current) onIncomingMessageRef.current(data);
     };
 
     const handleOutgoing = (data: any) => {
       console.log('⚡ [SOCKET EVENT RECEIVED] Outbound message:', data);
-      if (onOutgoingMessage) onOutgoingMessage(data);
+      if (onOutgoingMessageRef.current) onOutgoingMessageRef.current(data);
     };
 
     // Clean single-listener registrations (no duplicates)
@@ -78,11 +90,11 @@ export function useSocket({
     socket.on('chat:outgoing_message', handleOutgoing);
 
     socket.on(SOCKET_EVENTS.CONVERSATION_ASSIGNED, (data) => {
-      if (onConversationAssigned) onConversationAssigned(data);
+      if (onConversationAssignedRef.current) onConversationAssignedRef.current(data);
     });
 
     socket.on(SOCKET_EVENTS.CONVERSATION_RESOLVED, (data) => {
-      if (onConversationResolved) onConversationResolved(data);
+      if (onConversationResolvedRef.current) onConversationResolvedRef.current(data);
     });
 
     return () => {
