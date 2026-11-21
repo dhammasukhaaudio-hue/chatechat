@@ -487,11 +487,7 @@ export default function InboxPage() {
           } catch {}
         }
 
-        // If not connected and not org_royal, do not pull other people's chats!
-        if (!isTgConnected && orgId !== 'org_royal') {
-          return;
-        }
-
+        // Always fetch Telegram chats so all agents in the workspace can view customer conversations
         fetch(`${getApiBaseUrl()}/api/v1/webhooks/telegram/chats?organizationId=${encodeURIComponent(orgId)}`)
           .then((r) => r.json())
           .then((data) => {

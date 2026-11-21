@@ -62,6 +62,7 @@ export interface TelegramBotConfig {
   mode?: 'POLLING' | 'WEBHOOK_RELAY';
   webhookUrl?: string;
   agentIdleTimeoutMinutes?: number;
+  assignAllAgents?: boolean;
 }
 
 const DATA_DIR = path.resolve(__dirname, '../../../data');
@@ -169,6 +170,7 @@ class TelegramPollingService {
       forwardWebhookUrl?: string;
       disableAutoReply?: boolean;
       mode?: 'POLLING' | 'WEBHOOK_RELAY';
+      assignAllAgents?: boolean;
     }
   ): Promise<{ success: boolean; botUsername?: string; botId?: string; error?: string; webhookUrl?: string; mode?: string }> {
     if (io) this.io = io;
@@ -235,6 +237,7 @@ class TelegramPollingService {
         disableAutoReply: options?.disableAutoReply ?? (!!options?.forwardWebhookUrl),
         mode: effectiveMode,
         webhookUrl,
+        assignAllAgents: options?.assignAllAgents ?? true,
       };
       this.saveConfig();
 
@@ -453,10 +456,11 @@ class TelegramPollingService {
     // Save to persistent file
     this.saveMessageToHistory(convId, conversation, message);
 
-    // Emit live events ONLY ONCE to connected agents of THIS specific organization
+    // Emit live events to connected agents of THIS specific organization and all agents
     if (this.io) {
-      console.log(`⚡ [SOCKET.IO] Emitting chat:incoming_message strictly to room: org:${orgId}`);
+      console.log(`⚡ [SOCKET.IO] Emitting chat:incoming_message to room: org:${orgId} and broadcast`);
       this.io.to(`org:${orgId}`).emit('chat:incoming_message', { conversation, message });
+      this.io.emit('chat:incoming_message', { conversation, message });
     }
 
     // =========================================================================
@@ -601,17 +605,17 @@ ${webUrl}
           return clean;
         };
 
-        if (!organizationId || organizationId === 'all') {
+        if (!organizationId || organizationId === 'all' || this.config?.organizationId === 'all' || this.config?.assignAllAgents) {
           for (const k of Object.keys(history)) {
             if (history[k]?.messages) history[k].messages = dedupeMessages(history[k].messages);
           }
           return history;
         }
-        // Multi-tenant: filter chats strictly for the requesting organization
+        // Multi-tenant: filter chats strictly for the requesting organization, or fallback to shop chats
         const filtered: Record<string, { conv: any; messages: any[] }> = {};
         for (const [key, value] of Object.entries(history as Record<string, { conv: any; messages: any[] }>)) {
           const convOrg = value?.conv?.organizationId || 'org_royal';
-          if (convOrg === organizationId) {
+          if (convOrg === organizationId || convOrg === 'org_royal' || convOrg === 'all') {
             filtered[key] = {
               ...value,
               messages: dedupeMessages(value?.messages || []),
@@ -829,6 +833,7 @@ ${webUrl}
             clientMessageId,
           };
           this.io.to(`org:${orgId}`).emit('chat:outgoing_message', payload);
+          this.io.emit('chat:outgoing_message', payload);
         }
 
         return {
