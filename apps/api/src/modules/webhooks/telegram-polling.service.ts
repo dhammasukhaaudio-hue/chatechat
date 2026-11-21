@@ -615,14 +615,14 @@ ${webUrl}
 
     if (this.io) {
       const orgId = organizationId || this.config?.organizationId || 'org_royal';
-      this.io.to(`org:${orgId}`).emit('chat:incoming_message', {
+      const payload = {
         conversation: { id: convId, lastMessageSnippet: text, lastMessageAt: nowIso },
         message: botMsg,
-      });
-      this.io.to(`org:${orgId}`).emit('INCOMING_MESSAGE', {
-        conversation: { id: convId, lastMessageSnippet: text, lastMessageAt: nowIso },
-        message: botMsg,
-      });
+        conversationId: convId,
+      };
+      this.io.to(`org:${orgId}`).emit('chat:incoming_message', payload);
+      this.io.to(`org:${orgId}`).emit('INCOMING_MESSAGE', payload);
+      this.io.to(`org:${orgId}`).emit('OUTGOING_MESSAGE', payload);
     }
 
     return { success: true };
@@ -690,10 +690,14 @@ ${webUrl}
 
         if (this.io) {
           const orgId = this.config?.organizationId || 'org_royal';
-          this.io.to(`org:${orgId}`).emit('chat:incoming_message', {
+          const payload = {
             conversation: { id: convId, lastMessageSnippet: text, lastMessageAt: nowIso, handoverStatus: convUpdates.handoverStatus || 'BOT_HANDLING' },
             message: agentMsg,
-          });
+            conversationId: convId,
+          };
+          this.io.to(`org:${orgId}`).emit('chat:incoming_message', payload);
+          this.io.to(`org:${orgId}`).emit('INCOMING_MESSAGE', payload);
+          this.io.to(`org:${orgId}`).emit('OUTGOING_MESSAGE', payload);
         }
 
         return {
@@ -734,10 +738,14 @@ ${webUrl}
 
         if (this.io) {
           const orgId = this.config?.organizationId || 'org_royal';
-          this.io.to(`org:${orgId}`).emit('chat:incoming_message', {
+          const payload = {
             conversation: { id: convId, lastMessageSnippet: text, lastMessageAt: nowIso },
             message: agentMsg,
-          });
+            conversationId: convId,
+          };
+          this.io.to(`org:${orgId}`).emit('chat:incoming_message', payload);
+          this.io.to(`org:${orgId}`).emit('INCOMING_MESSAGE', payload);
+          this.io.to(`org:${orgId}`).emit('OUTGOING_MESSAGE', payload);
         }
 
         return { success: true, externalMessageId: plainData.result?.message_id?.toString() };

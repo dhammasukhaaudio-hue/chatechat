@@ -746,28 +746,58 @@ export default function InboxPage() {
     agentId: currentUser?.id || 'agent_1',
     onIncomingMessage: (data) => {
       const { message, conversation } = data;
+      if (!message || !message.conversationId) return;
       setMessages((prev) => {
+        const currentList = prev[message.conversationId] || [];
+        if (currentList.some((m) => m.id === message.id)) return prev;
         const next = {
           ...prev,
-          [message.conversationId]: [...(prev[message.conversationId] || []), message],
+          [message.conversationId]: [...currentList, message],
+        };
+        try { localStorage.setItem(msgStorageKey, JSON.stringify(next)); } catch {}
+        return next;
+      });
+      if (conversation && conversation.id) {
+        setConversations((prev) => {
+          const exists = prev.some((c) => c.id === conversation.id);
+          const next = exists
+            ? prev.map((c) =>
+                c.id === conversation.id
+                  ? {
+                      ...c,
+                      lastMessageSnippet: message.content,
+                      lastMessageAt: message.createdAt,
+                      unreadCount: (c.unreadCount || 0) + (message.senderType === 'CUSTOMER' ? 1 : 0),
+                      handoverStatus: conversation.handoverStatus || c.handoverStatus,
+                    }
+                  : c
+              )
+            : [conversation, ...prev];
+          try { localStorage.setItem(convStorageKey, JSON.stringify(next)); } catch {}
+          return next;
+        });
+      }
+    },
+    onOutgoingMessage: (data) => {
+      const { message, conversationId } = data;
+      const convId = conversationId || message?.conversationId;
+      if (!convId || !message) return;
+      setMessages((prev) => {
+        const currentList = prev[convId] || [];
+        if (currentList.some((m) => m.id === message.id)) return prev;
+        const next = {
+          ...prev,
+          [convId]: [...currentList, message],
         };
         try { localStorage.setItem(msgStorageKey, JSON.stringify(next)); } catch {}
         return next;
       });
       setConversations((prev) => {
-        const exists = prev.some((c) => c.id === conversation.id);
-        const next = exists
-          ? prev.map((c) =>
-              c.id === conversation.id
-                ? {
-                    ...c,
-                    lastMessageSnippet: message.content,
-                    lastMessageAt: message.createdAt,
-                    unreadCount: c.unreadCount + 1,
-                  }
-                : c
-            )
-          : [conversation, ...prev];
+        const next = prev.map((c) =>
+          c.id === convId
+            ? { ...c, lastMessageSnippet: message.content, lastMessageAt: message.createdAt }
+            : c
+        );
         try { localStorage.setItem(convStorageKey, JSON.stringify(next)); } catch {}
         return next;
       });
