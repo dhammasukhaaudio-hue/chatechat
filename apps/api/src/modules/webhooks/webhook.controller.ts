@@ -137,10 +137,16 @@ webhookRouter.post('/tiktok/:channelId', async (req: Request, res: Response) => 
 });
 
 /**
- * 5. DIRECT TELEGRAM BOT TOKEN CONNECTION & 24/7 LONG POLLING ACTIVATION
+ * 5. DIRECT TELEGRAM BOT TOKEN CONNECTION, 24/7 POLLING OR WEBHOOK RELAY
  */
 webhookRouter.post('/connect/telegram', async (req: Request, res: Response) => {
-  const { organizationId = 'org_royal', assignAllAgents } = req.body;
+  const {
+    organizationId = 'org_royal',
+    assignAllAgents,
+    forwardWebhookUrl,
+    disableAutoReply,
+    mode,
+  } = req.body;
   const botToken = req.body.botToken || req.body.token;
 
   if (!botToken || typeof botToken !== 'string') {
@@ -151,11 +157,16 @@ webhookRouter.post('/connect/telegram', async (req: Request, res: Response) => {
   const cleanToken = botToken.trim().replace(/^["']|["']$/g, '').trim();
 
   try {
-    // Start 24/7 Live Telegram Long Polling!
+    // Start 24/7 Live Telegram Connection (Polling or Webhook Relay)
     const pollResult = await telegramPollingService.start(
       cleanToken,
       organizationId,
-      (req as any).io
+      (req as any).io || req.app.get('io'),
+      {
+        forwardWebhookUrl,
+        disableAutoReply,
+        mode,
+      }
     );
 
     if (!pollResult.success) {
@@ -165,19 +176,25 @@ webhookRouter.post('/connect/telegram', async (req: Request, res: Response) => {
       });
     }
 
-    const status = telegramPollingService.getStatus();
+    const status = telegramPollingService.getStatus(organizationId);
     const botDisplayUsername = status.botUsername || `@${cleanToken.split(':')[0]}`;
 
-    console.log(`🎉 [TELEGRAM POLLING LIVE] Successfully started 24/7 polling for ${botDisplayUsername}`);
+    console.log(`🎉 [TELEGRAM LIVE] Successfully activated ${status.mode} for ${botDisplayUsername}`);
 
     return res.json({
       success: true,
       botUsername: botDisplayUsername.replace('@', ''),
       botName: status.botName || 'Telegram Bot',
       botId: status.botId,
-      isPolling: true,
+      isPolling: status.isRunning,
+      mode: status.mode,
+      webhookUrl: status.webhookUrl,
+      forwardWebhookUrl: status.forwardWebhookUrl,
+      disableAutoReply: status.disableAutoReply,
       assignAllAgents: !!assignAllAgents,
-      message: `Telegram Bot (${botDisplayUsername}) အား ChateChat နှင့် ၂၄ နာရီ တိုက်ရိုက် စာပို့လက်ခံနိုင်ရန် အောင်မြင်စွာ ချိတ်ဆက်ပြီးပါပြီခင်ဗျာ!`,
+      message: status.mode === 'WEBHOOK_RELAY'
+        ? `Telegram Bot (${botDisplayUsername}) အား Webhook Relay စနစ်ဖြင့် အောင်မြင်စွာ ချိတ်ဆက်ပြီးပါပြီ! (Forwarding: ${status.forwardWebhookUrl || 'ChateChat Gateway'})`
+        : `Telegram Bot (${botDisplayUsername}) အား ChateChat နှင့် ၂၄ နာရီ တိုက်ရိုက် စာပို့လက်ခံနိုင်ရန် အောင်မြင်စွာ ချိတ်ဆက်ပြီးပါပြီခင်ဗျာ!`,
     });
   } catch (err: any) {
     return res.status(500).json({
@@ -212,6 +229,20 @@ webhookRouter.post('/telegram/send-message', async (req: Request, res: Response)
   }
   const result = await telegramPollingService.sendMessage(chatId.toString(), text, agentName);
   return res.json(result);
+});
+
+/**
+ * 6. OPEN INBOUND TELEGRAM UPDATE (For external bots that run their own polling/server)
+ */
+webhookRouter.post('/inbound/telegram', async (req: Request, res: Response) => {
+  try {
+    const { organizationId, update } = req.body;
+    const payload = update || req.body;
+    await telegramPollingService.processTelegramUpdate(payload, organizationId);
+    return res.status(200).json({ success: true, message: 'Telegram update ingested into ChateChat successfully' });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 /**

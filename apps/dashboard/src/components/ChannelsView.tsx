@@ -14,6 +14,8 @@ interface ChannelItem {
   isActive: boolean;
   webhookUrl: string;
   description: string;
+  forwardWebhookUrl?: string;
+  mode?: string;
 }
 
 interface ChannelsViewProps {
@@ -40,6 +42,9 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({ quotaDetails, lang, 
   const [isTelegramModalOpen, setIsTelegramModalOpen] = useState(false);
   const [telegramToken, setTelegramToken] = useState('');
   const [assignAllAgents, setAssignAllAgents] = useState(true);
+  const [integrationMode, setIntegrationMode] = useState<'STANDALONE' | 'WEBHOOK_RELAY'>('STANDALONE');
+  const [forwardWebhookUrl, setForwardWebhookUrl] = useState('');
+  const [disableAutoReply, setDisableAutoReply] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [connectSuccess, setConnectSuccess] = useState<string | null>(null);
   const [connectError, setConnectError] = useState<string | null>(null);
@@ -187,6 +192,9 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({ quotaDetails, lang, 
           botToken: cleanToken,
           organizationId: orgId,
           assignAllAgents,
+          forwardWebhookUrl: integrationMode === 'WEBHOOK_RELAY' ? forwardWebhookUrl.trim() : undefined,
+          disableAutoReply: integrationMode === 'WEBHOOK_RELAY' ? disableAutoReply : false,
+          mode: integrationMode,
         }),
       });
 
@@ -216,6 +224,8 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({ quotaDetails, lang, 
           accountName: botName,
           pageId: `id_${botId}`,
           webhookUrl: `${getApiBaseUrl()}/api/v1/webhooks/telegram/${botId}`,
+          forwardWebhookUrl: integrationMode === 'WEBHOOK_RELAY' ? forwardWebhookUrl.trim() : undefined,
+          mode: integrationMode,
         };
       }
       return c;
@@ -225,7 +235,9 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({ quotaDetails, lang, 
 
     setConnectSuccess(
       isMy
-        ? `Telegram Bot (${botName}) အား ChateChat နှင့် အောင်မြင်စွာ ချိတ်ဆက်ပြီးပါပြီခင်ဗျာ!`
+        ? integrationMode === 'WEBHOOK_RELAY'
+          ? `Telegram Bot (${botName}) အား Webhook Relay ဖြင့် အောင်မြင်စွာ ချိတ်ဆက်ပြီးပါပြီ! (Forwarding to: ${forwardWebhookUrl.trim() || 'Active'})`
+          : `Telegram Bot (${botName}) အား ChateChat နှင့် အောင်မြင်စွာ ချိတ်ဆက်ပြီးပါပြီခင်ဗျာ!`
         : `Telegram Bot (${botName}) successfully connected to ChateChat!`
     );
 
@@ -376,13 +388,31 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({ quotaDetails, lang, 
 
                 {/* Webhook / Long Polling Box */}
                 {channel.type === 'TELEGRAM' && channel.isActive ? (
-                  <div className="bg-emerald-50 p-3 rounded-xl border border-emerald-200 mb-4 space-y-1">
-                    <div className="flex items-center gap-1.5 text-emerald-900 font-bold text-[11px]">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                      <span>24/7 Live Long Polling တိုက်ရိုက်ချိတ်ဆက်ထားသည်</span>
+                  <div className="bg-emerald-50 p-3 rounded-xl border border-emerald-200 mb-4 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-emerald-900 font-bold text-[11px]">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <span>
+                          {channel.mode === 'WEBHOOK_RELAY'
+                            ? '⚡ Webhook Relay စနစ်ဖြင့် ချိတ်ဆက်ထားသည်'
+                            : '24/7 Live Long Polling တိုက်ရိုက်ချိတ်ဆက်ထားသည်'}
+                        </span>
+                      </div>
+                      {channel.mode === 'WEBHOOK_RELAY' && (
+                        <span className="text-[10px] bg-emerald-200/80 text-emerald-900 font-bold px-2 py-0.5 rounded-full">
+                          Relay Active
+                        </span>
+                      )}
                     </div>
+                    {channel.forwardWebhookUrl && (
+                      <div className="text-[11px] text-emerald-800 font-mono truncate">
+                        Forwarding: <span className="font-bold underline">{channel.forwardWebhookUrl}</span>
+                      </div>
+                    )}
                     <p className="text-[11px] text-emerald-700 leading-relaxed">
-                      Customer များ Telegram App ထဲမှနေ၍ ဤ Bot ထံသို့ စာပို့သည်နှင့် စုပေါင်း Inbox ထဲသို့ စက္ကန့်မခြား အလိုအလျောက် ချက်ချင်း ရောက်ရှိပါမည်။
+                      {channel.mode === 'WEBHOOK_RELAY'
+                        ? 'Customer စာတိုများကို ChateChat Inbox ထဲ စာရင်းသွင်းသလို သင့် Python/AI Bot ဆီသို့လည်း မပျက်မကွက် ချက်ချင်း လက်ဆင့်ကမ်းပေးနေပါသည်။'
+                        : 'Customer များ Telegram App ထဲမှနေ၍ ဤ Bot ထံသို့ စာပို့သည်နှင့် စုပေါင်း Inbox ထဲသို့ စက္ကန့်မခြား အလိုအလျောက် ချက်ချင်း ရောက်ရှိပါမည်။'}
                     </p>
                   </div>
                 ) : (
@@ -566,7 +596,7 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({ quotaDetails, lang, 
               {/* Token Input Field */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-semibold text-slate-700">Token</label>
+                  <label className="text-xs font-semibold text-slate-700">Bot Token</label>
                   <button
                     type="button"
                     onClick={() => setTelegramToken('7289104523:AAH_mexes_store_sample_token_x99')}
@@ -583,6 +613,89 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({ quotaDetails, lang, 
                   className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-mono text-xs text-slate-900 focus:outline-none focus:border-blue-500 focus:bg-white transition-all shadow-inner"
                 />
               </div>
+
+              {/* Bot Integration Mode Selector */}
+              <div className="space-y-2 pt-1">
+                <label className="text-xs font-semibold text-slate-700 block">
+                  {isMy ? 'ချိတ်ဆက်မှု စနစ် ရွေးချယ်ပါ (Integration Mode):' : 'Select Connection Mode:'}
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIntegrationMode('STANDALONE');
+                      setDisableAutoReply(false);
+                    }}
+                    className={`p-3 rounded-xl border text-left transition-all ${
+                      integrationMode === 'STANDALONE'
+                        ? 'bg-blue-50/80 border-blue-500 text-blue-900 ring-2 ring-blue-500/20'
+                        : 'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700'
+                    }`}
+                  >
+                    <div className="font-bold text-xs flex items-center justify-between">
+                      <span>🤖 ChateChat သီးသန့်</span>
+                      {integrationMode === 'STANDALONE' && <Check size={14} className="text-blue-600" />}
+                    </div>
+                    <p className="text-[10px] text-slate-500 mt-1 leading-snug">
+                      ပြင်ပ bot မရှိပါက ရွေးပါ။ ChateChat မှ ၂၄ နာရီ တိုက်ရိုက် စာပြန်ပေးမည်။
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIntegrationMode('WEBHOOK_RELAY');
+                      setDisableAutoReply(true);
+                    }}
+                    className={`p-3 rounded-xl border text-left transition-all ${
+                      integrationMode === 'WEBHOOK_RELAY'
+                        ? 'bg-emerald-50/80 border-emerald-500 text-emerald-950 ring-2 ring-emerald-500/20'
+                        : 'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700'
+                    }`}
+                  >
+                    <div className="font-bold text-xs flex items-center justify-between">
+                      <span>⚡ Webhook Relay (တွဲဖက်သုံး)</span>
+                      {integrationMode === 'WEBHOOK_RELAY' && <Check size={14} className="text-emerald-600" />}
+                    </div>
+                    <p className="text-[10px] text-slate-500 mt-1 leading-snug">
+                      လက်ရှိ Python/AI Bot (e.g. Salone4D) ရှိပါက ရွေးပါ။ စာမလုဘဲ Webhook Forward လုပ်ပေးမည်။
+                    </p>
+                  </button>
+                </div>
+              </div>
+
+              {/* Extra settings for Webhook Relay Mode */}
+              {integrationMode === 'WEBHOOK_RELAY' && (
+                <div className="p-3.5 bg-emerald-50/70 border border-emerald-200 rounded-xl space-y-3 animate-in fade-in">
+                  <div>
+                    <label className="text-[11px] font-bold text-emerald-900 block mb-1">
+                      Forward Webhook URL (သင့် Python/AI Server သို့ လက်ဆင့်ကမ်းမည့် URL)
+                    </label>
+                    <input
+                      type="url"
+                      value={forwardWebhookUrl}
+                      onChange={(e) => setForwardWebhookUrl(e.target.value)}
+                      placeholder="https://salone4d.onrender.com/webhook"
+                      className="w-full px-3 py-2 bg-white border border-emerald-300 rounded-lg font-mono text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    />
+                    <p className="text-[10px] text-slate-600 mt-1 leading-relaxed">
+                      💡 Telegram မှ ဝင်လာသမျှ စာများကို ChateChat Inbox တွင် ပြသပေးမည်ဖြစ်ပြီး သင့် Server သို့လည်း ချက်ချင်း Forward လုပ်ပေးပါမည်။
+                    </p>
+                  </div>
+
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={disableAutoReply}
+                      onChange={(e) => setDisableAutoReply(e.target.checked)}
+                      className="w-4 h-4 rounded text-emerald-600 border-slate-300 focus:ring-emerald-500"
+                    />
+                    <span className="text-xs font-semibold text-slate-800">
+                      ChateChat Default Auto-Reply ပိတ်မည် (သင့် Bot ၏ AI များနှင့် စာမပြိုင်စေရန်)
+                    </span>
+                  </label>
+                </div>
+              )}
 
               {/* Assign all agents checkbox */}
               <label className="flex items-center gap-2.5 cursor-pointer select-none">

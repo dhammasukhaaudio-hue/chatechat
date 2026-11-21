@@ -10,6 +10,10 @@ export interface TelegramBotConfig {
   organizationId: string;
   isActive: boolean;
   lastOffset: number;
+  forwardWebhookUrl?: string;
+  disableAutoReply?: boolean;
+  mode?: 'POLLING' | 'WEBHOOK_RELAY';
+  webhookUrl?: string;
 }
 
 const DATA_DIR = path.resolve(__dirname, '../../../data');
@@ -55,7 +59,7 @@ class TelegramPollingService {
   public getStatus(organizationId?: string) {
     const isThisOrg = !organizationId || (this.config?.organizationId || 'org_royal') === organizationId;
     return {
-      isRunning: this.isRunning && isThisOrg,
+      isRunning: (this.isRunning || this.config?.mode === 'WEBHOOK_RELAY') && isThisOrg,
       botUsername: isThisOrg && this.config?.username ? `@${this.config.username}` : null,
       botName: isThisOrg ? (this.config?.firstName || null) : null,
       botId: isThisOrg ? (this.config?.botId || null) : null,
@@ -63,6 +67,10 @@ class TelegramPollingService {
       lastMessageTimestamp: isThisOrg ? this.lastMessageTimestamp : null,
       lastOffset: isThisOrg ? (this.config?.lastOffset || 0) : 0,
       organizationId: this.config?.organizationId || 'org_royal',
+      forwardWebhookUrl: isThisOrg ? (this.config?.forwardWebhookUrl || null) : null,
+      disableAutoReply: isThisOrg ? !!this.config?.disableAutoReply : false,
+      mode: isThisOrg ? (this.config?.mode || 'POLLING') : 'POLLING',
+      webhookUrl: isThisOrg ? (this.config?.webhookUrl || `https://chatechat.onrender.com/api/v1/webhooks/telegram/${this.config?.botId || 'bot'}`) : null,
     };
   }
 
@@ -71,9 +79,18 @@ class TelegramPollingService {
   }
 
   /**
-   * Start polling for a specific Telegram Bot Token
+   * Start polling or Webhook Relay for a specific Telegram Bot Token
    */
-  public async start(token: string, organizationId = 'org_royal', io?: SocketIOServer): Promise<{ success: boolean; botUsername?: string; error?: string }> {
+  public async start(
+    token: string,
+    organizationId = 'org_royal',
+    io?: SocketIOServer,
+    options?: {
+      forwardWebhookUrl?: string;
+      disableAutoReply?: boolean;
+      mode?: 'POLLING' | 'WEBHOOK_RELAY';
+    }
+  ): Promise<{ success: boolean; botUsername?: string; botId?: string; error?: string; webhookUrl?: string; mode?: string }> {
     if (io) this.io = io;
     const cleanToken = token.trim().replace(/^["']|["']$/g, '').trim();
 
@@ -93,14 +110,39 @@ class TelegramPollingService {
       const bot = meData.result;
       console.log(`✅ [TELEGRAM] Bot Verified: @${bot.username} (${bot.first_name})`);
 
-      // 2. CRITICAL: Delete any existing webhook so Telegram allows getUpdates long polling
-      try {
-        console.log(`🔄 [TELEGRAM] Deleting any existing webhook to enable 24/7 Long Polling...`);
-        const delRes = await fetch(`https://api.telegram.org/bot${cleanToken}/deleteWebhook?drop_pending_updates=false`);
-        const delData = await delRes.json() as any;
-        console.log(`📡 [TELEGRAM] Webhook status reset:`, delData?.ok ? 'Ready for Long Polling' : delData?.description);
-      } catch (delErr) {
-        console.warn('⚠️ [TELEGRAM] deleteWebhook call warning:', delErr);
+      const effectiveMode = options?.mode || (options?.forwardWebhookUrl ? 'WEBHOOK_RELAY' : 'POLLING');
+      const webhookUrl = `https://chatechat.onrender.com/api/v1/webhooks/telegram/${bot.id}`;
+
+      // Stop any running polling loop first
+      this.stop();
+
+      if (effectiveMode === 'WEBHOOK_RELAY') {
+        // Register ChateChat Webhook on Telegram!
+        console.log(`🌐 [TELEGRAM RELAY] Registering Telegram Webhook to ChateChat: ${webhookUrl}`);
+        const setHookRes = await fetch(
+          `https://api.telegram.org/bot${cleanToken}/setWebhook?url=${encodeURIComponent(webhookUrl)}&allowed_updates=["message","edited_message","callback_query"]`
+        );
+        const setHookData = await setHookRes.json() as any;
+        console.log(`📡 [TELEGRAM RELAY] Webhook set result:`, setHookData);
+
+        if (!setHookData?.ok) {
+          throw new Error(`Failed to set Telegram Webhook: ${setHookData?.description || 'Unknown error'}`);
+        }
+      } else {
+        // Mode is POLLING: Delete any existing webhook so Telegram allows getUpdates long polling
+        try {
+          console.log(`🔄 [TELEGRAM] Deleting any existing webhook to enable 24/7 Long Polling...`);
+          const delRes = await fetch(`https://api.telegram.org/bot${cleanToken}/deleteWebhook?drop_pending_updates=false`);
+          const delData = await delRes.json() as any;
+          console.log(`📡 [TELEGRAM] Webhook status reset:`, delData?.ok ? 'Ready for Long Polling' : delData?.description);
+        } catch (delErr) {
+          console.warn('⚠️ [TELEGRAM] deleteWebhook call warning:', delErr);
+        }
+
+        // Start polling loop
+        this.isRunning = true;
+        this.pollingErrorCount = 0;
+        this.runPollingLoop();
       }
 
       // 3. Update configuration
@@ -112,21 +154,22 @@ class TelegramPollingService {
         organizationId,
         isActive: true,
         lastOffset: this.config?.lastOffset || 0,
+        forwardWebhookUrl: options?.forwardWebhookUrl?.trim() || undefined,
+        disableAutoReply: options?.disableAutoReply ?? (!!options?.forwardWebhookUrl),
+        mode: effectiveMode,
+        webhookUrl,
       };
       this.saveConfig();
-
-      // 4. Start polling loop
-      this.stop();
-      this.isRunning = true;
-      this.pollingErrorCount = 0;
-      this.runPollingLoop();
 
       return {
         success: true,
         botUsername: `@${bot.username}`,
+        botId: bot.id.toString(),
+        webhookUrl,
+        mode: effectiveMode,
       };
     } catch (err: any) {
-      console.error('❌ [TELEGRAM] Failed to start polling:', err.message);
+      console.error('❌ [TELEGRAM] Failed to start connection:', err.message);
       return {
         success: false,
         error: err.message || 'Telegram Bot ချိတ်ဆက်မှု မအောင်မြင်ပါ',
@@ -204,21 +247,35 @@ class TelegramPollingService {
   /**
    * Process a single incoming Telegram Update and dispatch via Socket.IO
    */
-  public async processTelegramUpdate(update: any) {
+  public async processTelegramUpdate(update: any, explicitOrgId?: string) {
+    if (!update) return;
+
+    // 1. FORWARD RAW UPDATE TO EXTERNAL BOT IF RELAY / WEBHOOK FORWARDING IS CONFIGURED
+    if (this.config?.forwardWebhookUrl) {
+      this.forwardUpdateToExternalBot(update, this.config.forwardWebhookUrl);
+    }
+
     const msg = update.message || update.edited_message;
-    if (!msg || !msg.chat) return;
+    const callback = update.callback_query;
+    if (!msg && !callback) return;
 
-    const chatId = msg.chat.id.toString();
-    const senderFirst = msg.from?.first_name || '';
-    const senderLast = msg.from?.last_name || '';
-    const senderName = [senderFirst, senderLast].filter(Boolean).join(' ') || msg.from?.username || `Telegram Customer (${chatId.slice(-4)})`;
-    const username = msg.from?.username ? `@${msg.from.username}` : '';
+    const chat = msg?.chat || callback?.message?.chat;
+    if (!chat) return;
 
-    let text = msg.text || msg.caption || '';
+    const chatId = chat.id.toString();
+    const fromUser = msg?.from || callback?.from;
+    const senderFirst = fromUser?.first_name || '';
+    const senderLast = fromUser?.last_name || '';
+    const senderName = [senderFirst, senderLast].filter(Boolean).join(' ') || fromUser?.username || `Telegram Customer (${chatId.slice(-4)})`;
+    const username = fromUser?.username ? `@${fromUser.username}` : '';
+
+    let text = msg?.text || msg?.caption || '';
     let msgType = 'TEXT';
     let mediaUrl: string | undefined;
 
-    if (msg.photo && Array.isArray(msg.photo) && msg.photo.length > 0) {
+    if (callback) {
+      text = text || `🔘 [Button]: ${callback.data || 'Clicked'}`;
+    } else if (msg?.photo && Array.isArray(msg.photo) && msg.photo.length > 0) {
       msgType = 'IMAGE';
       text = text || '📷 [Customer ပေးပို့သော ဓာတ်ပုံ / Image]';
       const largest = msg.photo[msg.photo.length - 1];
@@ -231,9 +288,9 @@ class TelegramPollingService {
       } catch {
         mediaUrl = `https://api.telegram.org/bot${this.config?.token}/getFile?file_id=${largest.file_id}`;
       }
-    } else if (msg.contact) {
+    } else if (msg?.contact) {
       text = `📱 [ဖုန်းနံပါတ် မျှဝေသည်]: ${msg.contact.phone_number}`;
-    } else if (msg.sticker) {
+    } else if (msg?.sticker) {
       text = msg.sticker.emoji ? `[Sticker: ${msg.sticker.emoji}]` : '[Sticker]';
     } else if (!text) {
       text = '[Media Message]';
@@ -243,14 +300,15 @@ class TelegramPollingService {
     this.lastMessageTimestamp = nowIso;
     const convId = `conv_tg_${chatId}`;
     const custId = `cust_tg_${chatId}`;
-    const messageId = `msg_tg_${msg.message_id}_${Date.now()}`;
+    const messageId = `msg_tg_${msg?.message_id || Date.now()}_${Date.now()}`;
+    const orgId = explicitOrgId || this.config?.organizationId || 'org_royal';
 
     console.log(`📨 [TELEGRAM LIVE INBOUND] From: ${senderName} (${chatId}) - "${text}"`);
 
     // Prepare Unified Conversation Object
     const conversation = {
       id: convId,
-      organizationId: this.config?.organizationId || 'org_royal',
+      organizationId: orgId,
       customerId: custId,
       channelConnectionId: `chan_tg_${this.config?.botId || 'active'}`,
       status: 'ACTIVE',
@@ -263,7 +321,7 @@ class TelegramPollingService {
       customer: {
         id: custId,
         name: `${senderName}${username ? ` (${username})` : ''}`,
-        phone: msg.contact?.phone_number || '',
+        phone: msg?.contact?.phone_number || '',
         tags: ['Telegram Real Customer', 'Live Chat'],
         totalOrders: 0,
         totalSpentMmk: 0,
@@ -296,7 +354,6 @@ class TelegramPollingService {
 
     // Emit live events ONLY to connected agents of THIS specific organization
     if (this.io) {
-      const orgId = this.config?.organizationId || 'org_royal';
       console.log(`⚡ [SOCKET.IO] Emitting chat:incoming_message strictly to room: org:${orgId}`);
       this.io.to(`org:${orgId}`).emit('chat:incoming_message', { conversation, message });
       this.io.to(`org:${orgId}`).emit('INCOMING_MESSAGE', { conversation, message });
@@ -304,23 +361,27 @@ class TelegramPollingService {
 
     // =========================================================================
     // Automated Bot Responder: "/start", "hi", "hello", "apk", "download"
+    // (Disabled if external bot forwardWebhookUrl is active or disableAutoReply is set)
     // =========================================================================
-    const lowerText = text.trim().toLowerCase();
-    const isStartCmd = lowerText.startsWith('/start');
-    const isGreeting = lowerText === 'hi' || lowerText === 'hello' || lowerText === 'hey' || lowerText.includes('မင်္ဂလာပါ');
-    const isApkQuery =
-      lowerText.includes('apk') ||
-      lowerText.includes('app') ||
-      lowerText.includes('download') ||
-      lowerText.includes('လင့်') ||
-      lowerText.includes('လင့်') ||
-      lowerText.includes('ဒေါင်း');
+    const isAutoReplyDisabled = this.config?.disableAutoReply || !!this.config?.forwardWebhookUrl;
 
-    if (isStartCmd || isGreeting || isApkQuery) {
-      const apkUrl = process.env.APK_DOWNLOAD_URL || 'https://tinyurl.com/chatechat-app';
-      const webUrl = 'https://chatechat.onrender.com';
+    if (!isAutoReplyDisabled && !callback) {
+      const lowerText = text.trim().toLowerCase();
+      const isStartCmd = lowerText.startsWith('/start');
+      const isGreeting = lowerText === 'hi' || lowerText === 'hello' || lowerText === 'hey' || lowerText.includes('မင်္ဂလာပါ');
+      const isApkQuery =
+        lowerText.includes('apk') ||
+        lowerText.includes('app') ||
+        lowerText.includes('download') ||
+        lowerText.includes('လင့်') ||
+        lowerText.includes('လင့်') ||
+        lowerText.includes('ဒေါင်း');
 
-      const replyText = `မင်္ဂလာပါခင်ဗျာ 🙏 <b>ChateChat (ချိတ်ချက်)</b> မှ နွေးထွေးစွာ ကြိုဆိုပါသည်! 📱
+      if (isStartCmd || isGreeting || isApkQuery) {
+        const apkUrl = process.env.APK_DOWNLOAD_URL || 'https://tinyurl.com/chatechat-app';
+        const webUrl = 'https://chatechat.onrender.com';
+
+        const replyText = `မင်္ဂလာပါခင်ဗျာ 🙏 <b>ChateChat (ချိတ်ချက်)</b> မှ နွေးထွေးစွာ ကြိုဆိုပါသည်! 📱
 
 Android ဖုန်းအတွက် Mobile App (APK) အား အောက်ပါ Short Link မှတစ်ဆင့် တိုက်ရိုက် ရယူနိုင်ပါပြီခင်ဗျာ -
 
@@ -332,27 +393,50 @@ ${webUrl}
 
 စတင်အသုံးပြုရန် အောက်ပါ ခလုတ်ကို နှိပ်၍လည်း Download ဆွဲနိုင်ပါသည်ခင်ဗျာ။ 👇`;
 
-      const replyMarkup = {
-        inline_keyboard: [
-          [
-            {
-              text: '📲 Download Android APK',
-              url: apkUrl,
-            },
+        const replyMarkup = {
+          inline_keyboard: [
+            [
+              {
+                text: '📲 Download Android APK',
+                url: apkUrl,
+              },
+            ],
+            [
+              {
+                text: '🌐 Open Web App',
+                url: webUrl,
+              },
+            ],
           ],
-          [
-            {
-              text: '🌐 Open Web App',
-              url: webUrl,
-            },
-          ],
-        ],
-      };
+        };
 
-      console.log(`🤖 [TELEGRAM BOT AUTO-REPLY] Sending APK link & Welcome to Chat ID: ${chatId}`);
-      this.sendMessage(chatId, replyText, 'ChateChat Bot', replyMarkup).catch((e) =>
-        console.warn('⚠️ Telegram auto-reply warning:', e)
-      );
+        console.log(`🤖 [TELEGRAM BOT AUTO-REPLY] Sending APK link & Welcome to Chat ID: ${chatId}`);
+        this.sendMessage(chatId, replyText, 'ChateChat Bot', replyMarkup).catch((e) =>
+          console.warn('⚠️ Telegram auto-reply warning:', e)
+        );
+      }
+    }
+  }
+
+  /**
+   * Relay / Forward raw Telegram Update to external bot server
+   */
+  private async forwardUpdateToExternalBot(update: any, forwardUrl: string) {
+    try {
+      console.log(`🔄 [TELEGRAM RELAY] Forwarding raw update to: ${forwardUrl}`);
+      const res = await fetch(forwardUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'ChateChat-Relay/1.0',
+          'X-ChateChat-Relay': 'true',
+        },
+        body: JSON.stringify(update),
+        signal: AbortSignal.timeout(10000),
+      });
+      console.log(`✅ [TELEGRAM RELAY SUCCESS] Forwarded to ${forwardUrl} -> Status: ${res.status}`);
+    } catch (err: any) {
+      console.warn(`⚠️ [TELEGRAM RELAY ERROR] Could not forward to ${forwardUrl}:`, err.message);
     }
   }
 
@@ -527,8 +611,17 @@ ${webUrl}
     const envToken = process.env.TELEGRAM_BOT_TOKEN || process.env.TELEGRAM_FINANCE_BOT_TOKEN;
     const tokenToUse = this.config?.token || envToken?.trim() || defaultToken;
     if (tokenToUse) {
-      console.log(`🔄 [TELEGRAM] Auto-resuming 24/7 Long Polling for Telegram Bot...`);
-      this.start(tokenToUse, this.config?.organizationId || 'org_royal', io).catch((e) => {
+      console.log(`🔄 [TELEGRAM] Auto-resuming Telegram Bot connection (${this.config?.mode || 'POLLING'})...`);
+      this.start(
+        tokenToUse,
+        this.config?.organizationId || 'org_royal',
+        io,
+        {
+          forwardWebhookUrl: this.config?.forwardWebhookUrl,
+          disableAutoReply: this.config?.disableAutoReply,
+          mode: this.config?.mode,
+        }
+      ).catch((e) => {
         console.warn('⚠️ Telegram auto-resume warning:', e.message);
       });
     }
