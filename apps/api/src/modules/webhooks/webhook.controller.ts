@@ -202,9 +202,11 @@ webhookRouter.post('/connect/telegram', async (req: Request, res: Response) => {
         : `Telegram Bot (${botDisplayUsername}) အား ChateChat နှင့် ၂၄ နာရီ တိုက်ရိုက် စာပို့လက်ခံနိုင်ရန် အောင်မြင်စွာ ချိတ်ဆက်ပြီးပါပြီခင်ဗျာ!`,
     });
   } catch (err: any) {
+    console.error('❌ Telegram connection error:', err);
     return res.status(500).json({
       success: false,
       error: err.message || 'Failed to connect Telegram Bot',
+      cause: err.cause?.message || err.cause?.code || String(err.cause),
     });
   }
 });

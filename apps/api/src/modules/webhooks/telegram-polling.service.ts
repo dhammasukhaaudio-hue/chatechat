@@ -1,6 +1,53 @@
 import fs from 'fs';
 import path from 'path';
+import https from 'node:https';
 import { Server as SocketIOServer } from 'socket.io';
+
+export async function telegramFetch(url: string, options: any = {}): Promise<any> {
+  try {
+    const res = await fetch(url, options);
+    const data = await res.json();
+    return data;
+  } catch (err: any) {
+    console.warn(`⚠️ [TELEGRAM FETCH FALLBACK] Global fetch failed (${err.message}). Trying node:https IPv4...`);
+    return new Promise((resolve, reject) => {
+      const parsedUrl = new URL(url);
+      const reqOptions: https.RequestOptions = {
+        hostname: parsedUrl.hostname,
+        port: 443,
+        path: parsedUrl.pathname + parsedUrl.search,
+        method: options.method || 'GET',
+        headers: options.headers || {},
+        family: 4, // Force IPv4 to prevent IPv6 unreachable errors on cloud containers
+        timeout: 25000,
+      };
+
+      const req = https.request(reqOptions, (res) => {
+        let rawData = '';
+        res.on('data', (chunk) => { rawData += chunk; });
+        res.on('end', () => {
+          try {
+            resolve(JSON.parse(rawData));
+          } catch (pe) {
+            reject(new Error(`Failed to parse Telegram response: ${rawData}`));
+          }
+        });
+      });
+
+      req.on('timeout', () => {
+        req.destroy();
+        reject(new Error('Telegram request timed out (25s)'));
+      });
+
+      req.on('error', (e) => reject(e));
+
+      if (options.body) {
+        req.write(typeof options.body === 'string' ? options.body : JSON.stringify(options.body));
+      }
+      req.end();
+    });
+  }
+}
 
 export interface TelegramBotConfig {
   token: string;
@@ -130,8 +177,7 @@ class TelegramPollingService {
     try {
       // 1. Validate token with getMe
       console.log(`🤖 [TELEGRAM] Verifying Bot Token with Telegram API...`);
-      const meRes = await fetch(`https://api.telegram.org/bot${cleanToken}/getMe`, { signal: AbortSignal.timeout(15000) });
-      const meData = await meRes.json() as any;
+      const meData = await telegramFetch(`https://api.telegram.org/bot${cleanToken}/getMe`);
 
       if (!meData || !meData.ok || !meData.result) {
         return {
@@ -152,10 +198,9 @@ class TelegramPollingService {
       if (effectiveMode === 'WEBHOOK_RELAY') {
         // Register ChateChat Webhook on Telegram!
         console.log(`🌐 [TELEGRAM RELAY] Registering Telegram Webhook to ChateChat: ${webhookUrl}`);
-        const setHookRes = await fetch(
+        const setHookData = await telegramFetch(
           `https://api.telegram.org/bot${cleanToken}/setWebhook?url=${encodeURIComponent(webhookUrl)}&allowed_updates=["message","edited_message","callback_query"]`
         );
-        const setHookData = await setHookRes.json() as any;
         console.log(`📡 [TELEGRAM RELAY] Webhook set result:`, setHookData);
 
         if (!setHookData?.ok) {
@@ -165,8 +210,7 @@ class TelegramPollingService {
         // Mode is POLLING: Delete any existing webhook so Telegram allows getUpdates long polling
         try {
           console.log(`🔄 [TELEGRAM] Deleting any existing webhook to enable 24/7 Long Polling...`);
-          const delRes = await fetch(`https://api.telegram.org/bot${cleanToken}/deleteWebhook?drop_pending_updates=false`);
-          const delData = await delRes.json() as any;
+          const delData = await telegramFetch(`https://api.telegram.org/bot${cleanToken}/deleteWebhook?drop_pending_updates=false`);
           console.log(`📡 [TELEGRAM] Webhook status reset:`, delData?.ok ? 'Ready for Long Polling' : delData?.description);
         } catch (delErr) {
           console.warn('⚠️ [TELEGRAM] deleteWebhook call warning:', delErr);
@@ -700,25 +744,22 @@ ${webUrl}
         bodyPayload.reply_markup = replyMarkup;
       }
 
-      let res = await fetch(`https://api.telegram.org/bot${this.config.token}/sendMessage`, {
+      let data = (await telegramFetch(`https://api.telegram.org/bot${this.config.token}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(bodyPayload),
-      });
-
-      let data = (await res.json()) as any;
+        body: bodyPayload,
+      })) as any;
 
       // Handle Telegram Rate Limit (429 Too Many Requests) with automatic retry
       if (!data?.ok && data?.error_code === 429) {
         const retryAfterMs = ((data.parameters?.retry_after || 1) * 1000) + 200;
         console.warn(`⏳ [TELEGRAM RATE LIMIT 429] Waiting ${retryAfterMs}ms before retrying for Chat [${chatId}]...`);
         await new Promise((resolve) => setTimeout(resolve, retryAfterMs));
-        res = await fetch(`https://api.telegram.org/bot${this.config.token}/sendMessage`, {
+        data = (await telegramFetch(`https://api.telegram.org/bot${this.config.token}/sendMessage`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(bodyPayload),
-        });
-        data = (await res.json()) as any;
+          body: bodyPayload,
+        })) as any;
       }
 
       // If HTML parse fails, retry with plain text
@@ -731,22 +772,20 @@ ${webUrl}
           plainPayload.reply_markup = replyMarkup;
         }
 
-        const plainRes = await fetch(`https://api.telegram.org/bot${this.config.token}/sendMessage`, {
+        data = (await telegramFetch(`https://api.telegram.org/bot${this.config.token}/sendMessage`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(plainPayload),
-        });
-        data = (await plainRes.json()) as any;
+          body: plainPayload,
+        })) as any;
 
         if (!data?.ok && data?.error_code === 429) {
           const retryAfterMs = ((data.parameters?.retry_after || 1) * 1000) + 200;
           await new Promise((resolve) => setTimeout(resolve, retryAfterMs));
-          const retryPlain = await fetch(`https://api.telegram.org/bot${this.config.token}/sendMessage`, {
+          data = (await telegramFetch(`https://api.telegram.org/bot${this.config.token}/sendMessage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(plainPayload),
-          });
-          data = (await retryPlain.json()) as any;
+            body: plainPayload,
+          })) as any;
         }
       }
 
