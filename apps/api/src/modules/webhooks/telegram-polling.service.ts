@@ -14,6 +14,7 @@ export interface TelegramBotConfig {
   disableAutoReply?: boolean;
   mode?: 'POLLING' | 'WEBHOOK_RELAY';
   webhookUrl?: string;
+  agentIdleTimeoutMinutes?: number;
 }
 
 const DATA_DIR = path.resolve(__dirname, '../../../data');
@@ -27,9 +28,40 @@ class TelegramPollingService {
   private pollAbortController: AbortController | null = null;
   private pollingErrorCount: number = 0;
   private lastMessageTimestamp: string | null = null;
+  private idleCheckerTimer: NodeJS.Timeout | null = null;
 
   constructor() {
     this.loadConfig();
+    this.startIdleHandbackChecker();
+  }
+
+  /**
+   * 3-Minute Agent Inactivity Auto-Handback background checker
+   */
+  public startIdleHandbackChecker() {
+    if (this.idleCheckerTimer) return;
+    this.idleCheckerTimer = setInterval(() => {
+      try {
+        if (!fs.existsSync(CHATS_FILE)) return;
+        const history = JSON.parse(fs.readFileSync(CHATS_FILE, 'utf-8'));
+        const now = Date.now();
+        const timeoutMs = (this.config?.agentIdleTimeoutMinutes || 3) * 60 * 1000;
+
+        for (const [convId, data] of Object.entries<any>(history)) {
+          const conv = data?.conv;
+          if (conv && conv.handoverStatus === 'TRANSFERRED_TO_AGENT') {
+            const lastTime = conv.lastAgentMessageAt ? new Date(conv.lastAgentMessageAt).getTime() : 0;
+            if (lastTime > 0 && (now - lastTime) >= timeoutMs) {
+              const chatId = conv.externalThreadId || convId.replace('conv_tg_', '');
+              console.log(`⏰ [AUTO-HANDBACK BACKGROUND] Conversation ${convId} (Chat ${chatId}) idle for > ${timeoutMs / 60000} mins. Returning to BOT_HANDLING.`);
+              this.setHandoverStatus(chatId, 'BOT_HANDLING', undefined, true);
+            }
+          }
+        }
+      } catch (err: any) {
+        // silent catch
+      }
+    }, 20000);
   }
 
   private loadConfig() {
@@ -262,7 +294,19 @@ class TelegramPollingService {
 
     // Check if human agent is currently active on this conversation
     const savedConv = this.getSavedConversation(convId);
-    const isAgentActive = savedConv?.handoverStatus === 'TRANSFERRED_TO_AGENT';
+    let isAgentActive = savedConv?.handoverStatus === 'TRANSFERRED_TO_AGENT';
+
+    // 3-Minute Agent Inactivity Auto-Handback check
+    const timeoutMs = (this.config?.agentIdleTimeoutMinutes || 3) * 60 * 1000;
+    if (isAgentActive && savedConv?.lastAgentMessageAt) {
+      const lastAgentTime = new Date(savedConv.lastAgentMessageAt).getTime();
+      const elapsed = Date.now() - lastAgentTime;
+      if (elapsed >= timeoutMs) {
+        console.log(`⏰ [AUTO-HANDBACK ON INBOUND] Agent idle for ${(elapsed / 60000).toFixed(1)} mins on ${convId}. Returning to BOT_HANDLING.`);
+        this.setHandoverStatus(chatId, 'BOT_HANDLING', undefined, true);
+        isAgentActive = false;
+      }
+    }
 
     // 1. FORWARD RAW UPDATE TO EXTERNAL BOT IF RELAY IS CONFIGURED
     // (If a human agent is actively handling this conversation, silence forwarding so AI bot won't interrupt!)
@@ -512,12 +556,19 @@ ${webUrl}
     return null;
   }
 
-  public setHandoverStatus(chatId: string, status: 'BOT_HANDLING' | 'TRANSFERRED_TO_AGENT' | 'RESOLVED', agentName?: string) {
+  public setHandoverStatus(
+    chatId: string,
+    status: 'BOT_HANDLING' | 'TRANSFERRED_TO_AGENT' | 'RESOLVED',
+    agentName?: string,
+    isAutoHandback?: boolean
+  ) {
     const convId = `conv_tg_${chatId}`;
+    const nowIso = new Date().toISOString();
     const updatePayload: any = { handoverStatus: status };
     if (agentName) updatePayload.assignedAgentName = agentName;
-    if (status === 'TRANSFERRED_TO_AGENT') updatePayload.lastAgentMessageAt = new Date().toISOString();
-    this.saveMessageToHistory(convId, updatePayload, {
+    if (status === 'TRANSFERRED_TO_AGENT') updatePayload.lastAgentMessageAt = nowIso;
+
+    const sysMsg = {
       id: `sys_${Date.now()}`,
       conversationId: convId,
       senderType: 'SYSTEM',
@@ -525,10 +576,22 @@ ${webUrl}
       type: 'TEXT',
       content: status === 'TRANSFERRED_TO_AGENT'
         ? `👨‍💻 အေးဂျင့် ${agentName || 'မသူဇာ'} မှ တာဝန်ယူလိုက်ပါပြီ (AI Bot ခေတ္တ အသံတိတ်ပါမည်)`
+        : isAutoHandback
+        ? `🤖 အေးဂျင့် ၃ မိနစ်ခန့် မအားလပ်သဖြင့် AI Bot သို့ အလိုအလျောက် ပြန်လည်လွှဲပြောင်းပေးလိုက်ပါသည်`
         : `🤖 စကားစမြည် ပြီးစီးသဖြင့် AI Bot သို့ ပြန်လည်လွှဲပြောင်းပေးလိုက်ပါပြီ`,
       isInternal: true,
-      createdAt: new Date().toISOString(),
-    });
+      createdAt: nowIso,
+    };
+    this.saveMessageToHistory(convId, updatePayload, sysMsg);
+
+    if (this.io) {
+      const orgId = this.config?.organizationId || 'org_royal';
+      this.io.to(`org:${orgId}`).emit('chat:incoming_message', {
+        conversation: { id: convId, handoverStatus: status },
+        message: sysMsg,
+      });
+    }
+
     return { success: true, handoverStatus: status };
   }
 

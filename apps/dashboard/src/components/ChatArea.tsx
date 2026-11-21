@@ -169,7 +169,18 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             const isCustomer = msg.senderType === 'CUSTOMER';
             const isAgent = msg.senderType === 'AGENT';
             const isBot = msg.senderType === 'BOT';
+            const isSystem = msg.senderType === 'SYSTEM';
             const isInternal = msg.isInternal;
+
+            if (isSystem) {
+              return (
+                <div key={msg.id} className="mx-auto my-2 text-center select-none">
+                  <div className="inline-flex items-center gap-1.5 bg-slate-100 border border-slate-200/80 rounded-full px-3.5 py-1 text-[11px] text-slate-600 shadow-2xs font-medium">
+                    <span>{msg.content}</span>
+                  </div>
+                </div>
+              );
+            }
 
             if (isInternal) {
               return (

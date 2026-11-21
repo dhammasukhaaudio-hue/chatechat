@@ -589,6 +589,78 @@ export default function InboxPage() {
     }
   }, [currentUser]);
 
+  // 3-Minute Agent Inactivity Auto-Handback to Bot
+  useEffect(() => {
+    const IDLE_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
+
+    const checkInactivity = () => {
+      const now = Date.now();
+      let hasChanges = false;
+
+      setConversations((prev) => {
+        const updated = prev.map((c) => {
+          if (c.handoverStatus === 'TRANSFERRED_TO_AGENT') {
+            const lastAgentTime = (c as any).lastAgentMessageAt
+              ? new Date((c as any).lastAgentMessageAt).getTime()
+              : (c.lastMessageAt ? new Date(c.lastMessageAt).getTime() : 0);
+
+            if (lastAgentTime > 0 && now - lastAgentTime >= IDLE_TIMEOUT_MS) {
+              hasChanges = true;
+
+              // Insert system notice
+              const autoNoticeMsg: Message = {
+                id: `sys_idle_${Date.now()}_${c.id}`,
+                conversationId: c.id,
+                senderType: 'SYSTEM',
+                senderName: 'ChateChat System',
+                type: 'TEXT',
+                content: '🤖 အေးဂျင့် ၃ မိနစ်ခန့် မအားလပ်သဖြင့် AI Bot သို့ အလိုအလျောက် ပြန်လည်လွှဲပြောင်းပေးလိုက်ပါသည်',
+                isInternal: true,
+                createdAt: new Date().toISOString(),
+              };
+
+              setMessages((mPrev) => {
+                const nextM = {
+                  ...mPrev,
+                  [c.id]: [...(mPrev[c.id] || []), autoNoticeMsg],
+                };
+                try { localStorage.setItem(msgStorageKey, JSON.stringify(nextM)); } catch {}
+                return nextM;
+              });
+
+              // Notify backend if Telegram
+              if (c.channelType === 'TELEGRAM') {
+                const tgChatId = c.externalThreadId?.replace(/^tg_/, '');
+                if (tgChatId) {
+                  fetch(`${getApiBaseUrl()}/api/v1/webhooks/telegram/resolve`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ chatId: tgChatId }),
+                  }).catch(() => {});
+                }
+              }
+
+              return {
+                ...c,
+                handoverStatus: 'BOT_HANDLING' as HandoverStatus,
+              };
+            }
+          }
+          return c;
+        });
+
+        if (hasChanges) {
+          try { localStorage.setItem(convStorageKey, JSON.stringify(updated)); } catch {}
+          return updated;
+        }
+        return prev;
+      });
+    };
+
+    const interval = setInterval(checkInactivity, 15000);
+    return () => clearInterval(interval);
+  }, [convStorageKey, msgStorageKey]);
+
   const handleLoginSuccess = (user: {
     id: string;
     name: string;
@@ -764,13 +836,15 @@ export default function InboxPage() {
       return next;
     });
 
+    const nowIso = new Date().toISOString();
     setConversations((prev) => {
       const next = prev.map((c) =>
         c.id === activeConversationId
           ? {
               ...c,
               lastMessageSnippet: content,
-              lastMessageAt: new Date().toISOString(),
+              lastMessageAt: nowIso,
+              lastAgentMessageAt: nowIso,
               unreadCount: 0,
             }
           : c
@@ -816,6 +890,7 @@ export default function InboxPage() {
       }
     }
 
+    const nowIso = new Date().toISOString();
     setConversations((prev) => {
       const next = prev.map((c) =>
         c.id === activeConversationId
@@ -823,6 +898,7 @@ export default function InboxPage() {
               ...c,
               assignedAgent: { id: agentId, name: agentName },
               handoverStatus: 'TRANSFERRED_TO_AGENT' as HandoverStatus,
+              lastAgentMessageAt: nowIso,
               status: 'ACTIVE' as ConversationStatus,
             }
           : c
