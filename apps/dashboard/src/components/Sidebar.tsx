@@ -70,7 +70,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         }`}
       >
         {/* Brand Header */}
-        <div className="h-16 flex items-center justify-between px-5 border-b border-slate-800 shrink-0">
+        <div className="safe-top-mobile pb-3.5 flex items-center justify-between px-5 border-b border-slate-800 shrink-0 lg:h-16 lg:pt-0 lg:pb-0">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-blue-500/20">
               <Zap size={20} />

@@ -86,7 +86,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   return (
     <div className="flex-1 bg-white flex flex-col h-full relative">
       {/* Chat Area Header */}
-      <header className="h-16 border-b border-slate-200 px-3 md:px-6 flex items-center justify-between bg-white z-10 shrink-0">
+      <header className="safe-top-mobile pb-3 border-b border-slate-200 px-3 lg:px-6 flex items-center justify-between bg-white z-10 shrink-0 lg:h-16 lg:pt-0 lg:pb-0">
         <div className="flex items-center gap-2 md:gap-3 min-w-0">
           {/* Back Button on Mobile */}
           {onBack && (

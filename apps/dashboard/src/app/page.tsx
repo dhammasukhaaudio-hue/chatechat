@@ -1048,7 +1048,7 @@ export default function InboxPage() {
       <div className="flex-1 flex flex-col h-full overflow-hidden relative">
         {/* Mobile Top Header (Hidden on desktop lg:hidden; also hidden when actively chatting on mobile) */}
         {!(activeNav === 'inbox' && activeConversationId) && (
-          <header className="h-14 bg-slate-900 border-b border-slate-800 px-4 flex items-center justify-between lg:hidden shrink-0 z-30 select-none">
+          <header className="safe-top-mobile pb-3.5 px-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between lg:hidden shrink-0 z-30 select-none">
             <div className="flex items-center gap-2.5">
               <button
                 onClick={() => setIsMobileMenuOpen(true)}

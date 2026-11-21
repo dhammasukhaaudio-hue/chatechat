@@ -492,18 +492,18 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({ quotaDetails, lang, 
       {/* TELEGRAM CONNECTION MODAL (Exact JivoChat UX Specification) */}
       {/* ======================================================== */}
       {isTelegramModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-xl w-full overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
-            {/* Top Blue Header */}
-            <div className="bg-gradient-to-r from-[#0088cc] to-[#0077b5] px-6 py-5 text-white flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-white text-[#0088cc] flex items-center justify-center font-bold text-lg shadow-sm">
+        <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-xl w-full my-auto max-h-[88vh] flex flex-col overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
+            {/* Top Blue Header (shrink-0) */}
+            <div className="bg-gradient-to-r from-[#0088cc] to-[#0077b5] px-5 py-4 text-white flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-full bg-white text-[#0088cc] flex items-center justify-center font-bold text-base shadow-sm">
                   ✈️
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xl font-bold tracking-tight">Telegram</span>
-                  <span className="text-blue-200 text-sm font-light">✕</span>
-                  <span className="text-xl font-extrabold tracking-tight">ChateChat</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-lg font-bold tracking-tight">Telegram</span>
+                  <span className="text-blue-200 text-xs font-light">✕</span>
+                  <span className="text-lg font-extrabold tracking-tight">ChateChat</span>
                 </div>
               </div>
               <button
@@ -514,9 +514,9 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({ quotaDetails, lang, 
               </button>
             </div>
 
-            {/* Modal Body */}
-            <div className="p-6 md:p-8 space-y-6 text-slate-800">
-              <h2 className="text-lg font-bold text-slate-900">Connecting Telegram</h2>
+            {/* Scrollable Modal Body (flex-1 overflow-y-auto) */}
+            <div className="p-4 sm:p-6 md:p-7 space-y-4 sm:space-y-5 text-slate-800 overflow-y-auto flex-1 overscroll-contain">
+              <h2 className="text-base sm:text-lg font-bold text-slate-900">Connecting Telegram</h2>
 
               {/* 4 Steps Instructions matching JivoChat */}
               <div className="space-y-4 text-xs md:text-sm">
@@ -707,43 +707,43 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({ quotaDetails, lang, 
                 />
                 <span className="text-xs font-medium text-slate-700">Assign all agents to this channel</span>
               </label>
+            </div>
 
-              {/* Action Buttons */}
-              <div className="flex items-center justify-between pt-4 border-t border-slate-100">
-                <a
-                  href="https://core.telegram.org/bots/tutorial"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
+            {/* Action Buttons Footer (Pinned at bottom, always visible) */}
+            <div className="flex items-center justify-between p-3.5 sm:p-4 px-5 border-t border-slate-100 bg-slate-50 shrink-0">
+              <a
+                href="https://core.telegram.org/bots/tutorial"
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
+              >
+                <span>Detailed instructions</span>
+                <ExternalLink size={12} />
+              </a>
+
+              <div className="flex items-center gap-2 sm:gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsTelegramModalOpen(false)}
+                  className="px-3 sm:px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-200 transition-colors"
                 >
-                  <span>Detailed instructions</span>
-                  <ExternalLink size={12} />
-                </a>
-
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setIsTelegramModalOpen(false)}
-                    className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors"
-                  >
-                    Back
-                  </button>
-                  <button
-                    type="button"
-                    disabled={isConnecting || !telegramToken.trim()}
-                    onClick={handleConnectTelegram}
-                    className="px-6 py-2.5 rounded-xl text-xs font-bold bg-[#10b981] hover:bg-[#059669] text-white shadow-lg shadow-emerald-500/20 transition-all disabled:opacity-50 flex items-center gap-2"
-                  >
-                    {isConnecting ? (
-                      <>
-                        <RefreshCw size={14} className="animate-spin" />
-                        <span>Connecting...</span>
-                      </>
-                    ) : (
-                      <span>Connect Telegram</span>
-                    )}
-                  </button>
-                </div>
+                  Back
+                </button>
+                <button
+                  type="button"
+                  disabled={isConnecting || !telegramToken.trim()}
+                  onClick={handleConnectTelegram}
+                  className="px-4 sm:px-6 py-2 rounded-xl text-xs font-bold bg-[#10b981] hover:bg-[#059669] text-white shadow-md shadow-emerald-500/20 transition-all disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {isConnecting ? (
+                    <>
+                      <RefreshCw size={14} className="animate-spin" />
+                      <span>Connecting...</span>
+                    </>
+                  ) : (
+                    <span>Connect Telegram</span>
+                  )}
+                </button>
               </div>
             </div>
           </div>
@@ -754,52 +754,54 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({ quotaDetails, lang, 
       {/* FACEBOOK CONNECTION MODAL                               */}
       {/* ======================================================== */}
       {isFacebookModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 border border-slate-200 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full my-auto max-h-[88vh] flex flex-col overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-100 p-4 px-5 shrink-0 bg-slate-50">
               <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                 <ChannelBadge channel="MESSENGER" size="sm" />
                 <span>Facebook Page ချိတ်ဆက်ခြင်း</span>
               </h3>
-              <button onClick={() => setIsFacebookModalOpen(false)} className="text-slate-400 hover:text-slate-600">&times;</button>
+              <button onClick={() => setIsFacebookModalOpen(false)} className="text-slate-400 hover:text-slate-600 text-lg font-bold">&times;</button>
             </div>
 
-            <form onSubmit={handleConnectFacebook} className="space-y-3.5 text-xs">
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Facebook Page အမည်</label>
-                <input
-                  type="text"
-                  required
-                  value={fbPageName}
-                  onChange={(e) => setFbPageName(e.target.value)}
-                  placeholder="ဥပမာ- Mexes Fashion Official"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:border-blue-500"
-                />
+            <form onSubmit={handleConnectFacebook} className="flex flex-col flex-1 overflow-hidden">
+              <div className="p-5 space-y-4 text-xs overflow-y-auto flex-1">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Facebook Page အမည်</label>
+                  <input
+                    type="text"
+                    required
+                    value={fbPageName}
+                    onChange={(e) => setFbPageName(e.target.value)}
+                    placeholder="ဥပမာ- Mexes Fashion Official"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Page ID</label>
+                  <input
+                    type="text"
+                    required
+                    value={fbPageId}
+                    onChange={(e) => setFbPageId(e.target.value)}
+                    placeholder="109823478912345"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg font-mono text-slate-900 focus:outline-none focus:border-blue-500"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Page ID</label>
-                <input
-                  type="text"
-                  required
-                  value={fbPageId}
-                  onChange={(e) => setFbPageId(e.target.value)}
-                  placeholder="109823478912345"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg font-mono text-slate-900 focus:outline-none focus:border-blue-500"
-                />
-              </div>
-
-              <div className="pt-2 flex justify-end gap-2">
+              <div className="p-4 px-5 border-t border-slate-100 bg-slate-50 flex justify-end gap-2.5 shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsFacebookModalOpen(false)}
-                  className="px-4 py-2 rounded-lg bg-slate-100 text-slate-600 font-semibold"
+                  className="px-4 py-2 rounded-lg bg-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-300"
                 >
                   မလုပ်တော့ပါ
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold"
+                  className="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm"
                 >
                   ချိတ်ဆက်မည် (Connect Page)
                 </button>
