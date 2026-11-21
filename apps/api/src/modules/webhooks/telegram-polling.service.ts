@@ -233,8 +233,8 @@ class TelegramPollingService {
         organizationId,
         isActive: true,
         lastOffset: this.config?.lastOffset || 0,
-        forwardWebhookUrl: options?.forwardWebhookUrl?.trim() || undefined,
-        disableAutoReply: options?.disableAutoReply ?? (!!options?.forwardWebhookUrl),
+        forwardWebhookUrl: effectiveMode === 'POLLING' ? undefined : (options?.forwardWebhookUrl?.trim() || undefined),
+        disableAutoReply: effectiveMode === 'POLLING' ? false : (options?.disableAutoReply ?? false),
         mode: effectiveMode,
         webhookUrl,
         assignAllAgents: options?.assignAllAgents ?? true,
@@ -465,9 +465,8 @@ class TelegramPollingService {
 
     // =========================================================================
     // Automated Bot Responder: "/start", "hi", "hello", "apk", "download"
-    // (Disabled if external bot forwardWebhookUrl is active or disableAutoReply is set)
     // =========================================================================
-    const isAutoReplyDisabled = this.config?.disableAutoReply || !!this.config?.forwardWebhookUrl;
+    const isAutoReplyDisabled = !!this.config?.disableAutoReply;
 
     if (!isAutoReplyDisabled && !callback) {
       const lowerText = text.trim().toLowerCase();
