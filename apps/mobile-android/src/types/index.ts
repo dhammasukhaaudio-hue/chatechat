@@ -19,6 +19,7 @@ export interface Customer {
 
 export interface Message {
   id: string;
+  clientMessageId?: string;
   conversationId: string;
   senderType: SenderType;
   senderName: string;
@@ -27,6 +28,7 @@ export interface Message {
   mediaUrl?: string;
   isInternal: boolean;
   createdAt: string;
+  status?: string;
 }
 
 export interface Conversation {

@@ -49,7 +49,12 @@ export const ChatScreen: React.FC<Props> = ({ conversation, onBack, lang = 'my' 
     // Incoming messages
     const handleNewMessage = (payload: any) => {
       if (payload.message && payload.message.conversationId === conversation.id) {
-        setMessages((prev) => [...prev, payload.message]);
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === payload.message.id || (payload.message.clientMessageId && m.clientMessageId === payload.message.clientMessageId))) {
+            return prev;
+          }
+          return [...prev, payload.message];
+        });
         flatListRef.current?.scrollToEnd({ animated: true });
       }
     };

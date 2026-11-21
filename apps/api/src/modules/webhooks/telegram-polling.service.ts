@@ -512,16 +512,18 @@ ${webUrl}
         history[convId] = { conv, messages: [msg] };
       } else {
         history[convId].conv = { ...history[convId].conv, ...conv };
-        const exists = history[convId].messages.some(
+        const messages = history[convId].messages || [];
+        const existingIdx = messages.findIndex(
           (m) =>
             m.id === msg.id ||
-            (m.senderType === msg.senderType &&
-              m.content?.trim() === msg.content?.trim() &&
-              Math.abs(new Date(m.createdAt).getTime() - new Date(msg.createdAt).getTime()) < 4000)
+            (msg.clientMessageId && (m.id === msg.clientMessageId || m.clientMessageId === msg.clientMessageId))
         );
-        if (!exists) {
-          history[convId].messages.push(msg);
+        if (existingIdx >= 0) {
+          messages[existingIdx] = { ...messages[existingIdx], ...msg };
+        } else {
+          messages.push(msg);
         }
+        history[convId].messages = messages;
       }
 
       fs.writeFileSync(CHATS_FILE, JSON.stringify(history, null, 2), 'utf-8');
@@ -638,8 +640,9 @@ ${webUrl}
     chatId: string,
     text: string,
     agentName: string = 'ChateChat Bot',
-    replyMarkup?: any
-  ): Promise<{ success: boolean; externalMessageId?: string; error?: string }> {
+    replyMarkup?: any,
+    clientMessageId?: string
+  ): Promise<{ success: boolean; externalMessageId?: string; clientMessageId?: string; error?: string }> {
     if (!this.config?.token) {
       return { success: false, error: 'Telegram Bot is not connected or active' };
     }
@@ -655,13 +658,56 @@ ${webUrl}
         bodyPayload.reply_markup = replyMarkup;
       }
 
-      const res = await fetch(`https://api.telegram.org/bot${this.config.token}/sendMessage`, {
+      let res = await fetch(`https://api.telegram.org/bot${this.config.token}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(bodyPayload),
       });
 
-      const data = await res.json() as any;
+      let data = (await res.json()) as any;
+
+      // Handle Telegram Rate Limit (429 Too Many Requests) with automatic retry
+      if (!data?.ok && data?.error_code === 429) {
+        const retryAfterMs = ((data.parameters?.retry_after || 1) * 1000) + 200;
+        console.warn(`⏳ [TELEGRAM RATE LIMIT 429] Waiting ${retryAfterMs}ms before retrying for Chat [${chatId}]...`);
+        await new Promise((resolve) => setTimeout(resolve, retryAfterMs));
+        res = await fetch(`https://api.telegram.org/bot${this.config.token}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(bodyPayload),
+        });
+        data = (await res.json()) as any;
+      }
+
+      // If HTML parse fails, retry with plain text
+      if (!data?.ok && (data?.description?.includes('can\'t parse entities') || data?.description?.includes('entity'))) {
+        const plainPayload: any = {
+          chat_id: chatId,
+          text: text.replace(/<[^>]*>?/gm, ''),
+        };
+        if (replyMarkup) {
+          plainPayload.reply_markup = replyMarkup;
+        }
+
+        const plainRes = await fetch(`https://api.telegram.org/bot${this.config.token}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(plainPayload),
+        });
+        data = (await plainRes.json()) as any;
+
+        if (!data?.ok && data?.error_code === 429) {
+          const retryAfterMs = ((data.parameters?.retry_after || 1) * 1000) + 200;
+          await new Promise((resolve) => setTimeout(resolve, retryAfterMs));
+          const retryPlain = await fetch(`https://api.telegram.org/bot${this.config.token}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(plainPayload),
+          });
+          data = (await retryPlain.json()) as any;
+        }
+      }
+
       if (data && data.ok) {
         console.log(`✅ [TELEGRAM OUTBOUND SUCCESS] Delivered to Telegram Message ID: ${data.result?.message_id}`);
         const convId = `conv_tg_${chatId}`;
@@ -671,6 +717,7 @@ ${webUrl}
         const outId = data.result?.message_id ? `msg_agent_${data.result.message_id}` : `msg_agent_${Date.now()}`;
         const agentMsg = {
           id: outId,
+          clientMessageId,
           conversationId: convId,
           senderType: isHumanAgent ? 'AGENT' : 'BOT',
           senderName: agentName,
@@ -698,6 +745,7 @@ ${webUrl}
             conversation: { id: convId, lastMessageSnippet: text, lastMessageAt: nowIso, handoverStatus: convUpdates.handoverStatus || 'BOT_HANDLING' },
             message: agentMsg,
             conversationId: convId,
+            clientMessageId,
           };
           this.io.to(`org:${orgId}`).emit('chat:outgoing_message', payload);
         }
@@ -705,56 +753,13 @@ ${webUrl}
         return {
           success: true,
           externalMessageId: data.result?.message_id?.toString(),
+          clientMessageId,
         };
-      }
-
-      // If HTML parse fails, retry with plain text
-      const plainPayload: any = {
-        chat_id: chatId,
-        text: text.replace(/<[^>]*>?/gm, ''),
-      };
-      if (replyMarkup) {
-        plainPayload.reply_markup = replyMarkup;
-      }
-
-      const plainRes = await fetch(`https://api.telegram.org/bot${this.config.token}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(plainPayload),
-      });
-      const plainData = await plainRes.json() as any;
-      if (plainData?.ok) {
-        const convId = `conv_tg_${chatId}`;
-        const nowIso = new Date().toISOString();
-        const outId = plainData.result?.message_id ? `msg_agent_${plainData.result.message_id}` : `msg_agent_${Date.now()}`;
-        const agentMsg = {
-          id: outId,
-          conversationId: convId,
-          senderType: 'AGENT',
-          senderName: agentName,
-          type: 'TEXT',
-          content: text,
-          isInternal: false,
-          createdAt: nowIso,
-        };
-        this.saveMessageToHistory(convId, { lastMessageSnippet: text, lastMessageAt: nowIso }, agentMsg);
-
-        if (this.io) {
-          const orgId = this.config?.organizationId || 'org_royal';
-          const payload = {
-            conversation: { id: convId, lastMessageSnippet: text, lastMessageAt: nowIso },
-            message: agentMsg,
-            conversationId: convId,
-          };
-          this.io.to(`org:${orgId}`).emit('chat:outgoing_message', payload);
-        }
-
-        return { success: true, externalMessageId: plainData.result?.message_id?.toString() };
       }
 
       return {
         success: false,
-        error: plainData?.description || data?.description || 'Failed to send message via Telegram',
+        error: data?.description || 'Failed to send message via Telegram',
       };
     } catch (err: any) {
       console.error(`❌ [TELEGRAM OUTBOUND ERROR]:`, err.message);

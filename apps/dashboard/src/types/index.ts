@@ -45,6 +45,7 @@ export interface Conversation {
 
 export interface Message {
   id: string;
+  clientMessageId?: string;
   conversationId: string;
   senderType: SenderType;
   senderId?: string | null;
@@ -54,6 +55,7 @@ export interface Message {
   mediaUrl?: string;
   isInternal: boolean;
   createdAt: string;
+  status?: 'sending' | 'sent' | 'failed';
   agent?: {
     id: string;
     name: string;

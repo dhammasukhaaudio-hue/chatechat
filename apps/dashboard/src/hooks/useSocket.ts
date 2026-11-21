@@ -108,6 +108,7 @@ export function useSocket({
     agentName: string;
     content: string;
     mediaUrl?: string;
+    clientMessageId?: string;
   }) => {
     socketRef.current?.emit(SOCKET_EVENTS.OUTGOING_MESSAGE, payload);
   };

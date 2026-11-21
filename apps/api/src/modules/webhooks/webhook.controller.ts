@@ -238,11 +238,11 @@ webhookRouter.post('/telegram/stop', (_req: Request, res: Response) => {
 });
 
 webhookRouter.post('/telegram/send-message', async (req: Request, res: Response) => {
-  const { chatId, text, agentName } = req.body;
+  const { chatId, text, agentName, clientMessageId } = req.body;
   if (!chatId || !text) {
     return res.status(400).json({ success: false, error: 'chatId and text are required' });
   }
-  const result = await telegramPollingService.sendMessage(chatId.toString(), text, agentName);
+  const result = await telegramPollingService.sendMessage(chatId.toString(), text, agentName, undefined, clientMessageId);
   return res.json(result);
 });
 

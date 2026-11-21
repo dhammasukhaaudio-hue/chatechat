@@ -541,20 +541,50 @@ export default function InboxPage() {
                   for (const key of chatKeys) {
                     const entry = chats[key];
                     if (entry && Array.isArray(entry.messages)) {
-                      // Deduplicate messages by id and by content + senderType + timestamp window
+                      // Deduplicate server messages strictly by id
                       const seen = new Set<string>();
-                      const cleanMessages: Message[] = [];
+                      const cleanServerMessages: Message[] = [];
                       for (const msg of entry.messages) {
-                        const dedupeKey = `${msg.senderType}_${(msg.content || '').trim()}_${Math.floor(new Date(msg.createdAt).getTime() / 4000)}`;
-                        if (!seen.has(msg.id) && !seen.has(dedupeKey)) {
+                        if (!seen.has(msg.id)) {
                           seen.add(msg.id);
-                          seen.add(dedupeKey);
-                          cleanMessages.push(msg);
+                          cleanServerMessages.push(msg);
                         }
                       }
-                      const currentLen = prev[key]?.length || 0;
-                      if (currentLen !== cleanMessages.length) {
-                        updated[key] = cleanMessages;
+
+                      const serverIdSet = new Set(cleanServerMessages.map((m) => m.id));
+                      const serverClientIds = new Set(
+                        cleanServerMessages.filter((m) => m.clientMessageId).map((m) => m.clientMessageId!)
+                      );
+
+                      // Retain any pending local optimistic messages (< 15 seconds old) that haven't been confirmed yet
+                      const localMessages = prev[key] || [];
+                      const pendingOptimistic: Message[] = [];
+                      const now = Date.now();
+
+                      for (const localMsg of localMessages) {
+                        if (
+                          localMsg.id.startsWith('m_') &&
+                          !serverIdSet.has(localMsg.id) &&
+                          (!localMsg.clientMessageId || !serverClientIds.has(localMsg.clientMessageId))
+                        ) {
+                          const age = now - new Date(localMsg.createdAt).getTime();
+                          if (age < 15000) {
+                            pendingOptimistic.push(localMsg);
+                          }
+                        }
+                      }
+
+                      // Merge server messages with pending optimistic messages
+                      const combined = [...cleanServerMessages, ...pendingOptimistic];
+                      combined.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+                      const prevList = prev[key] || [];
+                      const isDifferent =
+                        prevList.length !== combined.length ||
+                        prevList[prevList.length - 1]?.id !== combined[combined.length - 1]?.id;
+
+                      if (isDifferent) {
+                        updated[key] = combined;
                         hasNewMsg = true;
                       }
                     }
@@ -770,13 +800,7 @@ export default function InboxPage() {
       if (!message || !message.conversationId) return;
       setMessages((prev) => {
         const currentList = prev[message.conversationId] || [];
-        const isDuplicate = currentList.some(
-          (m) =>
-            m.id === message.id ||
-            (m.senderType === message.senderType &&
-              m.content?.trim() === message.content?.trim() &&
-              Math.abs(new Date(m.createdAt).getTime() - new Date(message.createdAt).getTime()) < 4000)
-        );
+        const isDuplicate = currentList.some((m) => m.id === message.id);
         if (isDuplicate) return prev;
         const next = {
           ...prev,
@@ -807,23 +831,32 @@ export default function InboxPage() {
         });
       }
     },
-    onOutgoingMessage: (data) => {
+    onOutgoingMessage: (data: any) => {
       const { message, conversationId } = data;
       const convId = conversationId || message?.conversationId;
       if (!convId || !message) return;
+      const clientMsgId = data.clientMessageId || message.clientMessageId;
       setMessages((prev) => {
         const currentList = prev[convId] || [];
-        const isDuplicate = currentList.some(
+        const matchIdx = currentList.findIndex(
           (m) =>
             m.id === message.id ||
-            (m.senderType === message.senderType &&
-              m.content?.trim() === message.content?.trim() &&
-              Math.abs(new Date(m.createdAt).getTime() - new Date(message.createdAt).getTime()) < 4000)
+            (clientMsgId && (m.id === clientMsgId || m.clientMessageId === clientMsgId)) ||
+            (m.id.startsWith('m_') &&
+              m.senderType === 'AGENT' &&
+              m.content === message.content &&
+              Math.abs(new Date(m.createdAt).getTime() - new Date(message.createdAt).getTime()) < 15000)
         );
-        if (isDuplicate) return prev;
+        let nextList: Message[];
+        if (matchIdx >= 0) {
+          nextList = [...currentList];
+          nextList[matchIdx] = { ...nextList[matchIdx], ...message, status: 'sent' };
+        } else {
+          nextList = [...currentList, message];
+        }
         const next = {
           ...prev,
-          [convId]: [...currentList, message],
+          [convId]: nextList,
         };
         try { localStorage.setItem(msgStorageKey, JSON.stringify(next)); } catch {}
         return next;
@@ -880,9 +913,11 @@ export default function InboxPage() {
 
     const senderName = currentUser?.name || 'မသူဇာ';
     const senderId = currentUser?.id || 'agent_1';
+    const clientMessageId = `m_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
     const newMessage: Message = {
-      id: `m_${Date.now()}`,
+      id: clientMessageId,
+      clientMessageId,
       conversationId: activeConversationId,
       senderType: 'AGENT',
       senderId,
@@ -891,6 +926,7 @@ export default function InboxPage() {
       content,
       isInternal,
       createdAt: new Date().toISOString(),
+      status: 'sending',
     };
 
     setMessages((prev) => {
@@ -925,6 +961,7 @@ export default function InboxPage() {
         agentId: senderId,
         agentName: senderName,
         content,
+        clientMessageId,
       });
 
       // Direct fallback dispatch for Telegram messages to guarantee delivery
@@ -933,8 +970,26 @@ export default function InboxPage() {
         fetch(`${getApiBaseUrl()}/api/v1/webhooks/telegram/send-message`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chatId, text: content, agentName: senderName }),
-        }).catch(() => {});
+          body: JSON.stringify({ chatId, text: content, agentName: senderName, clientMessageId }),
+        })
+          .then((r) => r.json())
+          .then((resData) => {
+            if (resData?.success && resData?.externalMessageId) {
+              const serverMsgId = `msg_agent_${resData.externalMessageId}`;
+              setMessages((prev) => {
+                const list = prev[activeConversationId] || [];
+                const updatedList = list.map((m) =>
+                  m.id === clientMessageId || m.clientMessageId === clientMessageId
+                    ? { ...m, id: serverMsgId, clientMessageId, status: 'sent' as const }
+                    : m
+                );
+                const next = { ...prev, [activeConversationId]: updatedList };
+                try { localStorage.setItem(msgStorageKey, JSON.stringify(next)); } catch {}
+                return next;
+              });
+            }
+          })
+          .catch(() => {});
       }
     }
   };
