@@ -491,6 +491,39 @@ ${webUrl}
   }
 
   /**
+   * Record external AI / Bot outbound replies directly into ChateChat conversation history
+   */
+  public recordBotReply(chatId: string, text: string, botName = 'AI Bot', organizationId?: string) {
+    const convId = `conv_tg_${chatId}`;
+    const nowIso = new Date().toISOString();
+    const botMsg = {
+      id: `msg_bot_${Date.now()}`,
+      conversationId: convId,
+      senderType: 'BOT',
+      senderName: botName,
+      type: 'TEXT',
+      content: text,
+      isInternal: false,
+      createdAt: nowIso,
+    };
+    this.saveMessageToHistory(convId, { lastMessageSnippet: text, lastMessageAt: nowIso }, botMsg);
+
+    if (this.io) {
+      const orgId = organizationId || this.config?.organizationId || 'org_royal';
+      this.io.to(`org:${orgId}`).emit('chat:incoming_message', {
+        conversation: { id: convId, lastMessageSnippet: text, lastMessageAt: nowIso },
+        message: botMsg,
+      });
+      this.io.to(`org:${orgId}`).emit('INCOMING_MESSAGE', {
+        conversation: { id: convId, lastMessageSnippet: text, lastMessageAt: nowIso },
+        message: botMsg,
+      });
+    }
+
+    return { success: true };
+  }
+
+  /**
    * Send outbound reply directly to the customer on Telegram!
    */
   public async sendMessage(

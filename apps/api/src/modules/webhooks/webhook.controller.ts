@@ -232,6 +232,18 @@ webhookRouter.post('/telegram/send-message', async (req: Request, res: Response)
 });
 
 /**
+ * 6. RECORD EXTERNAL AI BOT REPLIES (So external AI chats are 100% visible in ChateChat)
+ */
+webhookRouter.post('/telegram/bot-reply', (req: Request, res: Response) => {
+  const { chatId, text, botName = 'AI Bot', organizationId } = req.body;
+  if (!chatId || !text) {
+    return res.status(400).json({ success: false, error: 'chatId and text are required' });
+  }
+  const result = telegramPollingService.recordBotReply(chatId.toString(), text, botName, organizationId);
+  return res.json(result);
+});
+
+/**
  * 6. OPEN INBOUND TELEGRAM UPDATE (For external bots that run their own polling/server)
  */
 webhookRouter.post('/inbound/telegram', async (req: Request, res: Response) => {
