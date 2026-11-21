@@ -4,8 +4,19 @@ import https from 'node:https';
 import { Server as SocketIOServer } from 'socket.io';
 
 export async function telegramFetch(url: string, options: any = {}): Promise<any> {
+  const fetchOptions = { ...options };
+  if (fetchOptions.body && typeof fetchOptions.body !== 'string' && !(fetchOptions.body instanceof FormData)) {
+    fetchOptions.body = JSON.stringify(fetchOptions.body);
+  }
+  if (!fetchOptions.headers) {
+    fetchOptions.headers = {};
+  }
+  if (fetchOptions.body && !fetchOptions.headers['Content-Type']) {
+    fetchOptions.headers['Content-Type'] = 'application/json';
+  }
+
   try {
-    const res = await fetch(url, options);
+    const res = await fetch(url, fetchOptions);
     const data = await res.json();
     return data;
   } catch (err: any) {
@@ -16,8 +27,8 @@ export async function telegramFetch(url: string, options: any = {}): Promise<any
         hostname: parsedUrl.hostname,
         port: 443,
         path: parsedUrl.pathname + parsedUrl.search,
-        method: options.method || 'GET',
-        headers: options.headers || {},
+        method: fetchOptions.method || 'GET',
+        headers: fetchOptions.headers || {},
         family: 4, // Force IPv4 to prevent IPv6 unreachable errors on cloud containers
         timeout: 25000,
       };
@@ -41,8 +52,8 @@ export async function telegramFetch(url: string, options: any = {}): Promise<any
 
       req.on('error', (e) => reject(e));
 
-      if (options.body) {
-        req.write(typeof options.body === 'string' ? options.body : JSON.stringify(options.body));
+      if (fetchOptions.body) {
+        req.write(fetchOptions.body);
       }
       req.end();
     });
