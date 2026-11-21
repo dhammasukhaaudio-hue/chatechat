@@ -91,7 +91,7 @@ class TelegramPollingService {
   public getStatus(organizationId?: string) {
     const isThisOrg = !organizationId || (this.config?.organizationId || 'org_royal') === organizationId;
     return {
-      isRunning: (this.isRunning || this.config?.mode === 'WEBHOOK_RELAY') && isThisOrg,
+      isRunning: this.isRunning && isThisOrg && !!this.config?.isActive,
       botUsername: isThisOrg && this.config?.username ? `@${this.config.username}` : null,
       botName: isThisOrg ? (this.config?.firstName || null) : null,
       botId: isThisOrg ? (this.config?.botId || null) : null,
@@ -758,10 +758,15 @@ ${webUrl}
    */
   public autoResume(io: SocketIOServer) {
     this.io = io;
-    const defaultToken = '9252822157:AAE3ZuoAfPEjZemm8BvS5tNEToL07t3AWKM';
+    // Check if bot was explicitly deactivated/paused
+    if (this.config && this.config.isActive === false) {
+      console.log('⏸️ [TELEGRAM] Bot is paused/inactive (isActive: false). Skipping autoResume.');
+      return;
+    }
     const envToken = process.env.TELEGRAM_BOT_TOKEN || process.env.TELEGRAM_FINANCE_BOT_TOKEN;
-    const tokenToUse = this.config?.token || envToken?.trim() || defaultToken;
-    if (tokenToUse) {
+    const tokenToUse = this.config?.token || envToken?.trim();
+    // Only auto-resume if token exists AND isActive is explicitly true
+    if (tokenToUse && this.config?.isActive) {
       console.log(`🔄 [TELEGRAM] Auto-resuming Telegram Bot connection (${this.config?.mode || 'POLLING'})...`);
       this.start(
         tokenToUse,
@@ -775,6 +780,8 @@ ${webUrl}
       ).catch((e) => {
         console.warn('⚠️ Telegram auto-resume warning:', e.message);
       });
+    } else {
+      console.log('⏸️ [TELEGRAM] No active Telegram Bot configured to auto-resume.');
     }
   }
 }

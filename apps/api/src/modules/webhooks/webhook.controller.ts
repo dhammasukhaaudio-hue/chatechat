@@ -59,13 +59,18 @@ webhookRouter.post('/messenger', async (req: Request, res: Response) => {
 });
 
 /**
- * 2. TELEGRAM BOT WEBHOOK
+ * 2. TELEGRAM BOT WEBHOOK (For Telegram setWebhook callbacks with numeric botId/channelId)
  */
-webhookRouter.post('/telegram/:channelId', async (req: Request, res: Response) => {
+webhookRouter.post('/telegram/:channelId', async (req: Request, res: Response, next) => {
+  const { channelId } = req.params;
+  const reservedPaths = ['disconnect', 'pause', 'stop', 'send-message', 'bot-reply', 'takeover', 'resolve', 'status', 'chats'];
+  if (reservedPaths.includes(channelId)) {
+    return next();
+  }
+
   // Acknowledge immediately to Telegram
   res.status(200).json({ ok: true });
 
-  const { channelId } = req.params;
   try {
     // Process immediately via telegramPollingService for Socket.IO dispatch & persistence
     await telegramPollingService.processTelegramUpdate(req.body);
@@ -219,7 +224,17 @@ webhookRouter.get('/telegram/chats', (req: Request, res: Response) => {
 
 webhookRouter.post('/telegram/disconnect', (_req: Request, res: Response) => {
   telegramPollingService.stop();
-  return res.json({ success: true, message: 'Telegram Bot polling disconnected' });
+  return res.json({ success: true, message: 'Telegram Bot polling disconnected and paused' });
+});
+
+webhookRouter.post('/telegram/pause', (_req: Request, res: Response) => {
+  telegramPollingService.stop();
+  return res.json({ success: true, message: 'Telegram Bot paused' });
+});
+
+webhookRouter.post('/telegram/stop', (_req: Request, res: Response) => {
+  telegramPollingService.stop();
+  return res.json({ success: true, message: 'Telegram Bot stopped' });
 });
 
 webhookRouter.post('/telegram/send-message', async (req: Request, res: Response) => {
