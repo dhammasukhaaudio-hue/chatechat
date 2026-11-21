@@ -354,7 +354,7 @@ class TelegramPollingService {
     const nowIso = new Date().toISOString();
     this.lastMessageTimestamp = nowIso;
     const custId = `cust_tg_${chatId}`;
-    const messageId = `msg_tg_${msg?.message_id || Date.now()}_${Date.now()}`;
+    const messageId = msg?.message_id ? `msg_tg_${msg.message_id}` : `msg_tg_${Date.now()}`;
     const orgId = explicitOrgId || this.config?.organizationId || 'org_royal';
 
     console.log(`📨 [TELEGRAM LIVE INBOUND] From: ${senderName} (${chatId}) - "${text}"`);
@@ -408,11 +408,10 @@ class TelegramPollingService {
     // Save to persistent file
     this.saveMessageToHistory(convId, conversation, message);
 
-    // Emit live events ONLY to connected agents of THIS specific organization
+    // Emit live events ONLY ONCE to connected agents of THIS specific organization
     if (this.io) {
       console.log(`⚡ [SOCKET.IO] Emitting chat:incoming_message strictly to room: org:${orgId}`);
       this.io.to(`org:${orgId}`).emit('chat:incoming_message', { conversation, message });
-      this.io.to(`org:${orgId}`).emit('INCOMING_MESSAGE', { conversation, message });
     }
 
     // =========================================================================
@@ -513,7 +512,13 @@ ${webUrl}
         history[convId] = { conv, messages: [msg] };
       } else {
         history[convId].conv = { ...history[convId].conv, ...conv };
-        const exists = history[convId].messages.some((m) => m.id === msg.id);
+        const exists = history[convId].messages.some(
+          (m) =>
+            m.id === msg.id ||
+            (m.senderType === msg.senderType &&
+              m.content?.trim() === msg.content?.trim() &&
+              Math.abs(new Date(m.createdAt).getTime() - new Date(msg.createdAt).getTime()) < 4000)
+        );
         if (!exists) {
           history[convId].messages.push(msg);
         }
@@ -620,9 +625,7 @@ ${webUrl}
         message: botMsg,
         conversationId: convId,
       };
-      this.io.to(`org:${orgId}`).emit('chat:incoming_message', payload);
-      this.io.to(`org:${orgId}`).emit('INCOMING_MESSAGE', payload);
-      this.io.to(`org:${orgId}`).emit('OUTGOING_MESSAGE', payload);
+      this.io.to(`org:${orgId}`).emit('chat:outgoing_message', payload);
     }
 
     return { success: true };
@@ -665,8 +668,9 @@ ${webUrl}
         const nowIso = new Date().toISOString();
         const isHumanAgent = agentName !== 'ChateChat Bot' && !agentName.toLowerCase().includes('bot');
 
+        const outId = data.result?.message_id ? `msg_agent_${data.result.message_id}` : `msg_agent_${Date.now()}`;
         const agentMsg = {
-          id: `msg_agent_${Date.now()}`,
+          id: outId,
           conversationId: convId,
           senderType: isHumanAgent ? 'AGENT' : 'BOT',
           senderName: agentName,
@@ -695,9 +699,7 @@ ${webUrl}
             message: agentMsg,
             conversationId: convId,
           };
-          this.io.to(`org:${orgId}`).emit('chat:incoming_message', payload);
-          this.io.to(`org:${orgId}`).emit('INCOMING_MESSAGE', payload);
-          this.io.to(`org:${orgId}`).emit('OUTGOING_MESSAGE', payload);
+          this.io.to(`org:${orgId}`).emit('chat:outgoing_message', payload);
         }
 
         return {
@@ -724,8 +726,9 @@ ${webUrl}
       if (plainData?.ok) {
         const convId = `conv_tg_${chatId}`;
         const nowIso = new Date().toISOString();
+        const outId = plainData.result?.message_id ? `msg_agent_${plainData.result.message_id}` : `msg_agent_${Date.now()}`;
         const agentMsg = {
-          id: `msg_agent_${Date.now()}`,
+          id: outId,
           conversationId: convId,
           senderType: 'AGENT',
           senderName: agentName,
@@ -743,9 +746,7 @@ ${webUrl}
             message: agentMsg,
             conversationId: convId,
           };
-          this.io.to(`org:${orgId}`).emit('chat:incoming_message', payload);
-          this.io.to(`org:${orgId}`).emit('INCOMING_MESSAGE', payload);
-          this.io.to(`org:${orgId}`).emit('OUTGOING_MESSAGE', payload);
+          this.io.to(`org:${orgId}`).emit('chat:outgoing_message', payload);
         }
 
         return { success: true, externalMessageId: plainData.result?.message_id?.toString() };

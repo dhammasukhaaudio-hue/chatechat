@@ -506,13 +506,24 @@ export default function InboxPage() {
                     const entry = chats[key];
                     if (entry && entry.conv) {
                       const idx = updated.findIndex((c) => c.id === entry.conv.id);
+                      const isCurrentlyActive = activeConversationId === entry.conv.id;
+                      const targetUnread = isCurrentlyActive ? 0 : entry.conv.unreadCount;
                       if (idx >= 0) {
-                        if (updated[idx].lastMessageAt !== entry.conv.lastMessageAt || updated[idx].lastMessageSnippet !== entry.conv.lastMessageSnippet) {
-                          updated[idx] = { ...updated[idx], ...entry.conv };
+                        if (
+                          updated[idx].lastMessageAt !== entry.conv.lastMessageAt ||
+                          updated[idx].lastMessageSnippet !== entry.conv.lastMessageSnippet ||
+                          updated[idx].handoverStatus !== entry.conv.handoverStatus ||
+                          updated[idx].unreadCount !== targetUnread
+                        ) {
+                          updated[idx] = {
+                            ...updated[idx],
+                            ...entry.conv,
+                            unreadCount: targetUnread,
+                          };
                           hasChange = true;
                         }
                       } else {
-                        updated = [entry.conv, ...updated];
+                        updated = [{ ...entry.conv, unreadCount: targetUnread }, ...updated];
                         hasChange = true;
                       }
                     }
@@ -530,15 +541,25 @@ export default function InboxPage() {
                   for (const key of chatKeys) {
                     const entry = chats[key];
                     if (entry && Array.isArray(entry.messages)) {
+                      // Deduplicate messages by id and by content + senderType + timestamp window
+                      const seen = new Set<string>();
+                      const cleanMessages: Message[] = [];
+                      for (const msg of entry.messages) {
+                        const dedupeKey = `${msg.senderType}_${(msg.content || '').trim()}_${Math.floor(new Date(msg.createdAt).getTime() / 4000)}`;
+                        if (!seen.has(msg.id) && !seen.has(dedupeKey)) {
+                          seen.add(msg.id);
+                          seen.add(dedupeKey);
+                          cleanMessages.push(msg);
+                        }
+                      }
                       const currentLen = prev[key]?.length || 0;
-                      if (currentLen !== entry.messages.length) {
-                        updated[key] = entry.messages;
+                      if (currentLen !== cleanMessages.length) {
+                        updated[key] = cleanMessages;
                         hasNewMsg = true;
                       }
                     }
                   }
                   if (hasNewMsg) {
-                    playAlertChime();
                     try { localStorage.setItem(msgStorageKey, JSON.stringify(updated)); } catch {}
                     return updated;
                   }
@@ -749,7 +770,14 @@ export default function InboxPage() {
       if (!message || !message.conversationId) return;
       setMessages((prev) => {
         const currentList = prev[message.conversationId] || [];
-        if (currentList.some((m) => m.id === message.id)) return prev;
+        const isDuplicate = currentList.some(
+          (m) =>
+            m.id === message.id ||
+            (m.senderType === message.senderType &&
+              m.content?.trim() === message.content?.trim() &&
+              Math.abs(new Date(m.createdAt).getTime() - new Date(message.createdAt).getTime()) < 4000)
+        );
+        if (isDuplicate) return prev;
         const next = {
           ...prev,
           [message.conversationId]: [...currentList, message],
@@ -760,6 +788,7 @@ export default function InboxPage() {
       if (conversation && conversation.id) {
         setConversations((prev) => {
           const exists = prev.some((c) => c.id === conversation.id);
+          const isCurrentlyActive = activeConversationId === conversation.id;
           const next = exists
             ? prev.map((c) =>
                 c.id === conversation.id
@@ -767,7 +796,7 @@ export default function InboxPage() {
                       ...c,
                       lastMessageSnippet: message.content,
                       lastMessageAt: message.createdAt,
-                      unreadCount: (c.unreadCount || 0) + (message.senderType === 'CUSTOMER' ? 1 : 0),
+                      unreadCount: isCurrentlyActive ? 0 : (c.unreadCount || 0) + (message.senderType === 'CUSTOMER' ? 1 : 0),
                       handoverStatus: conversation.handoverStatus || c.handoverStatus,
                     }
                   : c
@@ -784,7 +813,14 @@ export default function InboxPage() {
       if (!convId || !message) return;
       setMessages((prev) => {
         const currentList = prev[convId] || [];
-        if (currentList.some((m) => m.id === message.id)) return prev;
+        const isDuplicate = currentList.some(
+          (m) =>
+            m.id === message.id ||
+            (m.senderType === message.senderType &&
+              m.content?.trim() === message.content?.trim() &&
+              Math.abs(new Date(m.createdAt).getTime() - new Date(message.createdAt).getTime()) < 4000)
+        );
+        if (isDuplicate) return prev;
         const next = {
           ...prev,
           [convId]: [...currentList, message],

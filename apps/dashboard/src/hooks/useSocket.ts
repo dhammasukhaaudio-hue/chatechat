@@ -68,13 +68,14 @@ export function useSocket({
       if (onIncomingMessage) onIncomingMessage(data);
     };
 
-    socket.on(SOCKET_EVENTS.INCOMING_MESSAGE, handleIncoming);
-    socket.on('INCOMING_MESSAGE', handleIncoming);
-    socket.on('chat:incoming_message', handleIncoming);
-
-    socket.on(SOCKET_EVENTS.OUTGOING_MESSAGE, (data) => {
+    const handleOutgoing = (data: any) => {
+      console.log('⚡ [SOCKET EVENT RECEIVED] Outbound message:', data);
       if (onOutgoingMessage) onOutgoingMessage(data);
-    });
+    };
+
+    // Clean single-listener registrations (no duplicates)
+    socket.on('chat:incoming_message', handleIncoming);
+    socket.on('chat:outgoing_message', handleOutgoing);
 
     socket.on(SOCKET_EVENTS.CONVERSATION_ASSIGNED, (data) => {
       if (onConversationAssigned) onConversationAssigned(data);
@@ -85,6 +86,10 @@ export function useSocket({
     });
 
     return () => {
+      socket.off('chat:incoming_message', handleIncoming);
+      socket.off('chat:outgoing_message', handleOutgoing);
+      socket.off(SOCKET_EVENTS.CONVERSATION_ASSIGNED);
+      socket.off(SOCKET_EVENTS.CONVERSATION_RESOLVED);
       socket.disconnect();
     };
   }, [organizationId, agentId]);
