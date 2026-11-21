@@ -556,20 +556,28 @@ export default function InboxPage() {
                         cleanServerMessages.filter((m) => m.clientMessageId).map((m) => m.clientMessageId!)
                       );
 
-                      // Retain any pending local optimistic messages (< 15 seconds old) that haven't been confirmed yet
+                      // Retain any pending local optimistic messages (< 20 seconds old) that haven't been confirmed yet
                       const localMessages = prev[key] || [];
                       const pendingOptimistic: Message[] = [];
                       const now = Date.now();
 
                       for (const localMsg of localMessages) {
-                        if (
-                          localMsg.id.startsWith('m_') &&
-                          !serverIdSet.has(localMsg.id) &&
-                          (!localMsg.clientMessageId || !serverClientIds.has(localMsg.clientMessageId))
-                        ) {
-                          const age = now - new Date(localMsg.createdAt).getTime();
-                          if (age < 15000) {
-                            pendingOptimistic.push(localMsg);
+                        if (localMsg.id.startsWith('m_')) {
+                          const isAlreadyOnServer =
+                            serverIdSet.has(localMsg.id) ||
+                            (localMsg.clientMessageId && serverClientIds.has(localMsg.clientMessageId)) ||
+                            cleanServerMessages.some(
+                              (sm) =>
+                                sm.senderType === 'AGENT' &&
+                                sm.content?.trim() === localMsg.content?.trim() &&
+                                Math.abs(new Date(sm.createdAt).getTime() - new Date(localMsg.createdAt).getTime()) < 10000
+                            );
+
+                          if (!isAlreadyOnServer) {
+                            const age = now - new Date(localMsg.createdAt).getTime();
+                            if (age < 20000) {
+                              pendingOptimistic.push(localMsg);
+                            }
                           }
                         }
                       }
@@ -956,15 +964,6 @@ export default function InboxPage() {
     });
 
     if (!isInternal) {
-      sendOutgoingMessage({
-        conversationId: activeConversationId,
-        agentId: senderId,
-        agentName: senderName,
-        content,
-        clientMessageId,
-      });
-
-      // Direct fallback dispatch for Telegram messages to guarantee delivery
       if (activeConversationId.startsWith('conv_tg_')) {
         const chatId = activeConversationId.replace('conv_tg_', '');
         fetch(`${getApiBaseUrl()}/api/v1/webhooks/telegram/send-message`, {
@@ -989,7 +988,17 @@ export default function InboxPage() {
               });
             }
           })
-          .catch(() => {});
+          .catch((err) => {
+            console.warn('Failed to send Telegram message:', err);
+          });
+      } else {
+        sendOutgoingMessage({
+          conversationId: activeConversationId,
+          agentId: senderId,
+          agentName: senderName,
+          content,
+          clientMessageId,
+        });
       }
     }
   };

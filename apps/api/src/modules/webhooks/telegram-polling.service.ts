@@ -29,6 +29,7 @@ class TelegramPollingService {
   private pollingErrorCount: number = 0;
   private lastMessageTimestamp: string | null = null;
   private idleCheckerTimer: NodeJS.Timeout | null = null;
+  private sentClientMessageIds = new Map<string, number>();
 
   constructor() {
     this.loadConfig();
@@ -516,7 +517,10 @@ ${webUrl}
         const existingIdx = messages.findIndex(
           (m) =>
             m.id === msg.id ||
-            (msg.clientMessageId && (m.id === msg.clientMessageId || m.clientMessageId === msg.clientMessageId))
+            (msg.clientMessageId && (m.id === msg.clientMessageId || m.clientMessageId === msg.clientMessageId)) ||
+            (m.senderType === msg.senderType &&
+              m.content?.trim() === msg.content?.trim() &&
+              Math.abs(new Date(m.createdAt).getTime() - new Date(msg.createdAt).getTime()) < 1500)
         );
         if (existingIdx >= 0) {
           messages[existingIdx] = { ...messages[existingIdx], ...msg };
@@ -536,7 +540,27 @@ ${webUrl}
     try {
       if (fs.existsSync(CHATS_FILE)) {
         const history = JSON.parse(fs.readFileSync(CHATS_FILE, 'utf-8'));
+        const dedupeMessages = (msgList: any[]) => {
+          if (!Array.isArray(msgList)) return [];
+          const clean: any[] = [];
+          for (const m of msgList) {
+            const isDup = clean.some(
+              (prev) =>
+                prev.id === m.id ||
+                (m.clientMessageId && prev.clientMessageId === m.clientMessageId) ||
+                (prev.senderType === m.senderType &&
+                  prev.content?.trim() === m.content?.trim() &&
+                  Math.abs(new Date(prev.createdAt).getTime() - new Date(m.createdAt).getTime()) < 1500)
+            );
+            if (!isDup) clean.push(m);
+          }
+          return clean;
+        };
+
         if (!organizationId || organizationId === 'all') {
+          for (const k of Object.keys(history)) {
+            if (history[k]?.messages) history[k].messages = dedupeMessages(history[k].messages);
+          }
           return history;
         }
         // Multi-tenant: filter chats strictly for the requesting organization
@@ -544,7 +568,10 @@ ${webUrl}
         for (const [key, value] of Object.entries(history as Record<string, { conv: any; messages: any[] }>)) {
           const convOrg = value?.conv?.organizationId || 'org_royal';
           if (convOrg === organizationId) {
-            filtered[key] = value;
+            filtered[key] = {
+              ...value,
+              messages: dedupeMessages(value?.messages || []),
+            };
           }
         }
         return filtered;
@@ -645,6 +672,21 @@ ${webUrl}
   ): Promise<{ success: boolean; externalMessageId?: string; clientMessageId?: string; error?: string }> {
     if (!this.config?.token) {
       return { success: false, error: 'Telegram Bot is not connected or active' };
+    }
+
+    if (clientMessageId) {
+      const lastSentTime = this.sentClientMessageIds.get(clientMessageId);
+      if (lastSentTime && Date.now() - lastSentTime < 30000) {
+        console.log(`🛡️ [TELEGRAM DEDUPE] Dropping duplicate send request for clientMessageId: ${clientMessageId}`);
+        return { success: true, clientMessageId };
+      }
+      this.sentClientMessageIds.set(clientMessageId, Date.now());
+      if (this.sentClientMessageIds.size > 500) {
+        const threshold = Date.now() - 60000;
+        for (const [k, v] of this.sentClientMessageIds.entries()) {
+          if (v < threshold) this.sentClientMessageIds.delete(k);
+        }
+      }
     }
 
     try {

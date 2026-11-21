@@ -185,11 +185,13 @@ io.on('connection', (socket) => {
       agentName: string;
       content: string;
       mediaUrl?: string;
+      clientMessageId?: string;
     }) => {
       // 1. Direct Telegram dispatch if conversation is from Telegram
       if (data.conversationId.startsWith('conv_tg_')) {
         const chatId = data.conversationId.replace('conv_tg_', '');
-        await telegramPollingService.sendMessage(chatId, data.content, data.agentName);
+        await telegramPollingService.sendMessage(chatId, data.content, data.agentName, undefined, data.clientMessageId);
+        return;
       }
 
       // 2. Dispatch via OutboundService with database persistence
@@ -210,7 +212,7 @@ io.on('connection', (socket) => {
         // In-memory / development fallback: broadcast to other agents
         io.to(`org:org_royal`).emit(SOCKET_EVENTS.OUTGOING_MESSAGE, {
           message: {
-            id: `msg_agent_${Date.now()}`,
+            id: data.clientMessageId || `msg_agent_${Date.now()}`,
             conversationId: data.conversationId,
             senderType: 'AGENT',
             senderName: data.agentName,
@@ -218,6 +220,7 @@ io.on('connection', (socket) => {
             createdAt: new Date().toISOString(),
           },
           conversationId: data.conversationId,
+          clientMessageId: data.clientMessageId,
         });
       }
     }
