@@ -250,11 +250,6 @@ class TelegramPollingService {
   public async processTelegramUpdate(update: any, explicitOrgId?: string) {
     if (!update) return;
 
-    // 1. FORWARD RAW UPDATE TO EXTERNAL BOT IF RELAY / WEBHOOK FORWARDING IS CONFIGURED
-    if (this.config?.forwardWebhookUrl) {
-      this.forwardUpdateToExternalBot(update, this.config.forwardWebhookUrl);
-    }
-
     const msg = update.message || update.edited_message;
     const callback = update.callback_query;
     if (!msg && !callback) return;
@@ -263,6 +258,22 @@ class TelegramPollingService {
     if (!chat) return;
 
     const chatId = chat.id.toString();
+    const convId = `conv_tg_${chatId}`;
+
+    // Check if human agent is currently active on this conversation
+    const savedConv = this.getSavedConversation(convId);
+    const isAgentActive = savedConv?.handoverStatus === 'TRANSFERRED_TO_AGENT';
+
+    // 1. FORWARD RAW UPDATE TO EXTERNAL BOT IF RELAY IS CONFIGURED
+    // (If a human agent is actively handling this conversation, silence forwarding so AI bot won't interrupt!)
+    if (this.config?.forwardWebhookUrl) {
+      if (isAgentActive) {
+        console.log(`⏸️ [TELEGRAM RELAY SILENCED] Human Agent is active on ${convId}. Skipping external AI forward.`);
+      } else {
+        this.forwardUpdateToExternalBot(update, this.config.forwardWebhookUrl);
+      }
+    }
+
     const fromUser = msg?.from || callback?.from;
     const senderFirst = fromUser?.first_name || '';
     const senderLast = fromUser?.last_name || '';
@@ -298,21 +309,22 @@ class TelegramPollingService {
 
     const nowIso = new Date().toISOString();
     this.lastMessageTimestamp = nowIso;
-    const convId = `conv_tg_${chatId}`;
     const custId = `cust_tg_${chatId}`;
     const messageId = `msg_tg_${msg?.message_id || Date.now()}_${Date.now()}`;
     const orgId = explicitOrgId || this.config?.organizationId || 'org_royal';
 
     console.log(`📨 [TELEGRAM LIVE INBOUND] From: ${senderName} (${chatId}) - "${text}"`);
 
-    // Prepare Unified Conversation Object
+    // Prepare Unified Conversation Object (preserve handoverStatus if already assigned to agent)
+    const currentHandover = savedConv?.handoverStatus || 'BOT_HANDLING';
+
     const conversation = {
       id: convId,
       organizationId: orgId,
       customerId: custId,
       channelConnectionId: `chan_tg_${this.config?.botId || 'active'}`,
       status: 'ACTIVE',
-      handoverStatus: 'HUMAN_REQUESTED',
+      handoverStatus: currentHandover,
       channelType: 'TELEGRAM',
       externalThreadId: chatId,
       unreadCount: 1,
@@ -490,6 +502,36 @@ ${webUrl}
     return {};
   }
 
+  public getSavedConversation(convId: string): any | null {
+    try {
+      if (fs.existsSync(CHATS_FILE)) {
+        const history = JSON.parse(fs.readFileSync(CHATS_FILE, 'utf-8'));
+        return history[convId]?.conv || null;
+      }
+    } catch {}
+    return null;
+  }
+
+  public setHandoverStatus(chatId: string, status: 'BOT_HANDLING' | 'TRANSFERRED_TO_AGENT' | 'RESOLVED', agentName?: string) {
+    const convId = `conv_tg_${chatId}`;
+    const updatePayload: any = { handoverStatus: status };
+    if (agentName) updatePayload.assignedAgentName = agentName;
+    if (status === 'TRANSFERRED_TO_AGENT') updatePayload.lastAgentMessageAt = new Date().toISOString();
+    this.saveMessageToHistory(convId, updatePayload, {
+      id: `sys_${Date.now()}`,
+      conversationId: convId,
+      senderType: 'SYSTEM',
+      senderName: 'ChateChat System',
+      type: 'TEXT',
+      content: status === 'TRANSFERRED_TO_AGENT'
+        ? `👨‍💻 အေးဂျင့် ${agentName || 'မသူဇာ'} မှ တာဝန်ယူလိုက်ပါပြီ (AI Bot ခေတ္တ အသံတိတ်ပါမည်)`
+        : `🤖 စကားစမြည် ပြီးစီးသဖြင့် AI Bot သို့ ပြန်လည်လွှဲပြောင်းပေးလိုက်ပါပြီ`,
+      isInternal: true,
+      createdAt: new Date().toISOString(),
+    });
+    return { success: true, handoverStatus: status };
+  }
+
   /**
    * Record external AI / Bot outbound replies directly into ChateChat conversation history
    */
@@ -558,22 +600,35 @@ ${webUrl}
         console.log(`✅ [TELEGRAM OUTBOUND SUCCESS] Delivered to Telegram Message ID: ${data.result?.message_id}`);
         const convId = `conv_tg_${chatId}`;
         const nowIso = new Date().toISOString();
+        const isHumanAgent = agentName !== 'ChateChat Bot' && !agentName.toLowerCase().includes('bot');
+
         const agentMsg = {
           id: `msg_agent_${Date.now()}`,
           conversationId: convId,
-          senderType: 'AGENT',
+          senderType: isHumanAgent ? 'AGENT' : 'BOT',
           senderName: agentName,
           type: 'TEXT',
           content: text,
           isInternal: false,
           createdAt: nowIso,
         };
-        this.saveMessageToHistory(convId, { lastMessageSnippet: text, lastMessageAt: nowIso }, agentMsg);
+
+        const convUpdates: any = {
+          lastMessageSnippet: text,
+          lastMessageAt: nowIso,
+        };
+        if (isHumanAgent) {
+          convUpdates.handoverStatus = 'TRANSFERRED_TO_AGENT';
+          convUpdates.assignedAgentName = agentName;
+          convUpdates.lastAgentMessageAt = nowIso;
+        }
+
+        this.saveMessageToHistory(convId, convUpdates, agentMsg);
 
         if (this.io) {
           const orgId = this.config?.organizationId || 'org_royal';
           this.io.to(`org:${orgId}`).emit('chat:incoming_message', {
-            conversation: { id: convId, lastMessageSnippet: text, lastMessageAt: nowIso },
+            conversation: { id: convId, lastMessageSnippet: text, lastMessageAt: nowIso, handoverStatus: convUpdates.handoverStatus || 'BOT_HANDLING' },
             message: agentMsg,
           });
         }

@@ -310,3 +310,31 @@ webhookRouter.post('/simulate-inbound', async (req: Request, res: Response) => {
 
   return res.json({ success: true, message: 'Simulated inbound message dispatched via Socket.IO' });
 });
+
+/**
+ * 7. AGENT TAKEOVER (Pause/Silence external AI Bot)
+ */
+webhookRouter.post('/telegram/takeover', async (req: Request, res: Response) => {
+  try {
+    const { chatId, agentName } = req.body;
+    if (!chatId) return res.status(400).json({ error: 'chatId is required' });
+    await telegramPollingService.setHandoverStatus(chatId, 'TRANSFERRED_TO_AGENT', agentName);
+    return res.status(200).json({ success: true, handoverStatus: 'TRANSFERRED_TO_AGENT' });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * 8. AGENT RESOLVE (Hand control back to Bot)
+ */
+webhookRouter.post('/telegram/resolve', async (req: Request, res: Response) => {
+  try {
+    const { chatId } = req.body;
+    if (!chatId) return res.status(400).json({ error: 'chatId is required' });
+    await telegramPollingService.setHandoverStatus(chatId, 'BOT_HANDLING');
+    return res.status(200).json({ success: true, handoverStatus: 'BOT_HANDLING' });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});

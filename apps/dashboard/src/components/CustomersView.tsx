@@ -79,8 +79,8 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ customers, lang })
         </div>
 
         {/* Customer List Table */}
-        <div className="flex-1 overflow-y-auto">
-          <table className="w-full text-left text-xs">
+        <div className="flex-1 overflow-x-auto overflow-y-auto">
+          <table className="w-full text-left text-xs min-w-[550px]">
             <thead className="bg-slate-100/70 text-slate-500 uppercase font-semibold border-b border-slate-200 sticky top-0">
               <tr>
                 <th className="py-3 px-4">{isMy ? 'ဝယ်သူအမည်' : 'Customer'}</th>
@@ -142,65 +142,158 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ customers, lang })
 
       {/* Selected Customer Details Drawer */}
       {selectedCustomer && (
-        <aside className="w-80 bg-white border-l border-slate-200 p-6 flex flex-col h-full overflow-y-auto space-y-6">
-          <div className="text-center pb-4 border-b border-slate-100">
-            <div className="w-16 h-16 rounded-full bg-blue-100 text-blue-700 font-bold text-xl flex items-center justify-center mx-auto mb-3">
-              {selectedCustomer.name ? selectedCustomer.name.slice(0, 2).toUpperCase() : 'CU'}
-            </div>
-            <h2 className="text-base font-bold text-slate-900">{selectedCustomer.name || 'ဧည့်သည်ဝယ်သူ'}</h2>
-            <p className="text-xs text-slate-500 mt-0.5">{selectedCustomer.phone || 'ဖုန်းနံပါတ် မရှိပါ'}</p>
-          </div>
-
-          <div className="space-y-3 text-xs">
-            <h3 className="font-bold text-slate-400 uppercase tracking-wider">
-              {isMy ? 'ဆက်သွယ်ရန်' : 'Contact Information'}
-            </h3>
-            <div className="flex items-center gap-2.5 text-slate-700">
-              <Phone size={14} className="text-slate-400" />
-              <span>{selectedCustomer.phone || 'ဖုန်းနံပါတ် မရှိပါ'}</span>
-            </div>
-            <div className="flex items-start gap-2.5 text-slate-700">
-              <MapPin size={14} className="text-slate-400 mt-0.5" />
-              <span className="leading-relaxed">
-                {selectedCustomer.address
-                  ? `${selectedCustomer.address}${selectedCustomer.city ? `, ${selectedCustomer.city}` : ''}`
-                  : 'လိပ်စာ မဖြည့်ရသေးပါ'}
+        <>
+          {/* Desktop Sidebar (lg and above) */}
+          <aside className="hidden lg:flex w-80 bg-white border-l border-slate-200 p-6 flex-col h-full overflow-y-auto space-y-6">
+            <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+              <span className="font-bold text-xs text-slate-400 uppercase tracking-wider">
+                {isMy ? 'ဝယ်သူ အသေးစိတ်' : 'Customer Details'}
               </span>
+              <button
+                onClick={() => setSelectedCustomer(null)}
+                className="text-xs text-slate-400 hover:text-slate-600 px-2 py-0.5 rounded hover:bg-slate-100"
+              >
+                ✕
+              </button>
             </div>
-          </div>
-
-          <div className="space-y-3 text-xs">
-            <h3 className="font-bold text-slate-400 uppercase tracking-wider">
-              {isMy ? 'အော်ဒါနှင့် သုံးစွဲငွေ' : 'Spending & Orders'}
-            </h3>
-            <div className="grid grid-cols-2 gap-2 text-center">
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                <span className="text-[11px] text-slate-500">{isMy ? 'အော်ဒါ' : 'Orders'}</span>
-                <p className="text-base font-bold text-slate-800 mt-0.5">{selectedCustomer.totalOrders} ခု</p>
+            <div className="text-center pb-4 border-b border-slate-100">
+              <div className="w-16 h-16 rounded-full bg-blue-100 text-blue-700 font-bold text-xl flex items-center justify-center mx-auto mb-3">
+                {selectedCustomer.name ? selectedCustomer.name.slice(0, 2).toUpperCase() : 'CU'}
               </div>
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                <span className="text-[11px] text-slate-500">{isMy ? 'သုံးစွဲငွေ' : 'Total Spent'}</span>
-                <p className="text-xs font-bold text-blue-600 mt-1">
-                  {selectedCustomer.totalSpentMmk.toLocaleString()} MMK
-                </p>
+              <h2 className="text-base font-bold text-slate-900">{selectedCustomer.name || 'ဧည့်သည်ဝယ်သူ'}</h2>
+              <p className="text-xs text-slate-500 mt-0.5">{selectedCustomer.phone || 'ဖုန်းနံပါတ် မရှိပါ'}</p>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <h3 className="font-bold text-slate-400 uppercase tracking-wider">
+                {isMy ? 'ဆက်သွယ်ရန်' : 'Contact Information'}
+              </h3>
+              <div className="flex items-center gap-2.5 text-slate-700">
+                <Phone size={14} className="text-slate-400" />
+                <span>{selectedCustomer.phone || 'ဖုန်းနံပါတ် မရှိပါ'}</span>
+              </div>
+              <div className="flex items-start gap-2.5 text-slate-700">
+                <MapPin size={14} className="text-slate-400 mt-0.5" />
+                <span className="leading-relaxed">
+                  {selectedCustomer.address
+                    ? `${selectedCustomer.address}${selectedCustomer.city ? `, ${selectedCustomer.city}` : ''}`
+                    : 'လိပ်စာ မဖြည့်ရသေးပါ'}
+                </span>
               </div>
             </div>
-          </div>
 
-          <div className="space-y-3 text-xs">
-            <h3 className="font-bold text-slate-400 uppercase tracking-wider">
-              {isMy ? 'ချိတ်ဆက်ထားသော ချန်နယ်များ' : 'Linked Social Accounts'}
-            </h3>
-            <div className="space-y-2">
-              {selectedCustomer.identities?.map((id) => (
-                <div key={id.id} className="p-2.5 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-between">
-                  <ChannelBadge channel={id.channelType} showLabel />
-                  <span className="font-mono text-slate-500">{id.externalUsername || id.externalId}</span>
+            <div className="space-y-3 text-xs">
+              <h3 className="font-bold text-slate-400 uppercase tracking-wider">
+                {isMy ? 'အော်ဒါနှင့် သုံးစွဲငွေ' : 'Spending & Orders'}
+              </h3>
+              <div className="grid grid-cols-2 gap-2 text-center">
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                  <span className="text-[11px] text-slate-500">{isMy ? 'အော်ဒါ' : 'Orders'}</span>
+                  <p className="text-base font-bold text-slate-800 mt-0.5">{selectedCustomer.totalOrders} ခု</p>
                 </div>
-              ))}
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                  <span className="text-[11px] text-slate-500">{isMy ? 'သုံးစွဲငွေ' : 'Total Spent'}</span>
+                  <p className="text-xs font-bold text-blue-600 mt-1">
+                    {selectedCustomer.totalSpentMmk.toLocaleString()} MMK
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <h3 className="font-bold text-slate-400 uppercase tracking-wider">
+                {isMy ? 'ချိတ်ဆက်ထားသော ချန်နယ်များ' : 'Linked Social Accounts'}
+              </h3>
+              <div className="space-y-2">
+                {selectedCustomer.identities?.map((id) => (
+                  <div key={id.id} className="p-2.5 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-between">
+                    <ChannelBadge channel={id.channelType} showLabel />
+                    <span className="font-mono text-slate-500">{id.externalUsername || id.externalId}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </aside>
+
+          {/* Mobile Bottom Slide-up Drawer (smaller than lg) */}
+          <div className="fixed inset-0 z-50 lg:hidden flex flex-col justify-end">
+            <div
+              className="fixed inset-0 bg-black/60 backdrop-blur-xs"
+              onClick={() => setSelectedCustomer(null)}
+            />
+            <div className="relative z-10 w-full bg-white rounded-t-3xl max-h-[85vh] p-6 overflow-y-auto space-y-5 shadow-2xl">
+              <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+                <span className="font-bold text-sm text-slate-800">
+                  {isMy ? 'ဝယ်သူ အသေးစိတ်' : 'Customer Details'}
+                </span>
+                <button
+                  onClick={() => setSelectedCustomer(null)}
+                  className="px-3 py-1 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-bold text-slate-700"
+                >
+                  ✕ ပိတ်မည်
+                </button>
+              </div>
+
+              <div className="text-center pb-3 border-b border-slate-100">
+                <div className="w-14 h-14 rounded-full bg-blue-100 text-blue-700 font-bold text-lg flex items-center justify-center mx-auto mb-2">
+                  {selectedCustomer.name ? selectedCustomer.name.slice(0, 2).toUpperCase() : 'CU'}
+                </div>
+                <h2 className="text-base font-bold text-slate-900">{selectedCustomer.name || 'ဧည့်သည်ဝယ်သူ'}</h2>
+                <p className="text-xs text-slate-500 mt-0.5">{selectedCustomer.phone || 'ဖုန်းနံပါတ် မရှိပါ'}</p>
+              </div>
+
+              <div className="space-y-2 text-xs">
+                <h3 className="font-bold text-slate-400 uppercase tracking-wider">
+                  {isMy ? 'ဆက်သွယ်ရန်' : 'Contact Information'}
+                </h3>
+                <div className="flex items-center gap-2.5 text-slate-700">
+                  <Phone size={14} className="text-slate-400" />
+                  <span>{selectedCustomer.phone || 'ဖုန်းနံပါတ် မရှိပါ'}</span>
+                </div>
+                <div className="flex items-start gap-2.5 text-slate-700">
+                  <MapPin size={14} className="text-slate-400 mt-0.5" />
+                  <span className="leading-relaxed">
+                    {selectedCustomer.address
+                      ? `${selectedCustomer.address}${selectedCustomer.city ? `, ${selectedCustomer.city}` : ''}`
+                      : 'လိပ်စာ မဖြည့်ရသေးပါ'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-2 text-xs">
+                <h3 className="font-bold text-slate-400 uppercase tracking-wider">
+                  {isMy ? 'အော်ဒါနှင့် သုံးစွဲငွေ' : 'Spending & Orders'}
+                </h3>
+                <div className="grid grid-cols-2 gap-2 text-center">
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                    <span className="text-[11px] text-slate-500">{isMy ? 'အော်ဒါ' : 'Orders'}</span>
+                    <p className="text-base font-bold text-slate-800 mt-0.5">{selectedCustomer.totalOrders} ခု</p>
+                  </div>
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                    <span className="text-[11px] text-slate-500">{isMy ? 'သုံးစွဲငွေ' : 'Total Spent'}</span>
+                    <p className="text-xs font-bold text-blue-600 mt-1">
+                      {selectedCustomer.totalSpentMmk.toLocaleString()} MMK
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2 text-xs">
+                <h3 className="font-bold text-slate-400 uppercase tracking-wider">
+                  {isMy ? 'ချိတ်ဆက်ထားသော ချန်နယ်များ' : 'Linked Social Accounts'}
+                </h3>
+                <div className="space-y-2">
+                  {selectedCustomer.identities?.map((id) => (
+                    <div key={id.id} className="p-2.5 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-between">
+                      <ChannelBadge channel={id.channelType} showLabel />
+                      <span className="font-mono text-slate-500">{id.externalUsername || id.externalId}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
-        </aside>
+        </>
       )}
     </div>
   );

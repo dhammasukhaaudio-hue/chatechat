@@ -92,7 +92,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
           {onBack && (
             <button
               onClick={onBack}
-              className="p-1.5 -ml-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg md:hidden transition shrink-0"
+              className="p-1.5 -ml-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg lg:hidden transition shrink-0"
               title="စာရင်းသို့ ပြန်သွားမည်"
             >
               <ArrowLeft size={20} />

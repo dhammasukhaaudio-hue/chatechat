@@ -7,13 +7,23 @@
 :root {
   --foreground-rgb: 15, 23, 42;
   --background-rgb: 248, 250, 252;
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
 }
 
+html,
 body {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
   color: rgb(var(--foreground-rgb));
   background: rgb(var(--background-rgb));
   font-family: 'Inter', 'Padauk', 'Pyidaungsu', -apple-system, BlinkMacSystemFont, sans-serif;
   overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  -webkit-font-smoothing: antialiased;
 }
 
 /* Custom scrollbars */

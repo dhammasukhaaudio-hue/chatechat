@@ -471,7 +471,7 @@ export default function InboxPage() {
 
       setConversations(initialConvs);
       setMessages(initialMsgs);
-      if (initialConvs.length > 0) {
+      if (initialConvs.length > 0 && typeof window !== 'undefined' && window.innerWidth >= 1024) {
         setActiveConversationId(initialConvs[0].id);
       }
 
@@ -804,6 +804,18 @@ export default function InboxPage() {
     const agentName = currentUser?.name || 'မသူဇာ';
     const agentId = currentUser?.id || 'agent_1';
 
+    const currentConv = conversations.find((c) => c.id === activeConversationId);
+    if (currentConv?.channelType === 'TELEGRAM') {
+      const tgChatId = currentConv.externalThreadId?.replace(/^tg_/, '');
+      if (tgChatId) {
+        fetch(`${getApiBaseUrl()}/api/v1/webhooks/telegram/takeover`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chatId: tgChatId, agentName }),
+        }).catch(() => {});
+      }
+    }
+
     setConversations((prev) => {
       const next = prev.map((c) =>
         c.id === activeConversationId
@@ -822,12 +834,25 @@ export default function InboxPage() {
 
   const handleResolve = () => {
     if (!activeConversationId) return;
+    const currentConv = conversations.find((c) => c.id === activeConversationId);
+    if (currentConv?.channelType === 'TELEGRAM') {
+      const tgChatId = currentConv.externalThreadId?.replace(/^tg_/, '');
+      if (tgChatId) {
+        fetch(`${getApiBaseUrl()}/api/v1/webhooks/telegram/resolve`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chatId: tgChatId }),
+        }).catch(() => {});
+      }
+    }
+
     setConversations((prev) => {
       const next = prev.map((c) =>
         c.id === activeConversationId
           ? {
               ...c,
               status: 'RESOLVED' as ConversationStatus,
+              handoverStatus: 'BOT_HANDLING' as HandoverStatus,
             }
           : c
       );
@@ -924,7 +949,7 @@ export default function InboxPage() {
   }
 
   return (
-    <div className="flex flex-col md:flex-row h-screen w-screen overflow-hidden bg-slate-100 font-burmese">
+    <div className="flex flex-col lg:flex-row h-screen w-screen overflow-hidden bg-slate-100 font-burmese">
       {/* 1. Navigation & Quota Sidebar (Desktop static sidebar, Mobile slide-over drawer) */}
       <Sidebar
         isOpen={isMobileMenuOpen}
@@ -945,9 +970,9 @@ export default function InboxPage() {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col h-full overflow-hidden relative">
-        {/* Mobile Top Header (Hidden on desktop md:hidden; also hidden when actively chatting on mobile) */}
+        {/* Mobile Top Header (Hidden on desktop lg:hidden; also hidden when actively chatting on mobile) */}
         {!(activeNav === 'inbox' && activeConversationId) && (
-          <header className="h-14 bg-slate-900 border-b border-slate-800 px-4 flex items-center justify-between md:hidden shrink-0 z-30 select-none">
+          <header className="h-14 bg-slate-900 border-b border-slate-800 px-4 flex items-center justify-between lg:hidden shrink-0 z-30 select-none">
             <div className="flex items-center gap-2.5">
               <button
                 onClick={() => setIsMobileMenuOpen(true)}
@@ -985,7 +1010,7 @@ export default function InboxPage() {
               {/* 2. Conversation Triage List */}
               <div
                 className={`h-full flex-col ${
-                  activeConversationId ? 'hidden md:flex w-80 lg:w-96 shrink-0' : 'flex w-full md:w-80 lg:w-96 shrink-0'
+                  activeConversationId ? 'hidden lg:flex lg:w-80 xl:w-96 shrink-0' : 'flex w-full lg:w-80 xl:w-96 shrink-0'
                 }`}
               >
                 <ConversationList
@@ -1023,7 +1048,7 @@ export default function InboxPage() {
               {/* 3. Active Chat Window */}
               <div
                 className={`h-full flex-1 flex-col ${
-                  activeConversationId ? 'flex' : 'hidden md:flex'
+                  activeConversationId ? 'flex' : 'hidden lg:flex'
                 }`}
               >
                 <ChatArea
@@ -1119,7 +1144,7 @@ export default function InboxPage() {
 
           {/* 2. Full Customer CRM View */}
           {activeNav === 'customers' && (
-            <div className="flex-1 h-full overflow-y-auto pb-16 md:pb-0">
+            <div className="flex-1 h-full overflow-y-auto pb-16 lg:pb-0">
               <CustomersView
                 customers={conversations.map((c) => c.customer)}
                 lang={lang}
@@ -1129,7 +1154,7 @@ export default function InboxPage() {
 
           {/* 3. Multi-Channel Integration Hub View */}
           {activeNav === 'channels' && (
-            <div className="flex-1 h-full overflow-y-auto pb-16 md:pb-0">
+            <div className="flex-1 h-full overflow-y-auto pb-16 lg:pb-0">
               <ChannelsView
                 quotaDetails={quotaDetails}
                 lang={lang}
@@ -1146,14 +1171,14 @@ export default function InboxPage() {
 
           {/* 4. Gemini AI Sales Bot Assistant View */}
           {activeNav === 'ai' && (
-            <div className="flex-1 h-full overflow-y-auto pb-16 md:pb-0">
+            <div className="flex-1 h-full overflow-y-auto pb-16 lg:pb-0">
               <AiBotView lang={lang} />
             </div>
           )}
 
           {/* 5. Settings & Subscription Billing View */}
           {activeNav === 'settings' && (
-            <div className="flex-1 h-full overflow-y-auto pb-16 md:pb-0">
+            <div className="flex-1 h-full overflow-y-auto pb-16 lg:pb-0">
               <SettingsView lang={lang} />
             </div>
           )}
@@ -1161,7 +1186,7 @@ export default function InboxPage() {
 
         {/* Mobile Bottom Navigation Bar (Hidden when actively chatting or on desktop) */}
         {!(activeNav === 'inbox' && activeConversationId) && (
-          <nav className="h-16 bg-slate-900 border-t border-slate-800 flex items-center justify-around px-2 md:hidden shrink-0 z-30 select-none">
+          <nav className="h-16 bg-slate-900 border-t border-slate-800 flex items-center justify-around px-2 lg:hidden shrink-0 z-30 select-none">
             <button
               onClick={() => {
                 setActiveNav('inbox');
