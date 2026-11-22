@@ -26,15 +26,21 @@ export const ConversationList: React.FC<ConversationListProps> = ({
   onSimulateTelegramMessage,
   onClearAllChats,
 }) => {
-  const filtered = conversations.filter((c) => {
-    if (!c) return false;
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    const nameMatch = c.customer?.name?.toLowerCase().includes(query);
-    const phoneMatch = c.customer?.phone?.includes(query);
-    const snippetMatch = c.lastMessageSnippet?.toLowerCase().includes(query);
-    return nameMatch || phoneMatch || snippetMatch;
-  });
+  const filtered = conversations
+    .filter((c) => {
+      if (!c) return false;
+      if (!searchQuery) return true;
+      const query = searchQuery.toLowerCase();
+      const nameMatch = c.customer?.name?.toLowerCase().includes(query);
+      const phoneMatch = c.customer?.phone?.includes(query);
+      const snippetMatch = c.lastMessageSnippet?.toLowerCase().includes(query);
+      return nameMatch || phoneMatch || snippetMatch;
+    })
+    .sort((a, b) => {
+      const timeA = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
+      const timeB = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
+      return timeB - timeA;
+    });
 
   const formatTime = (isoString: string) => {
     const date = new Date(isoString);

@@ -63,7 +63,7 @@ webhookRouter.post('/messenger', async (req: Request, res: Response) => {
  */
 webhookRouter.post('/telegram/:channelId', async (req: Request, res: Response, next) => {
   const { channelId } = req.params;
-  const reservedPaths = ['disconnect', 'pause', 'stop', 'send-message', 'bot-reply', 'takeover', 'resolve', 'status', 'chats', 'clear-chats'];
+  const reservedPaths = ['disconnect', 'pause', 'stop', 'send-message', 'bot-reply', 'takeover', 'resolve', 'status', 'chats', 'clear-chats', 'mark-read'];
   if (reservedPaths.includes(channelId)) {
     return next();
   }
@@ -366,5 +366,43 @@ webhookRouter.post('/telegram/clear-chats', async (req: Request, res: Response) 
     return res.status(200).json({ success: true, message: 'All chat history cleared successfully' });
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * 10. MARK TELEGRAM CONVERSATION AS READ
+ */
+webhookRouter.post('/telegram/mark-read', async (req: Request, res: Response) => {
+  try {
+    const { convId, chatId } = req.body || {};
+    const target = convId || chatId;
+    if (!target) return res.status(400).json({ error: 'convId or chatId is required' });
+    telegramPollingService.markAsRead(target.toString());
+    return res.status(200).json({ success: true });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * 11. TELEGRAM API PROXY / GATEWAY FOR EXTERNAL BOT SERVERS
+ * Allows external bots (like salone4d) to send outbound messages through ChateChat
+ * and simultaneously record them in ChateChat conversation history!
+ */
+webhookRouter.post(['/telegram-proxy/bot:token/sendMessage', '/telegram/proxy/sendMessage'], async (req: Request, res: Response) => {
+  try {
+    const chat_id = req.body?.chat_id || req.body?.chatId;
+    const text = req.body?.text;
+    const reply_markup = req.body?.reply_markup;
+    const botName = req.body?.bot_name || req.body?.botName || 'AI Bot';
+
+    if (!chat_id || !text) {
+      return res.status(400).json({ ok: false, error: 'chat_id and text are required' });
+    }
+
+    const result = await telegramPollingService.sendMessage(chat_id.toString(), text, botName, reply_markup);
+    return res.status(result.success ? 200 : 500).json({ ok: result.success, result });
+  } catch (err: any) {
+    return res.status(500).json({ ok: false, error: err.message });
   }
 });

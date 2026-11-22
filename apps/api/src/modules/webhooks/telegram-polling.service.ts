@@ -585,6 +585,22 @@ ${webUrl}
         signal: AbortSignal.timeout(10000),
       });
       console.log(`✅ [TELEGRAM RELAY SUCCESS] Forwarded to ${forwardUrl} -> Status: ${res.status}`);
+      if (res.ok) {
+        try {
+          const contentType = res.headers.get('content-type') || '';
+          if (contentType.includes('application/json')) {
+            const data = (await res.json()) as any;
+            if (data && (data.text || data.message || data.reply)) {
+              const replyText = data.text || data.message || data.reply;
+              const targetChat = (data.chat_id || update?.message?.chat?.id || update?.callback_query?.message?.chat?.id)?.toString();
+              if (targetChat && replyText) {
+                console.log(`🤖 [TELEGRAM RELAY RESPONSE] Auto-dispatching reply from external bot: "${replyText.slice(0, 30)}..."`);
+                await this.sendMessage(targetChat, replyText, data.bot_name || 'AI Bot', data.reply_markup);
+              }
+            }
+          }
+        } catch {}
+      }
     } catch (err: any) {
       console.warn(`⚠️ [TELEGRAM RELAY ERROR] Could not forward to ${forwardUrl}:`, err.message);
     }
@@ -632,6 +648,20 @@ ${webUrl}
       fs.writeFileSync(CHATS_FILE, JSON.stringify(history, null, 2), 'utf-8');
     } catch (e) {
       console.warn('⚠️ Could not clear chats in telegram-chats.json:', e);
+    }
+  }
+
+  public markAsRead(targetId: string) {
+    try {
+      if (!fs.existsSync(CHATS_FILE)) return;
+      const history = JSON.parse(fs.readFileSync(CHATS_FILE, 'utf-8'));
+      const convId = targetId.startsWith('conv_') ? targetId : `conv_tg_${targetId}`;
+      if (history[convId] && history[convId].conv) {
+        history[convId].conv.unreadCount = 0;
+        fs.writeFileSync(CHATS_FILE, JSON.stringify(history, null, 2), 'utf-8');
+      }
+    } catch (e) {
+      console.warn('⚠️ Could not mark chat as read:', e);
     }
   }
 

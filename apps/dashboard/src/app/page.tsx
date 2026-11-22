@@ -373,6 +373,18 @@ export default function InboxPage() {
   const convStorageKey = `chatechat_convs_${orgId}`;
   const msgStorageKey = `chatechat_msgs_${orgId}`;
   const channelStorageKey = `chatechat_channels_${orgId}`;
+  const readStorageKey = `chatechat_read_chats_${orgId}`;
+  const readChatIdsRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(readStorageKey);
+      if (saved) {
+        const arr = JSON.parse(saved);
+        if (Array.isArray(arr)) readChatIdsRef.current = new Set(arr);
+      }
+    } catch {}
+  }, [readStorageKey]);
 
   // Customer List with rich data
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -611,7 +623,8 @@ export default function InboxPage() {
                       };
                       const idx = updated.findIndex((c) => c.id === safeConv.id);
                       const isCurrentlyActive = activeConvIdRef.current === safeConv.id;
-                      const targetUnread = isCurrentlyActive ? 0 : (safeConv.unreadCount || 0);
+                      const isMarkedRead = isCurrentlyActive || readChatIdsRef.current.has(safeConv.id);
+                      const targetUnread = isMarkedRead ? 0 : (safeConv.unreadCount || 0);
                       if (idx >= 0) {
                         if (
                           updated[idx].lastMessageAt !== safeConv.lastMessageAt ||
@@ -634,6 +647,11 @@ export default function InboxPage() {
                     }
                   }
                   if (hasChange) {
+                    updated.sort((a, b) => {
+                      const timeA = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
+                      const timeB = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
+                      return timeB - timeA;
+                    });
                     try { localStorage.setItem(convStorageKey, JSON.stringify(updated)); } catch {}
                     return updated;
                   }
@@ -938,6 +956,12 @@ export default function InboxPage() {
         return next;
       });
       if (conversation && conversation.id) {
+        if (!isCurrentlyActive) {
+          readChatIdsRef.current.delete(conversation.id);
+          try {
+            localStorage.setItem(readStorageKey, JSON.stringify(Array.from(readChatIdsRef.current)));
+          } catch {}
+        }
         setConversations((prev) => {
           const exists = prev.some((c) => c.id === conversation.id);
           const next = exists
@@ -953,6 +977,11 @@ export default function InboxPage() {
                   : c
               )
             : [{ ...conversation, unreadCount: isCurrentlyActive ? 0 : 1 }, ...prev];
+          next.sort((a, b) => {
+            const timeA = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
+            const timeB = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
+            return timeB - timeA;
+          });
           try { localStorage.setItem(convStorageKey, JSON.stringify(next)); } catch {}
           return next;
         });
@@ -1046,7 +1075,7 @@ export default function InboxPage() {
 
   const activeConversation = conversations.find((c) => c.id === activeConversationId) || null;
   const currentMessages = activeConversationId ? messages[activeConversationId] || [] : [];
-  const unreadTotal = conversations.reduce((acc, curr) => acc + curr.unreadCount, 0);
+  const unreadTotal = conversations.reduce((acc, curr) => acc + (curr.unreadCount || 0), 0);
 
   const handleSendMessage = async (content: string, isInternal: boolean) => {
     if (!activeConversationId) return;
@@ -1091,6 +1120,7 @@ export default function InboxPage() {
             }
           : c
       );
+      next.sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
       try { localStorage.setItem(convStorageKey, JSON.stringify(next)); } catch {}
       return next;
     });
@@ -1165,6 +1195,7 @@ export default function InboxPage() {
             }
           : c
       );
+      next.sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
       try { localStorage.setItem(convStorageKey, JSON.stringify(next)); } catch {}
       return next;
     });
@@ -1194,6 +1225,7 @@ export default function InboxPage() {
             }
           : c
       );
+      next.sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
       try { localStorage.setItem(convStorageKey, JSON.stringify(next)); } catch {}
       return next;
     });
@@ -1376,6 +1408,15 @@ export default function InboxPage() {
                   onSelect={(id) => {
                     setActiveConversationId(id);
                     activeConvIdRef.current = id;
+                    readChatIdsRef.current.add(id);
+                    try {
+                      localStorage.setItem(readStorageKey, JSON.stringify(Array.from(readChatIdsRef.current)));
+                    } catch {}
+                    fetch(`${getApiBaseUrl()}/api/v1/webhooks/telegram/mark-read`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ convId: id }),
+                    }).catch(() => {});
                     setConversations((prev) => {
                       const updated = prev.map((c) => (c.id === id ? { ...c, unreadCount: 0 } : c));
                       try { localStorage.setItem(convStorageKey, JSON.stringify(updated)); } catch {}
