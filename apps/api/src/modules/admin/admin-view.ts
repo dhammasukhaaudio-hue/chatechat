@@ -363,10 +363,10 @@ export function getAdminPortalHtml(): string {
           <div>
             <h2 class="text-sm font-bold text-white flex items-center gap-2">
               <i class="fa-solid fa-users-gear text-brand-400"></i>
-              Team Members & Agent Access Control
+              System & App User Management (အသုံးပြုသူများ စီမံခန့်ခွဲမှု)
             </h2>
             <p class="text-xs text-slate-400 mt-0.5">
-              Frontend User Login အတွက် ဝန်ထမ်းများကို Email ဖြင့် အကောင့်ဖွင့်ပေးပြီး Role များ သတ်မှတ်ပါ
+              🛡️ System Users (ChateChat Core Team) နှင့် 📱 App Users (ဆိုင်ပိုင်ရှင်၊ လက်ထောက်၊ Helper များ) အား သီးခြားစီ စီစစ်ခန့်ခွဲပါ
             </p>
           </div>
 
@@ -376,6 +376,25 @@ export function getAdminPortalHtml(): string {
           </button>
         </div>
 
+        <!-- Filter & Search Bar: SYSTEM USER vs APP USER -->
+        <div class="flex flex-wrap items-center justify-between gap-3 bg-slate-900 border border-slate-800 p-3 rounded-xl">
+          <div class="flex items-center gap-2">
+            <button id="filter-all" onclick="filterUserCategory('ALL')" class="user-filter-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-brand-500 text-slate-950 transition">
+              အားလုံး (All Users) <span id="count-all" class="ml-1 opacity-80">(0)</span>
+            </button>
+            <button id="filter-system" onclick="filterUserCategory('SYSTEM')" class="user-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 hover:text-white transition">
+              🛡️ System Users <span id="count-system" class="ml-1 text-cyan-400 font-bold">(0)</span>
+            </button>
+            <button id="filter-app" onclick="filterUserCategory('APP')" class="user-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 hover:text-white transition">
+              📱 App Users (Shops) <span id="count-app" class="ml-1 text-emerald-400 font-bold">(0)</span>
+            </button>
+          </div>
+
+          <div class="relative w-full sm:w-72">
+            <input type="text" id="user-search-input" oninput="handleUserSearch(this.value)" placeholder="🔍 အမည် သို့မဟုတ် ဆိုင်အမည် ဖြင့်ရှာရန်..." class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-brand-500 font-sans">
+          </div>
+        </div>
+
         <!-- Users Table -->
         <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
           <div class="overflow-x-auto">
@@ -383,6 +402,7 @@ export function getAdminPortalHtml(): string {
               <thead class="bg-slate-850/80 text-slate-400 uppercase text-[11px] font-semibold border-b border-slate-800">
                 <tr>
                   <th class="py-3.5 px-4">Member Name</th>
+                  <th class="py-3.5 px-3">User Type & Shop</th>
                   <th class="py-3.5 px-3">Login Email (အကောင့်)</th>
                   <th class="py-3.5 px-3">Contact Phone</th>
                   <th class="py-3.5 px-3">Role & Authority</th>
@@ -636,12 +656,31 @@ export function getAdminPortalHtml(): string {
       <div class="flex items-center justify-between border-b border-slate-800 pb-3">
         <h3 class="text-sm font-bold text-white flex items-center gap-2">
           <i class="fa-solid fa-user-plus text-brand-400"></i>
-          အဖွဲ့ဝင်အသစ် ထည့်သွင်းခြင်း (Add Team Member)
+          အဖွဲ့ဝင်အသစ် ထည့်သွင်းခြင်း (Add User)
         </h3>
         <button onclick="closeAddUserModal()" class="text-slate-400 hover:text-white text-lg">&times;</button>
       </div>
 
       <form id="add-user-form" onsubmit="handleAddUser(event)" class="space-y-3.5 text-xs">
+        <div>
+          <label class="block font-semibold text-slate-300 mb-1.5">အသုံးပြုသူ အမျိုးအစား (User Category)</label>
+          <div class="grid grid-cols-2 gap-2">
+            <label class="flex items-center gap-2 p-2.5 rounded-lg border border-slate-700 bg-slate-850 cursor-pointer hover:border-brand-500">
+              <input type="radio" name="new-user-cat" value="APP" checked onchange="onUserCategoryChange('APP')">
+              <span class="font-medium text-emerald-300">📱 App User (Shop)</span>
+            </label>
+            <label class="flex items-center gap-2 p-2.5 rounded-lg border border-slate-700 bg-slate-850 cursor-pointer hover:border-brand-500">
+              <input type="radio" name="new-user-cat" value="SYSTEM" onchange="onUserCategoryChange('SYSTEM')">
+              <span class="font-medium text-cyan-300">🛡️ System User</span>
+            </label>
+          </div>
+        </div>
+
+        <div id="shop-name-field">
+          <label class="block font-semibold text-slate-300 mb-1">ဆိုင်အမည် / Shop Name (Shop ID)</label>
+          <input type="text" id="new-user-shop" placeholder="ဥပမာ - Yoon's Fashion Shop" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-brand-500 font-sans">
+        </div>
+
         <div>
           <label class="block font-semibold text-slate-300 mb-1">အမည် (Full Name)</label>
           <input type="text" id="new-user-name" required placeholder="ဥပမာ - မဝေဝေ" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-brand-500">
@@ -662,9 +701,9 @@ export function getAdminPortalHtml(): string {
           <div>
             <label class="block font-semibold text-slate-300 mb-1">ရာထူး / Role</label>
             <select id="new-user-role" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-brand-500">
-              <option value="AGENT">AGENT (အရောင်း/ဝန်ဆောင်မှု)</option>
-              <option value="ADMIN">ADMIN (စီမံခန့်ခွဲသူ)</option>
-              <option value="OWNER">OWNER (ပိုင်ရှင်)</option>
+              <option value="HELPER">🎧 Helper (စာပြန်ဝန်ထမ်း)</option>
+              <option value="SHOP_ASSISTANT">💼 Shop Assistant (လက်ထောက်)</option>
+              <option value="SHOP_OWNER">👑 Shop Owner (ဆိုင်ပိုင်ရှင်)</option>
             </select>
           </div>
 
@@ -679,7 +718,7 @@ export function getAdminPortalHtml(): string {
             မလုပ်တော့ပါ
           </button>
           <button type="submit" class="px-5 py-2 bg-brand-500 hover:bg-brand-600 text-slate-950 font-bold rounded-lg text-xs transition shadow">
-            သိမ်းဆည်းမည် (Save Member)
+            သိမ်းဆည်းမည် (Save User)
           </button>
         </div>
       </form>
@@ -962,29 +1001,133 @@ export function getAdminPortalHtml(): string {
       }).join('');
     }
 
+    // User Category Filtering State
+    let activeUserCat = 'ALL';
+    let userSearchText = '';
+
+    function filterUserCategory(cat) {
+      activeUserCat = cat;
+      const allBtn = document.getElementById('filter-all');
+      const sysBtn = document.getElementById('filter-system');
+      const appBtn = document.getElementById('filter-app');
+      [allBtn, sysBtn, appBtn].forEach(b => {
+        if (!b) return;
+        b.className = 'user-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 hover:text-white transition';
+      });
+      const activeEl = document.getElementById('filter-' + cat.toLowerCase());
+      if (activeEl) {
+        activeEl.className = 'user-filter-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-brand-500 text-slate-950 transition';
+      }
+      renderUsersTable();
+    }
+
+    function handleUserSearch(val) {
+      userSearchText = (val || '').toLowerCase().trim();
+      renderUsersTable();
+    }
+
+    function onUserCategoryChange(cat) {
+      const shopField = document.getElementById('shop-name-field');
+      const roleSelect = document.getElementById('new-user-role');
+      if (cat === 'SYSTEM') {
+        if (shopField) shopField.classList.add('hidden');
+        if (roleSelect) {
+          roleSelect.innerHTML =
+            '<option value="SUPER_ADMIN">🛡️ SUPER ADMIN (Full Platform Access)</option>' +
+            '<option value="ADMIN">⚙️ ADMIN (စနစ်အုပ်ချုပ်သူ / စိစစ်ရေး)</option>' +
+            '<option value="AGENT">💬 AGENT (ဗဟို အကူအညီပေးရေး ဝန်ထမ်း)</option>';
+        }
+      } else {
+        if (shopField) shopField.classList.remove('hidden');
+        if (roleSelect) {
+          roleSelect.innerHTML =
+            '<option value="HELPER">🎧 HELPER (ဆိုင်စာပြန်ဝန်ထမ်း)</option>' +
+            '<option value="SHOP_ASSISTANT">💼 SHOP ASSISTANT (ဆိုင်လက်ထောက်)</option>' +
+            '<option value="SHOP_OWNER">👑 SHOP OWNER (ဆိုင်ပိုင်ရှင်)</option>';
+        }
+      }
+    }
+
     // Render Users Table
     function renderUsersTable() {
       const tbody = document.getElementById('users-table-body');
       if (!tbody) return;
-      tbody.innerHTML = rawUsers.map(u => {
-        let roleBadge = '';
-        if (u.role === 'OWNER') {
-          roleBadge = '<span class="px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 font-bold">👑 OWNER</span>';
-        } else if (u.role === 'ADMIN') {
-          roleBadge = '<span class="px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30 font-bold">🛡️ ADMIN</span>';
+
+      const sysUsers = rawUsers.filter(u => u.userType === 'SYSTEM');
+      const appUsers = rawUsers.filter(u => u.userType === 'APP' || !u.userType);
+
+      if (document.getElementById('count-all')) document.getElementById('count-all').textContent = '(' + rawUsers.length + ')';
+      if (document.getElementById('count-system')) document.getElementById('count-system').textContent = '(' + sysUsers.length + ')';
+      if (document.getElementById('count-app')) document.getElementById('count-app').textContent = '(' + appUsers.length + ')';
+
+      let list = rawUsers;
+      if (activeUserCat === 'SYSTEM') {
+        list = sysUsers;
+      } else if (activeUserCat === 'APP') {
+        list = appUsers;
+      }
+
+      if (userSearchText) {
+        list = list.filter(u =>
+          (u.name && u.name.toLowerCase().includes(userSearchText)) ||
+          (u.email && u.email.toLowerCase().includes(userSearchText)) ||
+          (u.phone && u.phone.includes(userSearchText)) ||
+          (u.shopName && u.shopName.toLowerCase().includes(userSearchText)) ||
+          (u.organizationId && u.organizationId.toLowerCase().includes(userSearchText)) ||
+          (u.role && u.role.toLowerCase().includes(userSearchText))
+        );
+      }
+
+      if (list.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center py-10 text-slate-500 font-medium">ရှာဖွေမှုနှင့် ကိုက်ညီသော အဖွဲ့ဝင် အကောင့် မရှိပါ</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = list.map(u => {
+        const isSys = u.userType === 'SYSTEM';
+        let userTypeBadge = '';
+        if (isSys) {
+          userTypeBadge = '<div>' +
+            '<span class="px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-bold text-[10px]">🛡️ SYSTEM USER</span>' +
+            '<span class="block text-[10px] text-slate-400 mt-0.5">ChateChat Core Team</span>' +
+          '</div>';
         } else {
-          roleBadge = '<span class="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold">👨‍💻 AGENT</span>';
+          const sName = u.shopName || (u.organizationId ? u.organizationId.replace('org_', '').toUpperCase() + ' Shop' : 'Shop Workspace');
+          userTypeBadge = '<div>' +
+            '<span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold text-[10px]">📱 APP USER</span>' +
+            '<span class="block text-[10px] text-amber-300 font-medium mt-0.5 truncate max-w-[140px]" title="' + sName + '">🏬 ' + sName + '</span>' +
+          '</div>';
+        }
+
+        let roleBadge = '';
+        if (isSys) {
+          if (u.role === 'SUPER_ADMIN' || u.role === 'OWNER') {
+            roleBadge = '<span class="px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 font-bold text-[11px]">🛡️ Super Admin</span>';
+          } else if (u.role === 'ADMIN') {
+            roleBadge = '<span class="px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30 font-bold text-[11px]">⚙️ Admin</span>';
+          } else {
+            roleBadge = '<span class="px-2.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-semibold text-[11px]">💬 Support Agent</span>';
+          }
+        } else {
+          if (u.role === 'SHOP_OWNER' || u.role === 'OWNER') {
+            roleBadge = '<span class="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold text-[11px]">👑 Shop Owner</span>';
+          } else if (u.role === 'SHOP_ASSISTANT' || u.role === 'ADMIN') {
+            roleBadge = '<span class="px-2.5 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/30 font-bold text-[11px]">💼 Shop Assistant</span>';
+          } else {
+            roleBadge = '<span class="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold text-[11px]">🎧 Helper</span>';
+          }
         }
 
         let statusDot = u.status === 'ONLINE'
           ? '<span class="inline-flex items-center gap-1.5 text-emerald-400 font-medium"><span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Online</span>'
-          : '<span class="inline-flex items-center gap-1.5 text-amber-400 font-medium"><span class="w-2 h-2 rounded-full bg-amber-400"></span> ' + u.status + '</span>';
+          : '<span class="inline-flex items-center gap-1.5 text-amber-400 font-medium"><span class="w-2 h-2 rounded-full bg-amber-400"></span> ' + (u.status || 'OFFLINE') + '</span>';
 
         return '<tr class="hover:bg-slate-850/50 transition">' +
           '<td class="py-3.5 px-4 font-semibold text-white flex items-center gap-2.5">' +
             '<div class="w-7 h-7 rounded-full bg-slate-800 text-brand-400 flex items-center justify-center font-bold text-xs border border-slate-700">' + (u.name ? u.name.charAt(0).toUpperCase() : 'U') + '</div>' +
             '<div><span class="block font-medium">' + u.name + '</span><span class="text-[10px] text-slate-500 font-mono">ID: ' + u.id + '</span></div>' +
           '</td>' +
+          '<td class="py-3.5 px-3">' + userTypeBadge + '</td>' +
           '<td class="py-3.5 px-3 font-mono text-slate-300">' + u.email + '</td>' +
           '<td class="py-3.5 px-3 font-mono text-slate-400">' + (u.phone || '-') + '</td>' +
           '<td class="py-3.5 px-3">' + roleBadge + '</td>' +
@@ -998,7 +1141,7 @@ export function getAdminPortalHtml(): string {
               '<button onclick="promptResetPassword(\\'' + u.id + '\\', \\'' + (u.name || '').replace(/['"]/g, '') + '\\')" class="text-[11px] text-blue-300 hover:text-white px-2 py-1 rounded bg-blue-950/80 hover:bg-blue-900 border border-blue-800/60 transition" title="စကားဝှက် ပြန်လည်သတ်မှတ်မည် (Reset Password)">' +
                 '<i class="fa-solid fa-key text-blue-400 mr-1"></i> Reset Pass' +
               '</button>' +
-              (u.role !== 'OWNER' ? '<button onclick="confirmDeleteUser(\\'' + u.id + '\\', \\'' + (u.name || '').replace(/['"]/g, '') + '\\')" class="text-[11px] text-rose-400 hover:text-white px-2 py-1 rounded bg-rose-950/60 hover:bg-rose-900 border border-rose-900/60 transition" title="ဖျက်မည်">' +
+              (u.role !== 'OWNER' && u.role !== 'SUPER_ADMIN' ? '<button onclick="confirmDeleteUser(\\'' + u.id + '\\', \\'' + (u.name || '').replace(/['"]/g, '') + '\\')" class="text-[11px] text-rose-400 hover:text-white px-2 py-1 rounded bg-rose-950/60 hover:bg-rose-900 border border-rose-900/60 transition" title="ဖျက်မည်">' +
                 '<i class="fa-solid fa-trash-can"></i>' +
               '</button>' : '') +
             '</div>' +
@@ -1045,6 +1188,8 @@ export function getAdminPortalHtml(): string {
 
     async function handleAddUser(e) {
       e.preventDefault();
+      const userType = document.querySelector('input[name="new-user-cat"]:checked')?.value || 'APP';
+      const shopName = document.getElementById('new-user-shop')?.value || '';
       const name = document.getElementById('new-user-name').value;
       const email = document.getElementById('new-user-email').value;
       const phone = document.getElementById('new-user-phone').value;
@@ -1055,7 +1200,7 @@ export function getAdminPortalHtml(): string {
         const res = await fetch('/api/v1/admin/users', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, email, phone, role, maxConcurrentChats }),
+          body: JSON.stringify({ name, email, phone, role, userType, shopName, maxConcurrentChats }),
         });
         const json = await res.json();
         if (json.success) {

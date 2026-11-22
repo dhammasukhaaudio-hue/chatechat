@@ -8,7 +8,10 @@ export interface StoredUser {
   email: string;
   phone?: string;
   passwordHash: string;
-  role: 'OWNER' | 'ADMIN' | 'AGENT' | 'USER';
+  userType?: 'SYSTEM' | 'APP'; // SYSTEM = ChateChat Core Team, APP = Shop / Tenant
+  shopName?: string;
+  organizationId?: string;
+  role: 'SUPER_ADMIN' | 'ADMIN' | 'AGENT' | 'OWNER' | 'SHOP_OWNER' | 'SHOP_ASSISTANT' | 'HELPER' | 'USER' | string;
   status: 'ONLINE' | 'BUSY' | 'OFFLINE';
   maxConcurrentChats?: number;
   channels?: string[];
@@ -33,13 +36,15 @@ export function verifyPassword(plain: string, hash: string): boolean {
 }
 
 const DEFAULT_USERS: StoredUser[] = [
+  // ================= SYSTEM USERS (Platform Core Team) =================
   {
     id: 'user_michael_1',
     name: 'Michael (Founder & CEO)',
     email: 'michael@chatechat.com',
     phone: '09798888123',
     passwordHash: hashPassword('Admin!123'),
-    role: 'OWNER',
+    userType: 'SYSTEM',
+    role: 'SUPER_ADMIN',
     status: 'ONLINE',
     maxConcurrentChats: 20,
     channels: ['MESSENGER', 'TELEGRAM', 'VIBER'],
@@ -53,6 +58,7 @@ const DEFAULT_USERS: StoredUser[] = [
     email: 'admin@chatechat.com',
     phone: '09798888124',
     passwordHash: hashPassword('Admin!123'),
+    userType: 'SYSTEM',
     role: 'ADMIN',
     status: 'ONLINE',
     maxConcurrentChats: 20,
@@ -62,25 +68,12 @@ const DEFAULT_USERS: StoredUser[] = [
     updatedAt: new Date().toISOString(),
   },
   {
-    id: 'user_mexes',
-    name: 'mexes',
-    email: 'mexes@chatechat.com',
-    phone: '09798888999',
-    passwordHash: hashPassword('Agent!123'),
-    role: 'AGENT',
-    status: 'ONLINE',
-    maxConcurrentChats: 10,
-    channels: ['TELEGRAM'],
-    telegramUsername: '@mexes_bot',
-    createdAt: new Date('2026-02-15').toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
     id: 'user_susu_2',
     name: 'Daw Su Su Win (Finance Lead)',
     email: 'susuwin@chatechat.com',
     phone: '09987654321',
     passwordHash: hashPassword('Agent!123'),
+    userType: 'SYSTEM',
     role: 'ADMIN',
     status: 'ONLINE',
     maxConcurrentChats: 10,
@@ -94,6 +87,7 @@ const DEFAULT_USERS: StoredUser[] = [
     email: 'kyawkyaw@chatechat.com',
     phone: '09450001122',
     passwordHash: hashPassword('Agent!123'),
+    userType: 'SYSTEM',
     role: 'AGENT',
     status: 'ONLINE',
     maxConcurrentChats: 10,
@@ -107,6 +101,7 @@ const DEFAULT_USERS: StoredUser[] = [
     email: 'thiri@chatechat.com',
     phone: '09250003344',
     passwordHash: hashPassword('Agent!123'),
+    userType: 'SYSTEM',
     role: 'AGENT',
     status: 'BUSY',
     maxConcurrentChats: 10,
@@ -114,13 +109,51 @@ const DEFAULT_USERS: StoredUser[] = [
     createdAt: new Date('2026-02-10').toISOString(),
     updatedAt: new Date().toISOString(),
   },
+
+  // ================= APP USERS (Shop / Tenant Accounts) =================
+  {
+    id: 'user_mexes',
+    name: 'mexes',
+    email: 'mexes@chatechat.com',
+    phone: '09798888999',
+    passwordHash: hashPassword('Agent!123'),
+    userType: 'APP',
+    shopName: 'Mexes Official Shop',
+    organizationId: 'org_mexes',
+    role: 'SHOP_OWNER',
+    status: 'ONLINE',
+    maxConcurrentChats: 10,
+    channels: ['TELEGRAM'],
+    telegramUsername: '@mexes_bot',
+    createdAt: new Date('2026-02-15').toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'user_agent_yoon',
+    name: 'Yoon (Shop Owner)',
+    email: 'yoon@chatechat.com',
+    phone: '09792223344',
+    passwordHash: hashPassword('Agent!123'),
+    userType: 'APP',
+    shopName: "Yoon's Fashion Shop",
+    organizationId: 'org_yoon',
+    role: 'SHOP_OWNER',
+    status: 'ONLINE',
+    maxConcurrentChats: 10,
+    channels: ['TELEGRAM', 'VIBER'],
+    createdAt: new Date('2026-03-01').toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
   {
     id: 'user_agent_saung',
-    name: 'Saung (Support Agent)',
+    name: 'Saung (Shop Assistant)',
     email: 'saung@chatechat.com',
     phone: '09791112233',
     passwordHash: hashPassword('Agent!123'),
-    role: 'AGENT',
+    userType: 'APP',
+    shopName: "Yoon's Fashion Shop",
+    organizationId: 'org_yoon',
+    role: 'SHOP_ASSISTANT',
     status: 'ONLINE',
     maxConcurrentChats: 10,
     channels: ['MESSENGER', 'TELEGRAM'],
@@ -128,15 +161,18 @@ const DEFAULT_USERS: StoredUser[] = [
     updatedAt: new Date().toISOString(),
   },
   {
-    id: 'user_agent_yoon',
-    name: 'Yoon (Support Agent)',
-    email: 'yoon@chatechat.com',
-    phone: '09792223344',
+    id: 'user_1794981705178_434',
+    name: 'lynn',
+    email: 'lynn@gmail.com',
+    phone: '09970228234',
     passwordHash: hashPassword('Agent!123'),
-    role: 'AGENT',
+    userType: 'APP',
+    shopName: 'Mexes Official Shop',
+    organizationId: 'org_mexes',
+    role: 'HELPER',
     status: 'ONLINE',
     maxConcurrentChats: 10,
-    channels: ['TELEGRAM', 'VIBER'],
+    channels: ['MESSENGER', 'TELEGRAM'],
     createdAt: new Date('2026-03-01').toISOString(),
     updatedAt: new Date().toISOString(),
   },
@@ -149,6 +185,53 @@ class UserStoreService {
     this.init();
   }
 
+  private normalizeUser(u: StoredUser): StoredUser {
+    const email = (u.email || '').toLowerCase();
+    const name = (u.name || '').toLowerCase();
+
+    if (!u.userType) {
+      if (
+        email.includes('michael') ||
+        email.includes('admin@') ||
+        email.includes('susuwin') ||
+        email.includes('kyawkyaw') ||
+        email.includes('thiri') ||
+        name.includes('ceo') ||
+        name.includes('system administrator') ||
+        name.includes('finance lead')
+      ) {
+        u.userType = 'SYSTEM';
+        if (email.includes('michael') || name.includes('ceo')) {
+          u.role = 'SUPER_ADMIN';
+        } else if (email.includes('admin') || email.includes('susuwin')) {
+          u.role = 'ADMIN';
+        } else {
+          u.role = 'AGENT';
+        }
+      } else {
+        u.userType = 'APP';
+        if (name.includes('yoon') || email.includes('yoon')) {
+          u.role = 'SHOP_OWNER';
+          u.shopName = "Yoon's Fashion Shop";
+          u.organizationId = 'org_yoon';
+        } else if (name.includes('mexes') || email.includes('mexes')) {
+          u.role = 'SHOP_OWNER';
+          u.shopName = 'Mexes Official Shop';
+          u.organizationId = 'org_mexes';
+        } else if (name.includes('saung') || email.includes('saung')) {
+          u.role = 'SHOP_ASSISTANT';
+          u.shopName = "Yoon's Fashion Shop";
+          u.organizationId = 'org_yoon';
+        } else {
+          u.role = 'HELPER';
+          u.shopName = u.shopName || 'Mexes Official Shop';
+          u.organizationId = u.organizationId || 'org_mexes';
+        }
+      }
+    }
+    return u;
+  }
+
   private init() {
     try {
       if (!fs.existsSync(DATA_DIR)) {
@@ -159,7 +242,7 @@ class UserStoreService {
         const raw = fs.readFileSync(USERS_FILE, 'utf-8');
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          this.users = parsed;
+          this.users = parsed.map((u) => this.normalizeUser(u));
           // Ensure default users exist if file was partial
           for (const def of DEFAULT_USERS) {
             if (!this.users.some((u) => u.email.toLowerCase() === def.email.toLowerCase() || u.name.toLowerCase() === def.name.toLowerCase())) {
@@ -212,17 +295,24 @@ class UserStoreService {
     email: string;
     phone?: string;
     password?: string;
-    role?: 'OWNER' | 'ADMIN' | 'AGENT' | 'USER';
+    userType?: 'SYSTEM' | 'APP';
+    shopName?: string;
+    organizationId?: string;
+    role?: 'SUPER_ADMIN' | 'ADMIN' | 'AGENT' | 'OWNER' | 'SHOP_OWNER' | 'SHOP_ASSISTANT' | 'HELPER' | 'USER' | string;
     telegramUsername?: string;
   }): StoredUser {
     const nowIso = new Date().toISOString();
+    const uType = payload.userType || (payload.role?.includes('SHOP') || payload.role === 'HELPER' ? 'APP' : 'SYSTEM');
     const newUser: StoredUser = {
       id: `user_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
       name: payload.name.trim(),
       email: payload.email.trim().toLowerCase(),
       phone: (payload.phone || '').trim(),
       passwordHash: hashPassword(payload.password || 'Agent!123'),
-      role: payload.role || 'AGENT',
+      userType: uType,
+      shopName: payload.shopName?.trim() || (uType === 'APP' ? `${payload.name.trim()}'s Shop` : undefined),
+      organizationId: payload.organizationId?.trim() || (uType === 'APP' ? `org_${payload.name.trim().toLowerCase().replace(/[^a-z0-9]/g, '_')}` : 'org_royal'),
+      role: payload.role || (uType === 'SYSTEM' ? 'AGENT' : 'HELPER'),
       status: 'ONLINE',
       maxConcurrentChats: 10,
       channels: ['TELEGRAM', 'MESSENGER'],

@@ -48,7 +48,7 @@ adminRouter.get('/users', async (_req: Request, res: Response) => {
  * 2. Add / Invite a New Team Member
  */
 adminRouter.post('/users', async (req: Request, res: Response) => {
-  const { name, email, phone, role = 'AGENT', maxConcurrentChats = 10, password = 'Agent!123' } = req.body;
+  const { name, email, phone, role = 'AGENT', userType = 'APP', shopName, organizationId, maxConcurrentChats = 10, password = 'Agent!123' } = req.body;
 
   if (!name || !email) {
     return res.status(400).json({ success: false, error: 'Name and email are required.' });
@@ -59,6 +59,9 @@ adminRouter.post('/users', async (req: Request, res: Response) => {
     email,
     phone: phone || '',
     password,
+    userType: userType as any,
+    shopName,
+    organizationId,
     role: role.toUpperCase() as any,
   });
 
