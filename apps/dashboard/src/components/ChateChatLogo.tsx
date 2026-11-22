@@ -45,7 +45,7 @@ export const ChateChatLogo: React.FC<ChateChatLogoProps> = ({
           <span className={`font-bold tracking-tight text-white leading-tight ${dim.text} ${textClassName}`}>
             ChateChat
           </span>
-          <span className="text-[10px] text-cyan-400 font-medium tracking-wide">
+          <span className="text-[10px] text-blue-400 font-medium tracking-wide">
             ချိတ်ချက်
           </span>
         </div>

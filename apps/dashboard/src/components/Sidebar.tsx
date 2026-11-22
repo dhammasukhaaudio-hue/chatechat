@@ -65,7 +65,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-72 bg-slate-900 text-slate-300 flex flex-col border-r border-slate-800 select-none shadow-2xl transition-transform duration-300 ease-in-out lg:static lg:w-64 lg:translate-x-0 lg:shadow-none ${
+        className={`fixed inset-y-0 left-0 z-50 w-72 bg-slate-950/90 backdrop-blur-xl text-slate-300 flex flex-col border-r border-slate-800/80 select-none shadow-2xl transition-transform duration-300 ease-in-out lg:static lg:w-64 lg:translate-x-0 lg:shadow-none ${
           isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
@@ -82,7 +82,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               className="px-2 py-1 bg-slate-800/80 hover:bg-slate-700/80 text-slate-200 rounded-lg text-xs font-semibold border border-slate-700 flex items-center gap-1 transition-colors"
               title="Switch Language"
             >
-              <Globe size={12} className="text-cyan-400" />
+              <Globe size={12} className="text-blue-400" />
               <span>{lang === 'my' ? 'MM' : 'EN'}</span>
             </button>
 
@@ -198,7 +198,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           <div className="w-full bg-slate-700/60 h-1.5 rounded-full overflow-hidden">
             <div
-              className="bg-gradient-to-r from-blue-500 to-cyan-400 h-full rounded-full transition-all duration-300"
+              className="bg-gradient-to-r from-blue-600 to-blue-400 h-full rounded-full transition-all duration-300"
               style={{
                 width: `${Math.min(100, (((quotaDetails?.activeChannelsCount || 2) / (quotaDetails?.maxChannels || 3)) * 100))}%`,
               }}
@@ -210,7 +210,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               href="/download/apk"
               target="_blank"
               download="ChateChat.apk"
-              className="text-cyan-400 hover:text-cyan-300 font-semibold flex items-center gap-1 transition"
+              className="text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1 transition"
             >
               <span>📲 Android App</span>
             </a>

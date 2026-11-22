@@ -328,11 +328,11 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
   return (
     <div className="min-h-screen w-full flex items-center justify-center p-4 bg-gradient-to-br from-slate-950 via-[#0B132B] to-[#0A192F] relative overflow-hidden select-none font-sans">
       {/* 3D Ambient Glowing Light Cones */}
-      <div className="absolute top-1/4 -left-32 w-96 h-96 bg-blue-600/15 rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-1/4 -right-32 w-96 h-96 bg-cyan-500/15 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute top-1/4 -left-32 w-96 h-96 bg-blue-600/20 rounded-full blur-[130px] pointer-events-none" />
+      <div className="absolute bottom-1/4 -right-32 w-96 h-96 bg-indigo-600/15 rounded-full blur-[130px] pointer-events-none" />
 
-      {/* Main Frosted Glass Card Container */}
-      <div className="max-w-md w-full bg-slate-900/80 backdrop-blur-xl border border-slate-700/60 rounded-3xl p-6 sm:p-8 shadow-[0_20px_50px_rgba(2,132,199,0.12)] relative z-10 space-y-6">
+      {/* Main Smoked Glass Card Container */}
+      <div className="max-w-md w-full bg-slate-900/70 backdrop-blur-2xl border border-white/10 rounded-3xl p-6 sm:p-8 shadow-[0_25px_60px_rgba(0,0,0,0.55)] relative z-10 space-y-6">
 
         {/* Brand Header with 3D Frosted Glass Logo */}
         <div className="text-center space-y-2">
@@ -341,7 +341,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
           </div>
           <div>
             <h1 className="text-xl font-bold tracking-tight text-white flex items-center justify-center gap-2">
-              ChateChat <span className="text-cyan-400 font-semibold">(ချိတ်ချက်)</span>
+              ChateChat <span className="text-blue-400 font-semibold">(ချိတ်ချက်)</span>
             </h1>
             <p className="text-xs text-slate-400 mt-0.5">
               Omnichannel Messaging Workspace
@@ -350,13 +350,13 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
         </div>
 
         {/* Mode Switcher Tabs */}
-        <div className="grid grid-cols-2 p-1 bg-slate-800/60 border border-slate-700/50 rounded-xl text-xs font-semibold">
+        <div className="grid grid-cols-2 p-1 bg-slate-950/60 border border-slate-800 rounded-xl text-xs font-semibold">
           <button
             type="button"
             onClick={() => { setMode('LOGIN'); setError(null); }}
             className={`py-2 rounded-lg transition-all flex items-center justify-center gap-1.5 ${
               mode === 'LOGIN'
-                ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-sm font-bold'
+                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm font-bold'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
@@ -369,7 +369,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
             onClick={() => { setMode('SIGNUP'); setSignupStep(1); setError(null); }}
             className={`py-2 rounded-lg transition-all flex items-center justify-center gap-1.5 ${
               mode === 'SIGNUP'
-                ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-sm font-bold'
+                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm font-bold'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
