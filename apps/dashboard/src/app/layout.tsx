@@ -27,7 +27,7 @@ export default function RootLayout({
           content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
         />
       </head>
-      <body className="antialiased h-screen overflow-hidden bg-slate-100">{children}</body>
+      <body className="antialiased h-screen w-full max-w-[100vw] overflow-hidden overflow-x-hidden bg-slate-100">{children}</body>
     </html>
   );
 }

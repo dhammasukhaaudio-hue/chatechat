@@ -1183,7 +1183,7 @@ export default function InboxPage() {
   }
 
   return (
-    <div className="flex flex-col lg:flex-row h-screen w-screen overflow-hidden bg-slate-100 font-burmese">
+    <div className="flex flex-col lg:flex-row h-full w-full max-w-full overflow-hidden overflow-x-hidden bg-slate-100 font-burmese">
       {/* 1. Navigation & Quota Sidebar (Desktop static sidebar, Mobile slide-over drawer) */}
       <Sidebar
         isOpen={isMobileMenuOpen}
@@ -1203,7 +1203,7 @@ export default function InboxPage() {
       />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col h-full overflow-hidden relative">
+      <div className="flex-1 min-w-0 w-full max-w-full flex flex-col h-full overflow-hidden relative">
         {/* Mobile Top Header (Hidden on desktop lg:hidden; also hidden when actively chatting on mobile) */}
         {!(activeNav === 'inbox' && activeConversationId) && (
           <header className="safe-top-mobile pb-3.5 px-4 bg-slate-950/90 backdrop-blur-xl border-b border-slate-800/80 flex items-center justify-between lg:hidden shrink-0 z-30 select-none">
@@ -1235,9 +1235,9 @@ export default function InboxPage() {
         )}
 
         {/* Dynamic Views Container */}
-        <div className="flex-1 flex overflow-hidden relative">
+        <div className="flex-1 min-w-0 w-full max-w-full flex overflow-hidden relative">
           {activeNav === 'inbox' && (
-            <div className="flex flex-1 h-full overflow-hidden relative">
+            <div className="flex flex-1 min-w-0 w-full max-w-full h-full overflow-hidden relative">
               {/* 2. Conversation Triage List */}
               <div
                 className={`h-full flex-col ${
@@ -1279,7 +1279,7 @@ export default function InboxPage() {
 
               {/* 3. Active Chat Window */}
               <div
-                className={`h-full flex-1 flex-col ${
+                className={`h-full flex-1 min-w-0 w-full max-w-full flex-col overflow-hidden ${
                   activeConversationId ? 'flex' : 'hidden lg:flex'
                 }`}
               >

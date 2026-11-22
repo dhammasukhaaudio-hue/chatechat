@@ -135,10 +135,10 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   const isBotHandling = conversation.handoverStatus === 'BOT_HANDLING';
 
   return (
-    <div className="flex-1 bg-white flex flex-col h-full relative">
+    <div className="flex-1 min-w-0 w-full max-w-full bg-white flex flex-col h-full overflow-hidden relative">
       {/* Chat Area Header */}
-      <header className="safe-top-mobile pb-2.5 sm:pb-3 border-b border-slate-200 px-2.5 sm:px-4 lg:px-6 flex items-center justify-between bg-white z-10 shrink-0 lg:h-16 lg:pt-0 lg:pb-0">
-        <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0 flex-1 mr-2">
+      <header className="safe-top-mobile pb-2 sm:pb-3 border-b border-slate-200 px-2 sm:px-4 lg:px-6 flex items-center justify-between bg-white z-10 shrink-0 lg:h-16 lg:pt-0 lg:pb-0 w-full max-w-full overflow-hidden">
+        <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0 flex-1 mr-1 sm:mr-2 overflow-hidden">
           {/* Back Button on Mobile */}
           {onBack && (
             <button
@@ -151,17 +151,17 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
           )}
 
           <div className="relative shrink-0">
-            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs sm:text-sm">
+            <div className="w-7 h-7 sm:w-10 sm:h-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs sm:text-sm">
               {conversation.customer.name ? conversation.customer.name.slice(0, 2).toUpperCase() : 'CU'}
             </div>
           </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5">
-              <h2 className="text-xs sm:text-sm font-bold text-slate-900 leading-tight truncate max-w-[90px] sm:max-w-[160px] md:max-w-xs">
+          <div className="min-w-0 flex-1 truncate">
+            <div className="flex items-center gap-1 sm:gap-1.5 truncate">
+              <h2 className="text-xs sm:text-sm font-bold text-slate-900 leading-tight truncate">
                 {conversation.customer.name || 'ဧည့်သည်ဝယ်သူ'}
               </h2>
               <div className="shrink-0">
-                <ChannelBadge channel={conversation.channelType} showLabel />
+                <ChannelBadge channel={conversation.channelType} showLabel={false} />
               </div>
             </div>
             <p className="text-[10px] sm:text-xs text-slate-500 mt-0.5 truncate">
@@ -186,21 +186,21 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
           {isBotHandling ? (
             <button
               onClick={onAssignToMe}
-              className="px-2 sm:px-3 py-1 sm:py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1 shadow-xs transition-colors shrink-0"
+              className="px-2 sm:px-3 py-1 sm:py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[11px] sm:text-xs font-semibold flex items-center gap-1 shadow-xs transition-colors shrink-0"
             >
               <UserCheck size={13} />
               <span>လက်ခံမည်</span>
             </button>
           ) : (
-            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 truncate shrink-0">
+            <span className="inline-flex items-center gap-1 px-1.5 sm:px-2 py-1 rounded-md text-[11px] sm:text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 truncate shrink-0">
               <UserCheck size={13} className="shrink-0" />
-              <span className="truncate max-w-[70px] sm:max-w-none">{conversation.assignedAgent?.name || 'မသူဇာ'}</span>
+              <span className="truncate max-w-[55px] sm:max-w-none">{conversation.assignedAgent?.name || 'မသူဇာ'}</span>
             </span>
           )}
 
           <button
             onClick={onResolve}
-            className="px-2 sm:px-3 py-1 sm:py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors shrink-0"
+            className="px-2 sm:px-3 py-1 sm:py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[11px] sm:text-xs font-semibold flex items-center gap-1 transition-colors shrink-0"
           >
             <FileCheck size={13} />
             <span>ပြီးစီး</span>
@@ -209,7 +209,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       </header>
 
       {/* Message Stream */}
-      <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 space-y-3.5 bg-slate-50/50">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden p-2.5 sm:p-4 md:p-6 space-y-3 bg-slate-50/50 w-full max-w-full">
         {messages.length === 0 ? (
           <div className="text-center text-slate-400 text-sm py-12">
             မက်ဆေ့ခ်ျမှတ်တမ်း မရှိသေးပါ
@@ -224,8 +224,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
             if (isSystem) {
               return (
-                <div key={msg.id} className="mx-auto my-2 text-center select-none">
-                  <div className="inline-flex items-center gap-1.5 bg-slate-100 border border-slate-200/80 rounded-full px-3.5 py-1 text-[11px] text-slate-600 shadow-2xs font-medium">
+                <div key={msg.id} className="mx-auto my-2 text-center select-none max-w-[90%]">
+                  <div className="inline-flex items-center gap-1.5 bg-slate-100 border border-slate-200/80 rounded-full px-3 py-1 text-[11px] text-slate-600 shadow-2xs font-medium">
                     <span>{msg.content}</span>
                   </div>
                 </div>
@@ -254,7 +254,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             return (
               <div
                 key={msg.id}
-                className={`flex flex-col max-w-[88%] sm:max-w-[78%] md:max-w-[70%] ${
+                className={`flex flex-col max-w-[84%] sm:max-w-[78%] md:max-w-[70%] ${
                   isCustomer ? 'self-start items-start' : 'self-end items-end ml-auto'
                 }`}
               >
@@ -275,7 +275,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 </div>
 
                 <div
-                  className={`p-3 sm:p-3.5 rounded-2xl text-xs sm:text-sm leading-relaxed shadow-xs [overflow-wrap:anywhere] break-words whitespace-pre-wrap ${
+                  className={`p-2.5 sm:p-3.5 rounded-2xl text-xs sm:text-sm leading-relaxed shadow-xs [overflow-wrap:anywhere] break-words whitespace-pre-wrap ${
                     isCustomer
                       ? 'bg-white text-slate-800 border border-slate-200/80 rounded-tl-sm'
                       : isBot
@@ -296,7 +296,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 </div>
 
                 {!isCustomer && (
-                  <div className="flex items-center gap-1 mt-0.5 text-[10px] text-slate-400">
+                  <div className="flex items-center gap-1 mt-0.5 text-[10px] text-slate-400 mr-0.5">
                     <CheckCheck size={12} className="text-blue-500" />
                     <span>ပေးပို့ပြီး</span>
                   </div>
@@ -321,13 +321,13 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       )}
 
       {/* Input Box & Toolbar */}
-      <footer className="border-t border-slate-200 p-2.5 sm:p-4 bg-white relative">
+      <footer className="border-t border-slate-200 p-2 sm:p-3.5 bg-white relative w-full max-w-full overflow-hidden">
         {/* Toggle Mode: Customer Reply vs Internal Note */}
-        <div className="flex items-center justify-between gap-1.5 mb-2 overflow-x-auto no-scrollbar py-0.5">
-          <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex items-center justify-between gap-1 mb-1.5 w-full overflow-x-auto no-scrollbar py-0.5">
+          <div className="flex items-center gap-1 shrink-0">
             <button
               onClick={() => setIsInternalNote(false)}
-              className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-colors shrink-0 ${
+              className={`px-2 py-0.5 rounded-md text-[11px] sm:text-xs font-semibold transition-colors shrink-0 ${
                 !isInternalNote
                   ? 'bg-blue-100 text-blue-700 font-bold'
                   : 'text-slate-500 hover:text-slate-800'
@@ -337,29 +337,29 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             </button>
             <button
               onClick={() => setIsInternalNote(true)}
-              className={`px-2 py-1 rounded-md text-xs font-semibold flex items-center gap-1 transition-colors shrink-0 ${
+              className={`px-2 py-0.5 rounded-md text-[11px] sm:text-xs font-semibold flex items-center gap-1 transition-colors shrink-0 ${
                 isInternalNote
                   ? 'bg-amber-100 text-amber-800 font-bold'
                   : 'text-slate-500 hover:text-slate-800'
               }`}
             >
-              <Lock size={12} />
+              <Lock size={11} />
               <span>အတွင်းမှတ်ချက်</span>
             </button>
           </div>
 
           <button
             onClick={() => setShowCannedDrawer(!showCannedDrawer)}
-            className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium px-1.5 py-1 rounded shrink-0"
+            className="flex items-center gap-0.5 text-[11px] sm:text-xs text-blue-600 hover:text-blue-700 font-medium px-1.5 py-0.5 rounded shrink-0"
           >
-            <Zap size={13} className="text-amber-500" />
-            <span>ဖြတ်လမ်း ( / )</span>
+            <Zap size={12} className="text-amber-500" />
+            <span>ဖြတ်လမ်း (/)</span>
           </button>
         </div>
 
         {/* Input Textarea & Action Buttons */}
         <div
-          className={`flex items-end gap-2 border rounded-xl p-2.5 transition-all ${
+          className={`flex items-end gap-1.5 sm:gap-2 border rounded-xl p-2 sm:p-2.5 transition-all w-full ${
             isInternalNote
               ? 'bg-amber-50/50 border-amber-300 ring-2 ring-amber-400/20'
               : 'border-slate-300 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20'
@@ -375,21 +375,21 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 : 'မက်ဆေ့ခ်ျ ရေးသားပါ... (/ shortcut)'
             }
             rows={2}
-            className="flex-1 bg-transparent border-none outline-none resize-none text-sm text-slate-800 placeholder-slate-400"
+            className="flex-1 min-w-0 bg-transparent border-none outline-none resize-none text-xs sm:text-sm text-slate-800 placeholder-slate-400"
           />
 
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 shrink-0">
             <button
               title="ဖိုင်တွဲတင်ပါ"
-              className="p-2 text-slate-400 hover:text-slate-600 rounded-lg transition-colors"
+              className="p-1.5 sm:p-2 text-slate-400 hover:text-slate-600 rounded-lg transition-colors shrink-0"
             >
-              <Paperclip size={18} />
+              <Paperclip size={17} />
             </button>
 
             <button
               onClick={handleSend}
               disabled={!inputText.trim()}
-              className={`p-2.5 rounded-lg text-white transition-all ${
+              className={`p-2 sm:p-2.5 rounded-lg text-white transition-all shrink-0 ${
                 inputText.trim()
                   ? isInternalNote
                     ? 'bg-amber-600 hover:bg-amber-700'
@@ -397,7 +397,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                   : 'bg-slate-300 cursor-not-allowed'
               }`}
             >
-              <Send size={16} />
+              <Send size={15} />
             </button>
           </div>
         </div>
