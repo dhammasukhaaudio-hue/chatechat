@@ -25,10 +25,11 @@ export const ConversationList: React.FC<ConversationListProps> = ({
   onSimulateTelegramMessage,
 }) => {
   const filtered = conversations.filter((c) => {
+    if (!c) return false;
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
-    const nameMatch = c.customer.name?.toLowerCase().includes(query);
-    const phoneMatch = c.customer.phone?.includes(query);
+    const nameMatch = c.customer?.name?.toLowerCase().includes(query);
+    const phoneMatch = c.customer?.phone?.includes(query);
     const snippetMatch = c.lastMessageSnippet?.toLowerCase().includes(query);
     return nameMatch || phoneMatch || snippetMatch;
   });
@@ -117,7 +118,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                 {/* Customer Avatar with status */}
                 <div className="relative flex-shrink-0">
                   <div className="w-11 h-11 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-sm">
-                    {conv.customer.name ? conv.customer.name.slice(0, 2).toUpperCase() : 'CU'}
+                    {conv.customer?.name ? conv.customer.name.slice(0, 2).toUpperCase() : 'CU'}
                   </div>
                   <div className="absolute -bottom-1 -right-1">
                     <ChannelBadge channel={conv.channelType} />
@@ -128,7 +129,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-0.5">
                     <h3 className="text-sm font-semibold text-slate-900 truncate">
-                      {conv.customer.name || 'ဧည့်သည်ဝယ်သူ'}
+                      {conv.customer?.name || 'ဧည့်သည်ဝယ်သူ'}
                     </h3>
                     <span suppressHydrationWarning className="text-[11px] text-slate-400 flex-shrink-0">
                       {formatTime(conv.lastMessageAt)}

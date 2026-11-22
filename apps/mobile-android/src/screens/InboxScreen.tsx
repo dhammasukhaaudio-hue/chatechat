@@ -71,9 +71,9 @@ export const InboxScreen: React.FC<Props> = ({ onSelectConversation, onOpenSetti
     // Search query
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      const matchName = c.customer.name.toLowerCase().includes(q);
-      const matchPhone = c.customer.phone?.includes(q);
-      const matchSnippet = c.lastMessageSnippet.toLowerCase().includes(q);
+      const matchName = c.customer?.name?.toLowerCase().includes(q);
+      const matchPhone = c.customer?.phone?.includes(q);
+      const matchSnippet = c.lastMessageSnippet?.toLowerCase().includes(q);
       return matchName || matchPhone || matchSnippet;
     }
     return true;
@@ -82,6 +82,7 @@ export const InboxScreen: React.FC<Props> = ({ onSelectConversation, onOpenSetti
   const renderItem = ({ item }: { item: Conversation }) => {
     const isBot = item.handoverStatus === 'BOT_HANDLING';
     const isUrgent = item.handoverStatus === 'HUMAN_REQUESTED';
+    const custName = item.customer?.name || 'Customer';
 
     return (
       <TouchableOpacity
@@ -91,13 +92,13 @@ export const InboxScreen: React.FC<Props> = ({ onSelectConversation, onOpenSetti
       >
         <View style={styles.cardHeader}>
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{item.customer.name.substring(0, 1).toUpperCase()}</Text>
+            <Text style={styles.avatarText}>{custName.substring(0, 1).toUpperCase()}</Text>
           </View>
 
           <View style={styles.headerInfo}>
             <View style={styles.nameRow}>
               <Text style={styles.customerName} numberOfLines={1}>
-                {item.customer.name}
+                {custName}
               </Text>
               <ChannelBadge channel={item.channelType} size="sm" />
             </View>
@@ -117,7 +118,7 @@ export const InboxScreen: React.FC<Props> = ({ onSelectConversation, onOpenSetti
                 </View>
               )}
 
-              {item.customer.phone && (
+              {item.customer?.phone && (
                 <Text style={styles.phoneText}>📞 {item.customer.phone}</Text>
               )}
             </View>

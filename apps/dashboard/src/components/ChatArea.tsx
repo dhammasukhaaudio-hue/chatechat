@@ -28,10 +28,11 @@ interface ChatAreaProps {
 }
 
 // Safely render message text with bold tags and clickable hyperlinks without showing raw <b> tags
-const renderFormattedContent = (content: string, isCustomer: boolean, isBot: boolean) => {
+const renderFormattedContent = (content: any, isCustomer: boolean, isBot: boolean) => {
   if (!content) return null;
+  const str = typeof content === 'string' ? content : String(content);
 
-  const parts = content.split(/(<b>[\s\S]*?<\/b>|<strong>[\s\S]*?<\/strong>|https?:\/\/[^\s]+)/g);
+  const parts = str.split(/(<b>[\s\S]*?<\/b>|<strong>[\s\S]*?<\/strong>|https?:\/\/[^\s]+)/g);
 
   return parts.map((part, idx) => {
     if (!part) return null;
@@ -95,7 +96,16 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
   if (!conversation) {
     return (
-      <div className="flex-1 bg-slate-50 flex flex-col items-center justify-center p-8 text-center text-slate-400">
+      <div className="flex-1 bg-slate-50 flex flex-col items-center justify-center p-8 text-center text-slate-400 relative">
+        {onBack && (
+          <button
+            onClick={onBack}
+            className="absolute top-4 left-4 p-2 text-slate-700 hover:text-slate-900 bg-white shadow-xs rounded-xl lg:hidden flex items-center gap-1.5 text-xs font-bold border border-slate-200"
+          >
+            <ArrowLeft size={16} />
+            <span>မက်ဆေ့ခ်ျများ စာရင်းသို့</span>
+          </button>
+        )}
         <div className="w-16 h-16 rounded-2xl bg-white shadow-sm flex items-center justify-center text-slate-300 mb-4 border border-slate-200">
           <Smile size={32} />
         </div>

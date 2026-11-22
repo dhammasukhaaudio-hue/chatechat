@@ -12,12 +12,19 @@ export const getApiBaseUrl = (): string => {
     return url;
   }
   if (typeof window !== 'undefined') {
+    // Detect Capacitor Android / iOS Native WebView
+    const isCapacitor = !!(window as any).Capacitor || !!(window as any).isNative;
+    if (isCapacitor) {
+      return 'https://chatechat.onrender.com';
+    }
+
     const host = window.location.hostname;
     if (host !== 'localhost' && host !== '127.0.0.1') {
       return window.location.origin;
     }
   }
-  return 'http://localhost:4000';
+  // Default to live production server if running on mobile device or cloud
+  return 'https://chatechat.onrender.com';
 };
 
 export const API_BASE_URL = getApiBaseUrl();

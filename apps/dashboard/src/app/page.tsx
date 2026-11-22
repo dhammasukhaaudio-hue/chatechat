@@ -283,7 +283,7 @@ export default function InboxPage() {
   const [activeNav, setActiveNav] = useState('inbox');
   const [activeFilter, setActiveFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeConversationId, setActiveConversationId] = useState<string | null>('conv_1');
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const activeConvIdRef = useRef<string | null>(activeConversationId);
   useEffect(() => {
     activeConvIdRef.current = activeConversationId;
@@ -294,7 +294,7 @@ export default function InboxPage() {
 
   // Responsive: On mobile screens upon initial load, show conversation list instead of defaulting to a selected chat
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
       setActiveConversationId(null);
     }
   }, []);
@@ -924,6 +924,20 @@ export default function InboxPage() {
       joinConversation(activeConversationId);
     }
   }, [activeConversationId]);
+
+  // Auto-heal invalid activeConversationId on mobile/desktop
+  useEffect(() => {
+    if (activeConversationId && conversations.length > 0) {
+      const exists = conversations.some((c) => c.id === activeConversationId);
+      if (!exists) {
+        if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+          setActiveConversationId(null);
+        } else {
+          setActiveConversationId(conversations[0]?.id || null);
+        }
+      }
+    }
+  }, [activeConversationId, conversations]);
 
   const activeConversation = conversations.find((c) => c.id === activeConversationId) || null;
   const currentMessages = activeConversationId ? messages[activeConversationId] || [] : [];
