@@ -1,7 +1,7 @@
 import React from 'react';
 import { Conversation } from '../types';
 import { ChannelBadge } from './ChannelBadge';
-import { Search, Bot, UserCheck } from 'lucide-react';
+import { Search, Bot, UserCheck, Trash2 } from 'lucide-react';
 
 interface ConversationListProps {
   conversations: Conversation[];
@@ -12,6 +12,7 @@ interface ConversationListProps {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   onSimulateTelegramMessage?: () => void;
+  onClearAllChats?: () => void;
 }
 
 export const ConversationList: React.FC<ConversationListProps> = ({
@@ -23,6 +24,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
   searchQuery,
   setSearchQuery,
   onSimulateTelegramMessage,
+  onClearAllChats,
 }) => {
   const filtered = conversations.filter((c) => {
     if (!c) return false;
@@ -50,15 +52,31 @@ export const ConversationList: React.FC<ConversationListProps> = ({
               {filtered.length} ခု
             </span>
           </div>
-          {onSimulateTelegramMessage && (
-            <button
-              onClick={onSimulateTelegramMessage}
-              className="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-medium flex items-center gap-1 transition border border-slate-200/80"
-              title="Test Message"
-            >
-              <span>+ စမ်းသပ်ရန်</span>
-            </button>
-          )}
+          <div className="flex items-center gap-1.5">
+            {onClearAllChats && filtered.length > 0 && (
+              <button
+                onClick={() => {
+                  if (window.confirm('စကားပြောမှတ်တမ်းအားလုံးကို ရှင်းလင်းပစ်ရန် သေချာပါသလား?')) {
+                    onClearAllChats();
+                  }
+                }}
+                className="px-2 py-0.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg text-xs font-medium flex items-center gap-1 transition border border-rose-200/80"
+                title="Clear All Chats"
+              >
+                <Trash2 size={12} />
+                <span>ရှင်းလင်းမည်</span>
+              </button>
+            )}
+            {onSimulateTelegramMessage && (
+              <button
+                onClick={onSimulateTelegramMessage}
+                className="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-medium flex items-center gap-1 transition border border-slate-200/80"
+                title="Test Message"
+              >
+                <span>+ စမ်းသပ်ရန်</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Search Bar */}

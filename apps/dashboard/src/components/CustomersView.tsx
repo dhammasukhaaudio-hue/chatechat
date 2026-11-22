@@ -128,9 +128,9 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ customers, lang })
                       </div>
                     </td>
                     <td className="py-3.5 px-4 text-slate-600 max-w-xs truncate">{c.address || '-'}</td>
-                    <td className="py-3.5 px-4 text-center font-semibold text-slate-800">{c.totalOrders}</td>
+                    <td className="py-3.5 px-4 text-center font-semibold text-slate-800">{c.totalOrders ?? 0}</td>
                     <td className="py-3.5 px-4 text-right font-bold text-blue-600">
-                      {c.totalSpentMmk.toLocaleString()} MMK
+                      {(c.totalSpentMmk ?? 0).toLocaleString()} MMK
                     </td>
                   </tr>
                 );
@@ -189,12 +189,12 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ customers, lang })
               <div className="grid grid-cols-2 gap-2 text-center">
                 <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
                   <span className="text-[11px] text-slate-500">{isMy ? 'အော်ဒါ' : 'Orders'}</span>
-                  <p className="text-base font-bold text-slate-800 mt-0.5">{selectedCustomer.totalOrders} ခု</p>
+                  <p className="text-base font-bold text-slate-800 mt-0.5">{selectedCustomer.totalOrders ?? 0} ခု</p>
                 </div>
                 <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
                   <span className="text-[11px] text-slate-500">{isMy ? 'သုံးစွဲငွေ' : 'Total Spent'}</span>
                   <p className="text-xs font-bold text-blue-600 mt-1">
-                    {selectedCustomer.totalSpentMmk.toLocaleString()} MMK
+                    {(selectedCustomer.totalSpentMmk ?? 0).toLocaleString()} MMK
                   </p>
                 </div>
               </div>
@@ -267,12 +267,12 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ customers, lang })
                 <div className="grid grid-cols-2 gap-2 text-center">
                   <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
                     <span className="text-[11px] text-slate-500">{isMy ? 'အော်ဒါ' : 'Orders'}</span>
-                    <p className="text-base font-bold text-slate-800 mt-0.5">{selectedCustomer.totalOrders} ခု</p>
+                    <p className="text-base font-bold text-slate-800 mt-0.5">{selectedCustomer.totalOrders ?? 0} ခု</p>
                   </div>
                   <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
                     <span className="text-[11px] text-slate-500">{isMy ? 'သုံးစွဲငွေ' : 'Total Spent'}</span>
                     <p className="text-xs font-bold text-blue-600 mt-1">
-                      {selectedCustomer.totalSpentMmk.toLocaleString()} MMK
+                      {(selectedCustomer.totalSpentMmk ?? 0).toLocaleString()} MMK
                     </p>
                   </div>
                 </div>

@@ -438,6 +438,13 @@ export default function InboxPage() {
     if (!currentUser) return;
 
     try {
+      if (typeof window !== 'undefined' && window.location.search.includes('clear=true')) {
+        try {
+          localStorage.removeItem(convStorageKey);
+          localStorage.removeItem(msgStorageKey);
+        } catch {}
+      }
+
       const savedConvs = localStorage.getItem(convStorageKey);
       const savedMsgs = localStorage.getItem(msgStorageKey);
 
@@ -449,6 +456,28 @@ export default function InboxPage() {
 
       let initialConvs: Conversation[] = savedConvs ? JSON.parse(savedConvs) : defaultConvs;
       let initialMsgs: Record<string, Message[]> = savedMsgs ? JSON.parse(savedMsgs) : defaultMsgs;
+
+      // Defensive customer sanitation for all loaded conversations
+      if (Array.isArray(initialConvs)) {
+        initialConvs = initialConvs.map((c, idx) => ({
+          ...c,
+          id: c.id || `conv_${idx}`,
+          unreadCount: c.unreadCount ?? 0,
+          customer: {
+            id: c.customer?.id || c.customerId || `cust_${idx}`,
+            name: c.customer?.name || (c as any).customerName || 'Telegram Customer',
+            phone: c.customer?.phone || (c as any).phone || '',
+            address: c.customer?.address || '',
+            city: c.customer?.city || '',
+            totalOrders: c.customer?.totalOrders ?? 0,
+            totalSpentMmk: c.customer?.totalSpentMmk ?? 0,
+            tags: c.customer?.tags || ['Customer'],
+            identities: c.customer?.identities || [],
+          },
+        }));
+      } else {
+        initialConvs = [];
+      }
 
       // Filter out demo mock conversations (conv_1, conv_2, conv_3, conv_4) for real organizations!
       if (!isDemoOrg && initialConvs.length > 0) {
@@ -1252,6 +1281,24 @@ export default function InboxPage() {
     setActiveNav('inbox');
   };
 
+  const handleClearAllChats = async () => {
+    try {
+      localStorage.removeItem(convStorageKey);
+      localStorage.removeItem(msgStorageKey);
+    } catch {}
+    setConversations([]);
+    setMessages({});
+    setActiveConversationId(null);
+    activeConvIdRef.current = null;
+    try {
+      await fetch(`${getApiBaseUrl()}/api/v1/webhooks/telegram/clear-chats`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ organizationId: orgId }),
+      });
+    } catch {}
+  };
+
   // If not authenticated, render Frontend Login View
   if (authLoaded && !isAuthenticated) {
     return <LoginView onLoginSuccess={handleLoginSuccess} />;
@@ -1353,6 +1400,7 @@ export default function InboxPage() {
                     } catch {}
                     handleSimulateInboundMessage('TELEGRAM', botName);
                   }}
+                  onClearAllChats={handleClearAllChats}
                 />
               </div>
 

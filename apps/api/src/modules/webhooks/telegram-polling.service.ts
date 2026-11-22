@@ -594,11 +594,17 @@ ${webUrl}
    * Persist incoming messages to telegram-chats.json
    */
   private ensureValidConv(cId: string, rawC: any) {
-    const safeCustomer = rawC?.customer || {
-      id: rawC?.customerId || `cust_${cId}`,
-      name: rawC?.customerName || (rawC?.externalThreadId ? `@${rawC.externalThreadId}` : 'Telegram Customer'),
-      phone: rawC?.phone || '',
-      identities: [],
+    const rawCust = rawC?.customer;
+    const safeCustomer = {
+      id: rawCust?.id || rawC?.customerId || `cust_${cId}`,
+      name: rawCust?.name || rawC?.customerName || (rawC?.externalThreadId ? `@${rawC.externalThreadId}` : 'Telegram Customer'),
+      phone: rawCust?.phone || rawC?.phone || '',
+      address: rawCust?.address || '',
+      city: rawCust?.city || '',
+      totalOrders: rawCust?.totalOrders ?? 0,
+      totalSpentMmk: rawCust?.totalSpentMmk ?? 0,
+      tags: rawCust?.tags || ['Telegram Customer'],
+      identities: rawCust?.identities || [],
     };
     return {
       id: rawC?.id || cId,
@@ -606,6 +612,27 @@ ${webUrl}
       ...rawC,
       customer: safeCustomer,
     };
+  }
+
+  public clearChats(organizationId?: string) {
+    try {
+      if (!fs.existsSync(CHATS_FILE)) return;
+      if (!organizationId || organizationId === 'all') {
+        fs.writeFileSync(CHATS_FILE, JSON.stringify({}, null, 2), 'utf-8');
+        return;
+      }
+      const history = JSON.parse(fs.readFileSync(CHATS_FILE, 'utf-8'));
+      const cleanOrg = organizationId.toLowerCase();
+      for (const [key, value] of Object.entries(history as Record<string, any>)) {
+        const itemOrg = (value?.conv?.organizationId || '').toLowerCase();
+        if (itemOrg === cleanOrg || (cleanOrg.includes('yoon') && (key.includes('yoon') || itemOrg.includes('yoon')))) {
+          delete history[key];
+        }
+      }
+      fs.writeFileSync(CHATS_FILE, JSON.stringify(history, null, 2), 'utf-8');
+    } catch (e) {
+      console.warn('⚠️ Could not clear chats in telegram-chats.json:', e);
+    }
   }
 
   private saveMessageToHistory(convId: string, conv: any, msg: any) {

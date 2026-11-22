@@ -155,7 +155,7 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({
         </h4>
 
         <div className="space-y-1.5">
-          {customer.identities && customer.identities.length > 0 ? (
+          {customer?.identities && customer.identities.length > 0 ? (
             customer.identities.map((id) => (
               <div
                 key={id.id}
@@ -184,14 +184,14 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({
           <div className="p-2.5 bg-slate-50/80 rounded-xl border border-slate-100">
             <span className="text-[10px] text-slate-400 font-medium">အော်ဒါ</span>
             <p className="text-sm font-bold text-slate-800 mt-0.5">
-              {customer.totalOrders} ခု
+              {customer?.totalOrders ?? 0} ခု
             </p>
           </div>
 
           <div className="p-2.5 bg-slate-50/80 rounded-xl border border-slate-100">
             <span className="text-[10px] text-slate-400 font-medium">စုစုပေါင်း</span>
             <p className="text-xs font-bold text-blue-600 mt-0.5">
-              {customer.totalSpentMmk.toLocaleString()} MMK
+              {(customer?.totalSpentMmk ?? 0).toLocaleString()} MMK
             </p>
           </div>
         </div>
@@ -205,7 +205,7 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({
         </h4>
 
         <div className="flex flex-wrap gap-1.5">
-          {customer.tags && customer.tags.length > 0 ? (
+          {customer?.tags && customer.tags.length > 0 ? (
             customer.tags.map((t) => (
               <span key={t} className="px-2 py-0.5 rounded-md text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200/50">
                 {t}

@@ -63,7 +63,7 @@ webhookRouter.post('/messenger', async (req: Request, res: Response) => {
  */
 webhookRouter.post('/telegram/:channelId', async (req: Request, res: Response, next) => {
   const { channelId } = req.params;
-  const reservedPaths = ['disconnect', 'pause', 'stop', 'send-message', 'bot-reply', 'takeover', 'resolve', 'status', 'chats'];
+  const reservedPaths = ['disconnect', 'pause', 'stop', 'send-message', 'bot-reply', 'takeover', 'resolve', 'status', 'chats', 'clear-chats'];
   if (reservedPaths.includes(channelId)) {
     return next();
   }
@@ -351,6 +351,19 @@ webhookRouter.post('/telegram/resolve', async (req: Request, res: Response) => {
     if (!chatId) return res.status(400).json({ error: 'chatId is required' });
     await telegramPollingService.setHandoverStatus(chatId, 'BOT_HANDLING');
     return res.status(200).json({ success: true, handoverStatus: 'BOT_HANDLING' });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * 9. CLEAR TELEGRAM CHAT HISTORY
+ */
+webhookRouter.post('/telegram/clear-chats', async (req: Request, res: Response) => {
+  try {
+    const { organizationId } = req.body || {};
+    telegramPollingService.clearChats(organizationId || 'all');
+    return res.status(200).json({ success: true, message: 'All chat history cleared successfully' });
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err.message });
   }
