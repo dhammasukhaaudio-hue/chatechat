@@ -327,11 +327,21 @@ class UserStoreService {
 
   public findByIdentifier(identifier: string): StoredUser | undefined {
     const clean = identifier.trim().toLowerCase();
+    if (!clean) return undefined;
     return this.users.find((u) => {
-      const emailMatch = u.email.toLowerCase() === clean;
-      const nameMatch = u.name.toLowerCase() === clean || u.name.toLowerCase().replace(/[^a-z0-9]/g, '') === clean;
-      const phoneMatch = u.phone && (u.phone.replace(/[\s-]/g, '') === clean.replace(/[\s-]/g, '') || u.phone.includes(clean));
-      return emailMatch || nameMatch || phoneMatch;
+      const emailLower = (u.email || '').toLowerCase();
+      const emailMatch = emailLower === clean;
+      const emailPrefixMatch = emailLower.split('@')[0] === clean;
+
+      const nameLower = (u.name || '').toLowerCase();
+      const nameMatch = nameLower === clean || nameLower.replace(/[^a-z0-9]/g, '') === clean;
+      const nameFirstWordMatch = nameLower.split(/[\s(]/)[0] === clean;
+
+      const cleanPhone = (u.phone || '').replace(/[\s-]/g, '');
+      const inputPhone = clean.replace(/[\s-]/g, '');
+      const phoneMatch = cleanPhone.length > 0 && inputPhone.length > 5 && (cleanPhone === inputPhone || cleanPhone.endsWith(inputPhone));
+
+      return emailMatch || emailPrefixMatch || nameMatch || nameFirstWordMatch || phoneMatch;
     });
   }
 

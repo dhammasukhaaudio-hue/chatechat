@@ -100,51 +100,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
       localStorage.setItem('chatechat_agent_session', JSON.stringify(user));
       onLoginSuccess(user);
     } catch (err: any) {
-      // Fallback for offline demo accounts
-      const lower = identifier.toLowerCase().trim();
-      let role = 'SHOP_OWNER';
-      let orgId = `org_${lower.replace(/[^a-z0-9]/g, '_')}`;
-      let orgName = `${identifier}'s Shop`;
-      let tCode = teamCode.trim().toUpperCase() || `${lower.toUpperCase().slice(0, 4)}-101`;
-
-      if (lower.includes('michael')) {
-        role = 'SUPER_ADMIN';
-        orgId = 'org_royal';
-        orgName = 'ChateChat Platform';
-      } else if (lower === 'admin') {
-        role = 'ADMIN';
-        orgId = 'org_royal';
-        orgName = 'ChateChat Official';
-      } else if (lower.includes('yoon')) {
-        role = 'SHOP_OWNER';
-        orgId = 'org_yoon';
-        orgName = "Yoon's Fashion Shop";
-      } else if (lower.includes('saung')) {
-        role = 'SHOP_OWNER';
-        orgId = 'org_saung';
-        orgName = "Saung's Official Shop";
-      } else if (lower.includes('mexes')) {
-        role = 'SHOP_OWNER';
-        orgId = 'org_mexes';
-        orgName = 'Mexes Official Shop';
-      } else if (lower.includes('lynn') || lower.includes('helper')) {
-        role = 'HELPER';
-        orgId = 'org_mexes';
-        orgName = 'Mexes Official Shop';
-      }
-
-      const mockUser = {
-        id: `usr_${Date.now()}`,
-        name: identifier.trim(),
-        email: identifier.includes('@') ? identifier.trim() : `${lower}@chatechat.com`,
-        role,
-        organizationId: orgId,
-        organizationName: orgName,
-        teamCode: tCode,
-      };
-
-      localStorage.setItem('chatechat_agent_session', JSON.stringify(mockUser));
-      onLoginSuccess(mockUser);
+      setError(err.message || 'အသုံးပြုသူအမည် သို့မဟုတ် စကားဝှက် မှားယွင်းနေပါသည်');
     } finally {
       setLoading(false);
     }
@@ -240,21 +196,8 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
       const user = data.user;
       localStorage.setItem('chatechat_agent_session', JSON.stringify(user));
       onLoginSuccess(user);
-    } catch {
-      const user = {
-        id: `usr_${Date.now()}`,
-        name: signupName.trim(),
-        email: signupEmail.trim() || `${signupName.toLowerCase().replace(/[^a-z0-9]/g, '_')}@chatechat.com`,
-        role: 'SHOP_OWNER',
-        userType: 'APP',
-        phone: signupPhone.trim(),
-        organizationId: `org_${Date.now()}`,
-        organizationName: signupShopName.trim() || `${signupName.trim()}'s Shop`,
-        teamCode: signupTeamCode.trim().toUpperCase() || `${signupName.trim().slice(0, 4).toUpperCase()}-101`,
-      };
-
-      localStorage.setItem('chatechat_agent_session', JSON.stringify(user));
-      onLoginSuccess(user);
+    } catch (err: any) {
+      setError(err.message || 'အတည်ပြုမှု မအောင်မြင်ပါခင်ဗျာ။ ကုဒ်မှန်ကန်စွာ ပြန်လည်ရိုက်ထည့်ပါ');
     } finally {
       setLoading(false);
     }

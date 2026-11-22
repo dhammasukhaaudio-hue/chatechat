@@ -95,7 +95,7 @@ authRouter.post('/login', (req: Request, res: Response) => {
   const matched = userStore.findByIdentifier(cleanId);
 
   if (matched) {
-    const isPasswordValid = verifyPassword(password, matched.passwordHash) || password === 'Agent!123' || password === 'Admin!123';
+    const isPasswordValid = verifyPassword(password, matched.passwordHash);
     if (!isPasswordValid) {
       return res.status(401).json({
         success: false,
@@ -121,34 +121,10 @@ authRouter.post('/login', (req: Request, res: Response) => {
     });
   }
 
-  // 3. Permissive fallback for custom agent credentials (creates in user store automatically)
-  // Default new login is SHOP_OWNER (App User)
-  const isMichael = cleanId.includes('michael');
-  const autoCreated = userStore.createUser({
-    name: identifier.includes('@') ? identifier.split('@')[0] : identifier,
-    email: identifier.includes('@') ? identifier : `${identifier}@chatechat.com`,
-    phone: identifier.startsWith('09') ? identifier : '09798888123',
-    password: password,
-    userType: isMichael ? 'SYSTEM' : 'APP',
-    role: isMichael ? 'SUPER_ADMIN' : 'SHOP_OWNER',
-    shopName: isMichael ? undefined : `${identifier}'s Shop`,
-  });
-
-  return res.json({
-    success: true,
-    message: `${autoCreated.name} အကောင့်ဖြင့် အောင်မြင်စွာ ဝင်ရောက်ပါသည်`,
-    token: `agent_session_${Date.now()}`,
-    user: {
-      id: autoCreated.id,
-      name: autoCreated.name,
-      email: autoCreated.email,
-      phone: autoCreated.phone || '',
-      role: autoCreated.role,
-      userType: autoCreated.userType,
-      shopName: autoCreated.shopName,
-      organizationId: autoCreated.organizationId,
-      organizationName: autoCreated.shopName,
-    },
+  // 3. Strict authentication: reject unregistered users
+  return res.status(401).json({
+    success: false,
+    error: 'အကောင့် ရှာမတွေ့ပါခင်ဗျာ။ အသုံးပြုသူအမည်၊ Email သို့မဟုတ် Phone နံပါတ်ကို မှန်ကန်စွာ ရိုက်ထည့်ပါ (သို့မဟုတ် Sign Up တွင် အကောင့်အသစ် ဖွင့်ပါ)',
   });
 });
 
