@@ -528,17 +528,15 @@ class TelegramPollingService {
         const apkUrl = process.env.APK_DOWNLOAD_URL || 'https://tinyurl.com/chatechat-app';
         const webUrl = 'https://chatechat.onrender.com';
 
-        const replyText = `မင်္ဂလာပါခင်ဗျာ 🙏 <b>ChateChat (ချိတ်ချက်)</b> မှ နွေးထွေးစွာ ကြိုဆိုပါသည်! 📱
+        const replyText = `မင်္ဂလာပါခင်ဗျာ 🙏 <b>ChateChat (ချိတ်ချက်)</b> မှ ကြိုဆိုပါသည်။
 
-Android ဖုန်းအတွက် Mobile App (APK) အား အောက်ပါ Short Link မှတစ်ဆင့် တိုက်ရိုက် ရယူနိုင်ပါပြီခင်ဗျာ -
-
-📲 <b>APK ဒေါင်းလုဒ် Short Link:</b>
+📲 <b>Android App (APK):</b>
 ${apkUrl}
 
-🌐 <b>Web Dashboard ဖြင့် တိုက်ရိုက်သုံးရန်:</b>
+🌐 <b>Web Dashboard:</b>
 ${webUrl}
 
-စတင်အသုံးပြုရန် အောက်ပါ ခလုတ်ကို နှိပ်၍လည်း Download ဆွဲနိုင်ပါသည်ခင်ဗျာ။ 👇`;
+စတင်အသုံးပြုရန် အောက်ပါခလုတ်ကို နှိပ်၍လည်း တိုက်ရိုက်ရယူနိုင်ပါသည်။ 👇`;
 
         const replyMarkup = {
           inline_keyboard: [
