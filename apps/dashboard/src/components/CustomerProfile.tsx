@@ -27,9 +27,9 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({
   onRequestContact,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
-  const [phone, setPhone] = useState(customer.phone || '');
-  const [address, setAddress] = useState(customer.address || '');
-  const [city, setCity] = useState(customer.city || '');
+  const [phone, setPhone] = useState(customer?.phone || '');
+  const [address, setAddress] = useState(customer?.address || '');
+  const [city, setCity] = useState(customer?.city || '');
 
   const handleSave = () => {
     if (onUpdateCustomer) {
@@ -43,9 +43,9 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({
       {/* Customer Avatar & Name */}
       <div className="text-center pb-4 border-b border-slate-100">
         <div className="w-16 h-16 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-xl mx-auto mb-3 border border-slate-200">
-          {customer.name ? customer.name.slice(0, 2).toUpperCase() : 'CU'}
+          {customer?.name ? customer.name.slice(0, 2).toUpperCase() : 'CU'}
         </div>
-        <h3 className="text-base font-bold text-slate-900">{customer.name || 'ဧည့်သည်ဝယ်သူ'}</h3>
+        <h3 className="text-base font-bold text-slate-900">{customer?.name || 'ဧည့်သည်ဝယ်သူ'}</h3>
         <p className="text-xs text-slate-500 mt-0.5">{phone || 'ဖုန်းနံပါတ် မသိရှိသေးပါ'}</p>
 
         {/* Current Channel */}

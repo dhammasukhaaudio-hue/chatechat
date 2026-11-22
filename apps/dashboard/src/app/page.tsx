@@ -567,25 +567,39 @@ export default function InboxPage() {
                   for (const key of chatKeys) {
                     const entry = chats[key];
                     if (entry && entry.conv) {
-                      const idx = updated.findIndex((c) => c.id === entry.conv.id);
-                      const isCurrentlyActive = activeConvIdRef.current === entry.conv.id;
-                      const targetUnread = isCurrentlyActive ? 0 : entry.conv.unreadCount;
+                      const rawConv = entry.conv;
+                      const safeCustomer = rawConv.customer || {
+                        id: rawConv.customerId || `cust_${key}`,
+                        name: rawConv.customerName || (rawConv.externalThreadId ? `@${rawConv.externalThreadId}` : 'Telegram Customer'),
+                        phone: rawConv.phone || '',
+                        identities: [],
+                      };
+                      const safeConv: Conversation = {
+                        ...rawConv,
+                        id: rawConv.id || key,
+                        channelType: rawConv.channelType || 'TELEGRAM',
+                        customer: safeCustomer,
+                      };
+                      const idx = updated.findIndex((c) => c.id === safeConv.id);
+                      const isCurrentlyActive = activeConvIdRef.current === safeConv.id;
+                      const targetUnread = isCurrentlyActive ? 0 : (safeConv.unreadCount || 0);
                       if (idx >= 0) {
                         if (
-                          updated[idx].lastMessageAt !== entry.conv.lastMessageAt ||
-                          updated[idx].lastMessageSnippet !== entry.conv.lastMessageSnippet ||
-                          updated[idx].handoverStatus !== entry.conv.handoverStatus ||
-                          updated[idx].unreadCount !== targetUnread
+                          updated[idx].lastMessageAt !== safeConv.lastMessageAt ||
+                          updated[idx].lastMessageSnippet !== safeConv.lastMessageSnippet ||
+                          updated[idx].handoverStatus !== safeConv.handoverStatus ||
+                          updated[idx].unreadCount !== targetUnread ||
+                          !updated[idx].customer
                         ) {
                           updated[idx] = {
                             ...updated[idx],
-                            ...entry.conv,
+                            ...safeConv,
                             unreadCount: targetUnread,
                           };
                           hasChange = true;
                         }
                       } else {
-                        updated = [{ ...entry.conv, unreadCount: targetUnread }, ...updated];
+                        updated = [{ ...safeConv, unreadCount: targetUnread }, ...updated];
                         hasChange = true;
                       }
                     }
@@ -1443,7 +1457,7 @@ export default function InboxPage() {
           {activeNav === 'customers' && (
             <div className="flex-1 h-full overflow-y-auto pb-16 lg:pb-0">
               <CustomersView
-                customers={conversations.map((c) => c.customer)}
+                customers={conversations.map((c) => c.customer).filter(Boolean)}
                 lang={lang}
               />
             </div>

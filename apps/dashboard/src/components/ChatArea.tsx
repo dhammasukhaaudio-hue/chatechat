@@ -152,20 +152,20 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
           <div className="relative shrink-0">
             <div className="w-7 h-7 sm:w-10 sm:h-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs sm:text-sm">
-              {conversation.customer.name ? conversation.customer.name.slice(0, 2).toUpperCase() : 'CU'}
+              {conversation.customer?.name ? conversation.customer.name.slice(0, 2).toUpperCase() : 'CU'}
             </div>
           </div>
           <div className="min-w-0 flex-1 truncate">
             <div className="flex items-center gap-1 sm:gap-1.5 truncate">
               <h2 className="text-xs sm:text-sm font-bold text-slate-900 leading-tight truncate">
-                {conversation.customer.name || 'ဧည့်သည်ဝယ်သူ'}
+                {conversation.customer?.name || 'ဧည့်သည်ဝယ်သူ'}
               </h2>
               <div className="shrink-0">
                 <ChannelBadge channel={conversation.channelType} showLabel={false} />
               </div>
             </div>
             <p className="text-[10px] sm:text-xs text-slate-500 mt-0.5 truncate">
-              {conversation.customer.phone || 'ဖုန်းနံပါတ် မဖြည့်ရသေးပါ'}
+              {conversation.customer?.phone || 'ဖုန်းနံပါတ် မဖြည့်ရသေးပါ'}
             </p>
           </div>
         </div>

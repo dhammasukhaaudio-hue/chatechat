@@ -154,9 +154,9 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                       </span>
                     )}
 
-                    {conv.customer.phone && (
+                    {conv.customer?.phone && (
                       <span className="text-[10px] text-slate-400">
-                        {conv.customer.phone}
+                        {conv.customer?.phone}
                       </span>
                     )}
                   </div>

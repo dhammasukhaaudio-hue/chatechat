@@ -593,6 +593,21 @@ ${webUrl}
   /**
    * Persist incoming messages to telegram-chats.json
    */
+  private ensureValidConv(cId: string, rawC: any) {
+    const safeCustomer = rawC?.customer || {
+      id: rawC?.customerId || `cust_${cId}`,
+      name: rawC?.customerName || (rawC?.externalThreadId ? `@${rawC.externalThreadId}` : 'Telegram Customer'),
+      phone: rawC?.phone || '',
+      identities: [],
+    };
+    return {
+      id: rawC?.id || cId,
+      channelType: rawC?.channelType || 'TELEGRAM',
+      ...rawC,
+      customer: safeCustomer,
+    };
+  }
+
   private saveMessageToHistory(convId: string, conv: any, msg: any) {
     try {
       if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -604,9 +619,10 @@ ${webUrl}
       }
 
       if (!history[convId]) {
-        history[convId] = { conv, messages: [msg] };
+        history[convId] = { conv: this.ensureValidConv(convId, conv), messages: [msg] };
       } else {
-        history[convId].conv = { ...history[convId].conv, ...conv };
+        const mergedConv = { ...history[convId].conv, ...conv };
+        history[convId].conv = this.ensureValidConv(convId, mergedConv);
         const messages = history[convId].messages || [];
         const existingIdx = messages.findIndex(
           (m) =>
@@ -653,7 +669,10 @@ ${webUrl}
 
         if (!organizationId || organizationId === 'all' || this.config?.organizationId === 'all' || this.config?.assignAllAgents) {
           for (const k of Object.keys(history)) {
-            if (history[k]?.messages) history[k].messages = dedupeMessages(history[k].messages);
+            if (history[k]) {
+              history[k].conv = this.ensureValidConv(k, history[k].conv);
+              if (history[k].messages) history[k].messages = dedupeMessages(history[k].messages);
+            }
           }
           return history;
         }
@@ -664,6 +683,7 @@ ${webUrl}
           if (convOrg === organizationId || convOrg === 'org_royal' || convOrg === 'all') {
             filtered[key] = {
               ...value,
+              conv: this.ensureValidConv(key, value?.conv),
               messages: dedupeMessages(value?.messages || []),
             };
           }
@@ -678,7 +698,7 @@ ${webUrl}
     try {
       if (fs.existsSync(CHATS_FILE)) {
         const history = JSON.parse(fs.readFileSync(CHATS_FILE, 'utf-8'));
-        return history[convId]?.conv || null;
+        return history[convId]?.conv ? this.ensureValidConv(convId, history[convId].conv) : null;
       }
     } catch {}
     return null;
