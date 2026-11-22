@@ -4,18 +4,25 @@ import { getApiBaseUrl } from '../lib/api-config';
 
 interface SettingsViewProps {
   lang: 'my' | 'en';
+  activeSubTab?: 'subscription' | 'agents' | 'general' | 'security';
+  currentUser?: any;
 }
 
-export const SettingsView: React.FC<SettingsViewProps> = ({ lang }) => {
+export const SettingsView: React.FC<SettingsViewProps> = ({
+  lang,
+  activeSubTab = 'subscription',
+  currentUser: propUser,
+}) => {
   const isMy = lang === 'my';
-  const [activeTab, setActiveTab] = useState<'general' | 'subscription' | 'agents' | 'security'>('subscription');
+  const activeTab = activeSubTab;
   const [billingCycle, setBillingCycle] = useState<1 | 3 | 6 | 12>(1);
   const [selectedPlanTier, setSelectedPlanTier] = useState<string>('TIER_3_CHANNELS');
 
   // User Session & Organization
-  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentUser, setCurrentUser] = useState<any>(propUser || null);
   const orgId = currentUser?.organizationId || 'org_royal';
   const isDemo = orgId === 'org_royal';
+  const isOwnerOrAdmin = currentUser?.role === 'OWNER' || currentUser?.role === 'ADMIN';
 
   // Business Profile Form State
   const [businessName, setBusinessName] = useState('');
@@ -24,6 +31,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ lang }) => {
   const [businessSuccess, setBusinessSuccess] = useState<string | null>(null);
 
   useEffect(() => {
+    if (propUser) {
+      setCurrentUser(propUser);
+      setBusinessName(propUser.organizationName || '');
+      setBusinessPhone(propUser.phone || '');
+      return;
+    }
     try {
       const saved = localStorage.getItem('chatechat_agent_session');
       if (saved) {
@@ -41,7 +54,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ lang }) => {
         }
       }
     } catch {}
-  }, []);
+  }, [propUser]);
 
   const handleSaveBusinessInfo = (e: React.FormEvent) => {
     e.preventDefault();
@@ -408,53 +421,19 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ lang }) => {
       <div className="max-w-5xl mx-auto w-full space-y-6">
         <div>
           <h1 className="text-xl font-bold text-slate-900">
-            {isMy ? 'စနစ်ဆက်တင်များနှင့် ငွေပေးချေမှု (Billing & Settings)' : 'Settings & Billing'}
+            {activeTab === 'subscription'
+              ? (isMy ? 'အစီအစဉ်နှင့် ငွေပေးချေမှု (Plans & Billing)' : 'Plans & Billing')
+              : activeTab === 'agents'
+              ? (isMy ? 'တာဝန်ကျ အဖွဲ့ဝင် ဝန်ထမ်းများ (Team Members)' : 'Team Members')
+              : (isMy ? 'လုပ်ငန်းအချက်အလက် (Business Profile)' : 'Business Profile')}
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            {isMy
-              ? 'လုပ်ငန်းအချက်အလက်များ၊ အေးဂျင့်ဝန်ထမ်းများနှင့် လစဉ်ကြေး အစီအစဉ်များ စီမံခန့်ခွဲပါ'
-              : 'Manage workspace, team agents, and multi-channel billing cycles'}
+            {activeTab === 'subscription'
+              ? (isMy ? 'လစဉ်ကြေး ပလန်များနှင့် ချန်နယ်ခွင့်ပြုချက်များကို စီမံခန့်ခွဲပါ' : 'Manage your subscription and channel quotas')
+              : activeTab === 'agents'
+              ? (isMy ? 'စနစ်အတွင်းရှိ တာဝန်ကျ အဖွဲ့ဝင် ဝန်ထမ်းများ စာရင်းနှင့် အခန်းကဏ္ဍ' : 'Manage workspace team members and support agents')
+              : (isMy ? 'ဆိုင်အမည်၊ ဆက်သွယ်ရန် ဖုန်းနှင့် လိပ်စာ အချက်အလက်များကို ပြင်ဆင်သိမ်းဆည်းပါ' : 'Manage official store details and contact info')}
           </p>
-        </div>
-
-        {/* Tab Headers */}
-        <div className="flex bg-white border border-slate-200 p-1.5 rounded-xl text-xs font-semibold max-w-xl shadow-sm">
-          <button
-            onClick={() => setActiveTab('subscription')}
-            className={`flex-1 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all ${
-              activeTab === 'subscription' ? 'bg-blue-600 text-white shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <CreditCard size={15} />
-            <span>{isMy ? 'အစီအစဉ်နှင့် ငွေပေးချေမှု' : 'Plans & Billing'}</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('agents')}
-            className={`flex-1 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all ${
-              activeTab === 'agents' ? 'bg-blue-600 text-white shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Users size={15} />
-            <span>{isMy ? `အေးဂျင့်များ (${agents.length})` : `Team (${agents.length})`}</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('security')}
-            className={`flex-1 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all ${
-              activeTab === 'security' ? 'bg-blue-600 text-white shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <KeyRound size={15} />
-            <span>{isMy ? 'စကားဝှက်နှင့် လုံခြုံရေး' : 'Security & Password'}</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('general')}
-            className={`flex-1 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all ${
-              activeTab === 'general' ? 'bg-blue-600 text-white shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Building size={15} />
-            <span>{isMy ? 'လုပ်ငန်းအချက်အလက်' : 'Business Info'}</span>
-          </button>
         </div>
 
         {/* Subscription Tab Content */}
@@ -927,16 +906,29 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ lang }) => {
                 >
                   <RefreshCw size={15} />
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setShowAddMember(true)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-blue-700 shadow-sm transition"
-                >
-                  <UserPlus size={15} />
-                  <span>{isMy ? 'အဖွဲ့ဝင်အသစ် ထည့်သွင်းရန်' : 'Add Team Member'}</span>
-                </button>
+                {isOwnerOrAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAddMember(true)}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-blue-700 shadow-sm transition"
+                  >
+                    <UserPlus size={15} />
+                    <span>{isMy ? 'အဖွဲ့ဝင်အသစ် ထည့်သွင်းရန်' : 'Add Team Member'}</span>
+                  </button>
+                )}
               </div>
             </div>
+
+            {!isOwnerOrAdmin && (
+              <div className="p-3 bg-amber-50/70 border border-amber-200/80 rounded-xl text-xs text-amber-900 flex items-center gap-2.5">
+                <Info size={16} className="text-amber-600 shrink-0" />
+                <span>
+                  {isMy
+                    ? 'အဖွဲ့ဝင် အသစ်ထည့်သွင်းခြင်းနှင့် စကားဝှက် Reset ချပေးခြင်းကို ဆိုင်ပိုင်ရှင် (Owner) နှင့် Admin သာ ဆောင်ရွက်ခွင့်ရှိပါသည်။'
+                    : 'Team member provisioning and password resets are restricted to Owners and Admins.'}
+                </span>
+              </div>
+            )}
 
             {/* Quota Information Banner */}
             <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-xl flex items-center justify-between text-xs text-blue-900">
@@ -1006,22 +998,24 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ lang }) => {
                     </div>
 
                     <div className="flex items-center gap-2 self-end sm:self-center">
-                      {/* Admin Reset Password Button */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setResetModalUser({ id: agent.id, name: agent.name });
-                          setAdminNewPass('Agent!123');
-                        }}
-                        className="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 rounded-lg font-semibold text-[11px] flex items-center gap-1.5 transition"
-                        title="Admin Password Reset"
-                      >
-                        <KeyRound size={13} className="text-amber-600" />
-                        <span>{isMy ? 'စကားဝှက် Reset ချပေးရန်' : 'Reset Password'}</span>
-                      </button>
+                      {/* Admin Reset Password Button - ONLY FOR OWNER OR ADMIN! (Agents like Yoon cannot reset passwords) */}
+                      {isOwnerOrAdmin && agent.role !== 'OWNER' && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setResetModalUser({ id: agent.id, name: agent.name });
+                            setAdminNewPass('Agent!123');
+                          }}
+                          className="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 rounded-lg font-semibold text-[11px] flex items-center gap-1.5 transition"
+                          title="Admin Password Reset"
+                        >
+                          <KeyRound size={13} className="text-amber-600" />
+                          <span>{isMy ? 'စကားဝှက် Reset ချပေးရန်' : 'Reset Password'}</span>
+                        </button>
+                      )}
 
-                      {/* Remove Button (Non-Owners only) */}
-                      {!isOwner && (
+                      {/* Remove Button (Only Owner or Admin, and never for Owner) */}
+                      {isOwnerOrAdmin && agent.role !== 'OWNER' && (
                         <button
                           type="button"
                           onClick={() => handleDeleteMember(agent.id, agent.name)}

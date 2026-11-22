@@ -1416,9 +1416,19 @@ export default function InboxPage() {
           )}
 
           {/* 5. Settings & Subscription Billing View */}
-          {activeNav === 'settings' && (
+          {(activeNav === 'settings' || activeNav.startsWith('settings_')) && (
             <div className="flex-1 h-full overflow-y-auto pb-16 lg:pb-0">
-              <SettingsView lang={lang} />
+              <SettingsView
+                lang={lang}
+                activeSubTab={
+                  activeNav === 'settings_agents'
+                    ? 'agents'
+                    : activeNav === 'settings_general'
+                    ? 'general'
+                    : 'subscription'
+                }
+                currentUser={currentUser || undefined}
+              />
             </div>
           )}
         </div>
@@ -1479,7 +1489,7 @@ export default function InboxPage() {
             <button
               onClick={() => setActiveNav('settings')}
               className={`flex flex-col items-center justify-center flex-1 py-1 ${
-                activeNav === 'settings' ? 'text-blue-400 font-bold' : 'text-slate-400 hover:text-slate-200'
+                activeNav === 'settings' || activeNav.startsWith('settings_') ? 'text-blue-400 font-bold' : 'text-slate-400 hover:text-slate-200'
               }`}
             >
               <SettingsIcon size={19} />

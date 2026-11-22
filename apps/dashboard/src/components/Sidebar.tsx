@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   MessageSquare,
   Users,
@@ -13,6 +13,8 @@ import {
   KeyRound,
   MoreVertical,
   ChevronUp,
+  ChevronDown,
+  Building,
 } from 'lucide-react';
 import { ChateChatLogo } from './ChateChatLogo';
 import { ChannelQuotaDetails } from '../types';
@@ -57,6 +59,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const t = translations[lang] || translations.my;
   const isMy = lang === 'my';
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isSettingsExpanded, setIsSettingsExpanded] = useState(
+    activeNav === 'settings' || activeNav.startsWith('settings_')
+  );
+
+  useEffect(() => {
+    if (activeNav === 'settings' || activeNav.startsWith('settings_')) {
+      setIsSettingsExpanded(true);
+    }
+  }, [activeNav]);
 
   const handleNavClick = (nav: string) => {
     setActiveNav(nav);
@@ -173,18 +184,89 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <span>{t.navAi}</span>
           </button>
 
-          {/* 5. Settings */}
-          <button
-            onClick={() => handleNavClick('settings')}
-            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-              activeNav === 'settings'
-                ? 'bg-blue-600 text-white font-bold'
-                : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
-            }`}
-          >
-            <Settings size={18} />
-            <span>{t.navSettings}</span>
-          </button>
+          {/* 5. Settings Accordion Dropdown */}
+          <div className="space-y-1">
+            <button
+              type="button"
+              onClick={() => {
+                const next = !isSettingsExpanded;
+                setIsSettingsExpanded(next);
+                if (next && !activeNav.startsWith('settings')) {
+                  handleNavClick('settings_subscription');
+                }
+              }}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                activeNav === 'settings' || activeNav.startsWith('settings_')
+                  ? 'bg-slate-800 text-white font-bold'
+                  : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <Settings size={18} className={activeNav.startsWith('settings') ? 'text-blue-400' : 'text-slate-300'} />
+                <span>{t.navSettings}</span>
+              </div>
+              <ChevronDown
+                size={16}
+                className={`text-slate-400 transition-transform duration-200 ${
+                  isSettingsExpanded ? 'rotate-180 text-blue-400' : ''
+                }`}
+              />
+            </button>
+
+            {/* Sub-items Dropdown List in Sidebar */}
+            {isSettingsExpanded && (
+              <div className="pl-3 pr-1 py-1 space-y-1 animate-in fade-in slide-in-from-top-1 duration-150">
+                {/* 1. Plans & Billing */}
+                <button
+                  type="button"
+                  onClick={() => handleNavClick('settings_subscription')}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition text-left ${
+                    activeNav === 'settings_subscription' || activeNav === 'settings'
+                      ? 'bg-blue-600 text-white font-bold shadow-sm'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                  }`}
+                >
+                  <CreditCard size={15} className="shrink-0" />
+                  <span>{isMy ? 'အစီအစဉ်နှင့် ငွေပေးချေမှု' : 'Plans & Billing'}</span>
+                </button>
+
+                {/* 2. Team Members */}
+                <button
+                  type="button"
+                  onClick={() => handleNavClick('settings_agents')}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition text-left ${
+                    activeNav === 'settings_agents'
+                      ? 'bg-blue-600 text-white font-bold shadow-sm'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                  }`}
+                >
+                  <Users size={15} className="shrink-0" />
+                  <div className="flex items-center justify-between flex-1">
+                    <span>{isMy ? 'တာဝန်ကျ အဖွဲ့ဝင်များ' : 'Team Members'}</span>
+                    {currentUser?.role === 'AGENT' && (
+                      <span className="text-[9px] bg-slate-700/80 text-slate-300 px-1.5 py-0.5 rounded font-mono">
+                        View
+                      </span>
+                    )}
+                  </div>
+                </button>
+
+                {/* 3. Business Profile */}
+                <button
+                  type="button"
+                  onClick={() => handleNavClick('settings_general')}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition text-left ${
+                    activeNav === 'settings_general'
+                      ? 'bg-blue-600 text-white font-bold shadow-sm'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                  }`}
+                >
+                  <Building size={15} className="shrink-0" />
+                  <span>{isMy ? 'လုပ်ငန်းအချက်အလက်' : 'Business Profile'}</span>
+                </button>
+              </div>
+            )}
+          </div>
         </nav>
 
         {/* Workspace & Plan Quick Status (Frosted Minimalist Card) */}
@@ -278,22 +360,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <span className="font-medium">{isMy ? 'စကားဝှက် ပြောင်းမည် (Change Password)' : 'Change Password'}</span>
                 </button>
 
-                {/* 3. Settings */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsUserMenuOpen(false);
-                    handleNavClick('settings');
-                  }}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-200 hover:text-white hover:bg-slate-800/80 transition text-left"
-                >
-                  <Settings size={15} className="text-emerald-400 shrink-0" />
-                  <span className="font-medium">{isMy ? 'လုပ်ငန်း & အဖွဲ့ဝင် ဆက်တင် (Settings)' : 'Business & Team Settings'}</span>
-                </button>
-
                 <div className="my-1 border-t border-slate-800" />
 
-                {/* 4. Log Out */}
+                {/* 3. Log Out */}
                 {onLogout && (
                   <button
                     type="button"

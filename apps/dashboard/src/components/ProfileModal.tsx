@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   User,
@@ -64,6 +64,19 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   const [pwdLoading, setPwdLoading] = useState(false);
   const [pwdError, setPwdError] = useState<string | null>(null);
   const [pwdSuccess, setPwdSuccess] = useState<string | null>(null);
+
+  useEffect(() => {
+    setActiveTab(initialTab);
+    setName(currentUser?.name || '');
+    setPhone(currentUser?.phone || '');
+    setStatus((currentUser?.status as any) || 'ONLINE');
+    setTelegramUsername(currentUser?.telegramUsername || '');
+    setPwdError(null);
+    setPwdSuccess(null);
+    setCurrentPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+  }, [initialTab, isOpen, currentUser]);
 
   if (!isOpen) return null;
 
@@ -151,12 +164,18 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-800/80 flex items-center justify-between bg-slate-950/50">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
-              <User size={20} />
+            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-white shadow-lg ${
+              activeTab === 'password'
+                ? 'bg-gradient-to-tr from-amber-600 to-amber-500 shadow-amber-500/20'
+                : 'bg-gradient-to-tr from-blue-600 to-indigo-500 shadow-blue-500/20'
+            }`}>
+              {activeTab === 'password' ? <KeyRound size={20} /> : <User size={20} />}
             </div>
             <div>
               <h2 className="text-sm font-bold text-white">
-                {isMy ? 'မိမိ Profile နှင့် လုံခြုံရေး' : 'My Profile & Security'}
+                {activeTab === 'password'
+                  ? (isMy ? 'စကားဝှက် ပြောင်းမည် (Change Password)' : 'Change Password')
+                  : (isMy ? 'မိမိ Profile (ကိုယ်ရေးအချက်အလက်)' : 'My Profile')}
               </h2>
               <p className="text-[11px] text-slate-400">
                 {currentUser?.email || 'user@chatechat.com'}
@@ -168,32 +187,6 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
             className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition"
           >
             <X size={18} />
-          </button>
-        </div>
-
-        {/* Tab Switcher */}
-        <div className="px-6 pt-4 flex gap-2 border-b border-slate-800/60 bg-slate-900/50">
-          <button
-            onClick={() => setActiveTab('info')}
-            className={`pb-3 px-3 text-xs font-semibold flex items-center gap-2 border-b-2 transition ${
-              activeTab === 'info'
-                ? 'border-blue-500 text-blue-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <User size={14} />
-            <span>{isMy ? 'ကိုယ်ရေးအချက်အလက်' : 'Profile Details'}</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('password')}
-            className={`pb-3 px-3 text-xs font-semibold flex items-center gap-2 border-b-2 transition ${
-              activeTab === 'password'
-                ? 'border-blue-500 text-blue-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <KeyRound size={14} />
-            <span>{isMy ? 'စကားဝှက် ပြောင်းမည်' : 'Change Password'}</span>
           </button>
         </div>
 

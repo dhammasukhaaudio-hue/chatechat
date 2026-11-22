@@ -92,6 +92,18 @@ adminRouter.post('/users/:id/reset-password', (req: Request, res: Response) => {
   const { id } = req.params;
   const { newPassword = 'Agent!123' } = req.body;
 
+  const targetUser = userStore.getById(id);
+  if (!targetUser) {
+    return res.status(404).json({ success: false, error: 'User not found' });
+  }
+
+  if (targetUser.role === 'OWNER') {
+    return res.status(403).json({
+      success: false,
+      error: 'Owner (ပိုင်ရှင်) ၏ စကားဝှက်အား အခြားသူများမှ Reset ချခွင့်မရှိပါခင်ဗျာ',
+    });
+  }
+
   const ok = userStore.updatePassword(id, newPassword);
   if (!ok) {
     return res.status(404).json({ success: false, error: 'User not found' });
@@ -108,6 +120,19 @@ adminRouter.post('/users/:id/reset-password', (req: Request, res: Response) => {
  */
 adminRouter.delete('/users/:id', (req: Request, res: Response) => {
   const { id } = req.params;
+
+  const targetUser = userStore.getById(id);
+  if (!targetUser) {
+    return res.status(404).json({ success: false, error: 'User not found' });
+  }
+
+  if (targetUser.role === 'OWNER') {
+    return res.status(403).json({
+      success: false,
+      error: 'Owner (ပိုင်ရှင်) ၏ အကောင့်အား ပယ်ဖျက်ခွင့်မရှိပါခင်ဗျာ',
+    });
+  }
+
   const ok = userStore.deleteUser(id);
   if (!ok) {
     return res.status(404).json({ success: false, error: 'User not found' });
