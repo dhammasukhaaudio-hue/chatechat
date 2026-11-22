@@ -534,17 +534,26 @@ export default function InboxPage() {
 
       // Sync any live Telegram conversations received by backend 24/7 Long Polling
       const syncTelegramChats = () => {
-        // Multi-tenant check: ONLY sync Telegram chats if this organization has actually connected Telegram!
-        const savedChannels = localStorage.getItem(channelStorageKey);
-        let isTgConnected = false;
-        if (savedChannels) {
-          try {
-            const channelsList = JSON.parse(savedChannels);
-            isTgConnected = channelsList.some((c: any) => c.type === 'TELEGRAM' && c.isActive);
-          } catch {}
-        }
+        // Auto-check live Telegram bot status on backend to sync across devices (e.g. Mobile App)
+        fetch(`${getApiBaseUrl()}/api/v1/webhooks/telegram/status?organizationId=${encodeURIComponent(orgId)}`)
+          .then((r) => r.json())
+          .then((status) => {
+            if (status && status.success && status.isActive && status.botUsername) {
+              try {
+                const savedCh = localStorage.getItem(channelStorageKey);
+                let list = savedCh ? JSON.parse(savedCh) : [];
+                const tgIdx = list.findIndex((c: any) => c.type === 'TELEGRAM');
+                if (tgIdx >= 0) {
+                  list[tgIdx].isActive = true;
+                  list[tgIdx].accountName = status.botUsername;
+                }
+                localStorage.setItem(channelStorageKey, JSON.stringify(list));
+              } catch {}
+            }
+          })
+          .catch(() => {});
 
-        // Always fetch Telegram chats so all agents in the workspace can view customer conversations
+        // Always fetch Telegram chats so all agents and mobile devices in the workspace can view customer conversations
         fetch(`${getApiBaseUrl()}/api/v1/webhooks/telegram/chats?organizationId=${encodeURIComponent(orgId)}`)
           .then((r) => r.json())
           .then((data) => {

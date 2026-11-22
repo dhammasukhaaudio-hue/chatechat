@@ -151,7 +151,29 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({ quotaDetails, lang, 
 
     setChannels(initialChannels);
     setChannelsLoaded(true);
-  }, [storageKey, isMy]);
+    // Sync with backend status to auto-reflect connected bot on any device (e.g. Mobile App)
+    fetch(`${getApiBaseUrl()}/api/v1/webhooks/telegram/status?organizationId=${encodeURIComponent(orgId)}`)
+      .then((r) => r.json())
+      .then((status) => {
+        if (status && status.success && status.isActive && status.botUsername) {
+          setChannels((prev) => {
+            const updated = prev.map((c) =>
+              c.type === 'TELEGRAM'
+                ? {
+                    ...c,
+                    isActive: true,
+                    accountName: status.botUsername,
+                    connectedAt: 'Live 24/7 Polling',
+                  }
+                : c
+            );
+            try { localStorage.setItem(storageKey, JSON.stringify(updated)); } catch {}
+            return updated;
+          });
+        }
+      })
+      .catch(() => {});
+  }, [storageKey, isMy, orgId]);
 
   // Save Channels helper
   const saveChannels = (updated: ChannelItem[]) => {

@@ -167,7 +167,12 @@ class TelegramPollingService {
   }
 
   public getStatus(organizationId?: string) {
-    const isThisOrg = !organizationId || (this.config?.organizationId || 'org_royal') === organizationId;
+    // If bot is active and shared, or matches the organization, allow access
+    const isThisOrg =
+      !organizationId ||
+      organizationId === 'all' ||
+      (this.config?.organizationId || 'org_royal') === organizationId ||
+      this.config?.assignAllAgents !== false;
     return {
       isRunning: this.isRunning && isThisOrg && !!this.config?.isActive,
       botUsername: isThisOrg && this.config?.username ? `@${this.config.username}` : null,
