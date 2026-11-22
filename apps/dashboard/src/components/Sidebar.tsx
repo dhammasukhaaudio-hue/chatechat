@@ -83,7 +83,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               title="Switch Language"
             >
               <Globe size={12} className="text-cyan-400" />
-              <span>{lang === 'my' ? '🇲🇲 MM' : '🇬🇧 EN'}</span>
+              <span>{lang === 'my' ? 'MM' : 'EN'}</span>
             </button>
 
             {/* Mobile Close Button */}

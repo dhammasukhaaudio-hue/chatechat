@@ -137,79 +137,79 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   return (
     <div className="flex-1 bg-white flex flex-col h-full relative">
       {/* Chat Area Header */}
-      <header className="safe-top-mobile pb-3 border-b border-slate-200 px-3 lg:px-6 flex items-center justify-between bg-white z-10 shrink-0 lg:h-16 lg:pt-0 lg:pb-0">
-        <div className="flex items-center gap-2 md:gap-3 min-w-0">
+      <header className="safe-top-mobile pb-2.5 sm:pb-3 border-b border-slate-200 px-2.5 sm:px-4 lg:px-6 flex items-center justify-between bg-white z-10 shrink-0 lg:h-16 lg:pt-0 lg:pb-0">
+        <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0 flex-1 mr-2">
           {/* Back Button on Mobile */}
           {onBack && (
             <button
               onClick={onBack}
-              className="p-1.5 -ml-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg lg:hidden transition shrink-0"
+              className="p-1 -ml-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg lg:hidden transition shrink-0"
               title="စာရင်းသို့ ပြန်သွားမည်"
             >
-              <ArrowLeft size={20} />
+              <ArrowLeft size={18} />
             </button>
           )}
 
           <div className="relative shrink-0">
-            <div className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs md:text-sm">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs sm:text-sm">
               {conversation.customer.name ? conversation.customer.name.slice(0, 2).toUpperCase() : 'CU'}
             </div>
           </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5 md:gap-2">
-              <h2 className="text-xs md:text-sm font-bold text-slate-900 leading-tight truncate max-w-[105px] sm:max-w-[180px] md:max-w-xs">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5">
+              <h2 className="text-xs sm:text-sm font-bold text-slate-900 leading-tight truncate max-w-[90px] sm:max-w-[160px] md:max-w-xs">
                 {conversation.customer.name || 'ဧည့်သည်ဝယ်သူ'}
               </h2>
               <div className="shrink-0">
                 <ChannelBadge channel={conversation.channelType} showLabel />
               </div>
             </div>
-            <p className="text-[11px] md:text-xs text-slate-500 mt-0.5 truncate">
+            <p className="text-[10px] sm:text-xs text-slate-500 mt-0.5 truncate">
               {conversation.customer.phone || 'ဖုန်းနံပါတ် မဖြည့်ရသေးပါ'}
             </p>
           </div>
         </div>
 
         {/* Handover & Action Buttons */}
-        <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
-          {/* Customer CRM Profile Toggle on screens smaller than xl */}
+        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+          {/* Customer CRM Profile Toggle */}
           {onToggleProfile && (
             <button
               onClick={onToggleProfile}
-              className="p-1.5 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg xl:hidden transition"
+              className="p-1 sm:p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg xl:hidden transition shrink-0"
               title="ဝယ်သူမှတ်တမ်း (CRM Profile)"
             >
-              <Info size={18} />
+              <Info size={16} />
             </button>
           )}
 
           {isBotHandling ? (
             <button
               onClick={onAssignToMe}
-              className="px-2.5 md:px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1 shadow-sm transition-colors"
+              className="px-2 sm:px-3 py-1 sm:py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1 shadow-xs transition-colors shrink-0"
             >
-              <UserCheck size={14} />
+              <UserCheck size={13} />
               <span>လက်ခံမည်</span>
             </button>
           ) : (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 truncate">
+            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 truncate shrink-0">
               <UserCheck size={13} className="shrink-0" />
-              <span className="truncate">{conversation.assignedAgent?.name || 'မသူဇာ'}</span>
+              <span className="truncate max-w-[70px] sm:max-w-none">{conversation.assignedAgent?.name || 'မသူဇာ'}</span>
             </span>
           )}
 
           <button
             onClick={onResolve}
-            className="px-2.5 md:px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[11px] md:text-xs font-semibold flex items-center gap-1 transition-colors"
+            className="px-2 sm:px-3 py-1 sm:py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors shrink-0"
           >
-            <FileCheck size={14} />
+            <FileCheck size={13} />
             <span>ပြီးစီး</span>
           </button>
         </div>
       </header>
 
       {/* Message Stream */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-slate-50/50">
+      <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 space-y-3.5 bg-slate-50/50">
         {messages.length === 0 ? (
           <div className="text-center text-slate-400 text-sm py-12">
             မက်ဆေ့ခ်ျမှတ်တမ်း မရှိသေးပါ
@@ -234,9 +234,9 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
             if (isInternal) {
               return (
-                <div key={msg.id} className="mx-auto max-w-lg my-2">
-                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-900 shadow-sm flex items-start gap-2.5">
-                    <Lock size={14} className="text-amber-600 mt-0.5 flex-shrink-0" />
+                <div key={msg.id} className="mx-auto max-w-lg my-2 w-full">
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5 sm:p-3 text-xs text-amber-900 shadow-xs flex items-start gap-2">
+                    <Lock size={13} className="text-amber-600 mt-0.5 flex-shrink-0" />
                     <div>
                       <div className="font-bold flex items-center gap-1.5 mb-1">
                         <span>အတွင်းမှတ်ချက်</span>
@@ -244,7 +244,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                           • {msg.senderName}
                         </span>
                       </div>
-                      <p className="leading-relaxed">{msg.content}</p>
+                      <p className="leading-relaxed [overflow-wrap:anywhere] break-words">{msg.content}</p>
                     </div>
                   </div>
                 </div>
@@ -254,11 +254,11 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             return (
               <div
                 key={msg.id}
-                className={`flex flex-col max-w-[70%] ${
+                className={`flex flex-col max-w-[88%] sm:max-w-[78%] md:max-w-[70%] ${
                   isCustomer ? 'self-start items-start' : 'self-end items-end ml-auto'
                 }`}
               >
-                <div className="flex items-center gap-1.5 mb-1 text-[11px] text-slate-400 font-medium">
+                <div className="flex items-center gap-1.5 mb-1 text-[10px] sm:text-[11px] text-slate-400 font-medium">
                   {isBot && (
                     <span className="inline-flex items-center gap-0.5 text-[10px] font-bold bg-blue-100 text-blue-700 px-1 rounded">
                       <Bot size={10} /> AI
@@ -275,7 +275,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 </div>
 
                 <div
-                  className={`p-3.5 rounded-2xl text-sm leading-relaxed shadow-sm break-words whitespace-pre-wrap ${
+                  className={`p-3 sm:p-3.5 rounded-2xl text-xs sm:text-sm leading-relaxed shadow-xs [overflow-wrap:anywhere] break-words whitespace-pre-wrap ${
                     isCustomer
                       ? 'bg-white text-slate-800 border border-slate-200/80 rounded-tl-sm'
                       : isBot
@@ -292,7 +292,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                       />
                     </div>
                   )}
-                  <div className="whitespace-pre-wrap leading-relaxed">{renderFormattedContent(msg.content, isCustomer, isBot)}</div>
+                  <div className="whitespace-pre-wrap leading-relaxed [overflow-wrap:anywhere] break-words">{renderFormattedContent(msg.content, isCustomer, isBot)}</div>
                 </div>
 
                 {!isCustomer && (
@@ -321,13 +321,13 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       )}
 
       {/* Input Box & Toolbar */}
-      <footer className="border-t border-slate-200 p-4 bg-white relative">
+      <footer className="border-t border-slate-200 p-2.5 sm:p-4 bg-white relative">
         {/* Toggle Mode: Customer Reply vs Internal Note */}
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between gap-1.5 mb-2 overflow-x-auto no-scrollbar py-0.5">
+          <div className="flex items-center gap-1.5 shrink-0">
             <button
               onClick={() => setIsInternalNote(false)}
-              className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-colors ${
+              className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-colors shrink-0 ${
                 !isInternalNote
                   ? 'bg-blue-100 text-blue-700 font-bold'
                   : 'text-slate-500 hover:text-slate-800'
@@ -337,20 +337,20 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             </button>
             <button
               onClick={() => setIsInternalNote(true)}
-              className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1 transition-colors ${
+              className={`px-2 py-1 rounded-md text-xs font-semibold flex items-center gap-1 transition-colors shrink-0 ${
                 isInternalNote
                   ? 'bg-amber-100 text-amber-800 font-bold'
                   : 'text-slate-500 hover:text-slate-800'
               }`}
             >
               <Lock size={12} />
-              အတွင်းမှတ်ချက်
+              <span>အတွင်းမှတ်ချက်</span>
             </button>
           </div>
 
           <button
             onClick={() => setShowCannedDrawer(!showCannedDrawer)}
-            className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium"
+            className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium px-1.5 py-1 rounded shrink-0"
           >
             <Zap size={13} className="text-amber-500" />
             <span>ဖြတ်လမ်း ( / )</span>

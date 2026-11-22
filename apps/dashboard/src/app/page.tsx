@@ -1229,7 +1229,7 @@ export default function InboxPage() {
               className="px-2 py-1 bg-slate-800 text-slate-200 rounded-lg text-xs font-bold border border-slate-700 flex items-center gap-1 transition"
             >
               <Globe size={12} className="text-blue-400" />
-              <span>{lang === 'my' ? '🇲🇲 MM' : '🇬🇧 EN'}</span>
+              <span>{lang === 'my' ? 'MM' : 'EN'}</span>
             </button>
           </header>
         )}
