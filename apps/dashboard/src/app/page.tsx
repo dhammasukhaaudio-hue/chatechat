@@ -260,26 +260,75 @@ const INITIAL_MESSAGES: Record<string, Message[]> = {
   ],
 };
 
-// Web Audio Alert Chime for Incoming Customer Messages
+// Web Audio Alert Chime for Incoming Customer Messages & Mobile Notifications
+let sharedAudioCtx: AudioContext | null = null;
+
 const playAlertChime = () => {
   try {
     if (typeof window === 'undefined') return;
     const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
     if (!AudioCtx) return;
-    const ctx = new AudioCtx();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(880, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.15);
-    gain.gain.setValueAtTime(0.12, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.3);
+    if (!sharedAudioCtx || sharedAudioCtx.state === 'closed') {
+      sharedAudioCtx = new AudioCtx();
+    }
+    const ctx = sharedAudioCtx;
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
+
+    // Mobile haptic vibration if supported (Android / mobile devices)
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      try {
+        navigator.vibrate([120, 60, 140]);
+      } catch {}
+    }
+
+    // Melodic two-tone alert chime (G5 784Hz -> C6 1046.5Hz)
+    const now = ctx.currentTime;
+    
+    // First tone
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(783.99, now);
+    gain1.gain.setValueAtTime(0.18, now);
+    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+    osc1.connect(gain1);
+    gain1.connect(ctx.destination);
+    osc1.start(now);
+    osc1.stop(now + 0.16);
+
+    // Second tone (higher pitch)
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.type = 'sine';
+    osc2.frequency.setValueAtTime(1046.50, now + 0.12);
+    gain2.gain.setValueAtTime(0.22, now + 0.12);
+    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.40);
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.start(now + 0.12);
+    osc2.stop(now + 0.40);
   } catch {}
 };
+
+if (typeof window !== 'undefined') {
+  (window as any).playAlertChime = playAlertChime;
+  // Unlock audio on first touch/click
+  const unlockAudio = () => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (AudioCtx && (!sharedAudioCtx || sharedAudioCtx.state === 'suspended')) {
+        if (!sharedAudioCtx) sharedAudioCtx = new AudioCtx();
+        sharedAudioCtx.resume().catch(() => {});
+      }
+    } catch {}
+    window.removeEventListener('click', unlockAudio);
+    window.removeEventListener('touchstart', unlockAudio);
+  };
+  window.addEventListener('click', unlockAudio, { once: true });
+  window.addEventListener('touchstart', unlockAudio, { once: true });
+}
 
 export default function InboxPage() {
   const [activeNav, setActiveNav] = useState('inbox');
@@ -1341,12 +1390,12 @@ export default function InboxPage() {
                   />
                   <div className="relative z-10 w-full bg-white rounded-t-3xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-200">
                     <div className="px-5 py-3 border-b border-slate-200 flex justify-between items-center bg-slate-50">
-                      <span className="font-bold text-sm text-slate-800">ဝယ်သူ အချက်အလက် (Customer Profile)</span>
+                      <span className="font-bold text-sm text-slate-800">{lang === 'my' ? 'ဝယ်သူ အချက်အလက် (Customer Profile)' : 'Customer Profile'}</span>
                       <button
                         onClick={() => setShowMobileProfile(false)}
                         className="px-2.5 py-1 bg-slate-200 hover:bg-slate-300 rounded-lg text-xs font-bold text-slate-700"
                       >
-                        ✕ ပိတ်မည်
+                        {lang === 'my' ? '✕ ပိတ်မည်' : '✕ Close'}
                       </button>
                     </div>
                     <div className="flex-1 overflow-y-auto">
@@ -1473,7 +1522,7 @@ export default function InboxPage() {
               }`}
             >
               <Layers size={19} />
-              <span className="text-[10px] mt-1">ချန်နယ်</span>
+              <span className="text-[10px] mt-1">{lang === 'my' ? 'ချန်နယ်' : 'Channels'}</span>
             </button>
 
             <button
@@ -1483,7 +1532,7 @@ export default function InboxPage() {
               }`}
             >
               <Bot size={19} />
-              <span className="text-[10px] mt-1">AI စက်</span>
+              <span className="text-[10px] mt-1">{lang === 'my' ? 'AI စက်' : 'AI Bot'}</span>
             </button>
 
             <button
@@ -1493,7 +1542,7 @@ export default function InboxPage() {
               }`}
             >
               <SettingsIcon size={19} />
-              <span className="text-[10px] mt-1">ဆက်တင်</span>
+              <span className="text-[10px] mt-1">{lang === 'my' ? 'ဆက်တင်' : 'Settings'}</span>
             </button>
           </nav>
         )}

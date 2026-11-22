@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CreditCard, Users, Building, Upload, CheckCircle, Plus, Info, Tag, Calendar, Clock, AlertTriangle, XCircle, ShieldCheck, RefreshCw, KeyRound, Lock, Send, Trash2, UserPlus, X } from 'lucide-react';
+import { CreditCard, Users, Building, Upload, CheckCircle, Plus, Info, Tag, Calendar, Clock, AlertTriangle, XCircle, ShieldCheck, RefreshCw, KeyRound, Lock, Send, Trash2, UserPlus, X, Volume2, Bell } from 'lucide-react';
 import { getApiBaseUrl } from '../lib/api-config';
 
 interface SettingsViewProps {
@@ -110,11 +110,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newPassword !== confirmPassword) {
-      setPwdError('စကားဝှက် အသစ်နှင့် အတည်ပြုစကားဝှက် ကိုက်ညီမှု မရှိပါ');
+      setPwdError(isMy ? 'စကားဝှက် အသစ်နှင့် အတည်ပြုစကားဝှက် ကိုက်ညီမှု မရှိပါ' : 'New password and confirmation do not match');
       return;
     }
     if (newPassword.length < 6) {
-      setPwdError('စကားဝှက် အသစ်သည် အနည်းဆုံး ၆ လုံး ရှိရပါမည်');
+      setPwdError(isMy ? 'စကားဝှက် အသစ်သည် အနည်းဆုံး ၆ လုံး ရှိရပါမည်' : 'Password must be at least 6 characters');
       return;
     }
 
@@ -135,15 +135,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       });
       const data = await res.json();
       if (data.success) {
-        setPwdSuccess(data.message || 'စကားဝှက် အောင်မြင်စွာ ပြောင်းလဲပြီးပါပြီ');
+        setPwdSuccess(data.message || (isMy ? 'စကားဝှက် အောင်မြင်စွာ ပြောင်းလဲပြီးပါပြီ' : 'Password changed successfully'));
         setCurrentPassword('');
         setNewPassword('');
         setConfirmPassword('');
       } else {
-        setPwdError(data.error || 'စကားဝှက် ပြောင်းလဲမှု မအောင်မြင်ပါ');
+        setPwdError(data.error || (isMy ? 'စကားဝှက် ပြောင်းလဲမှု မအောင်မြင်ပါ' : 'Password change failed'));
       }
     } catch {
-      setPwdSuccess('စကားဝှက် အောင်မြင်စွာ ပြောင်းလဲပြီးပါပြီ');
+      setPwdSuccess(isMy ? 'စကားဝှက် အောင်မြင်စွာ ပြောင်းလဲပြီးပါပြီ' : 'Password changed successfully');
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
@@ -156,7 +156,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     e.preventDefault();
     const target = resetPhoneOrEmail || currentUser?.phone || currentUser?.email || '';
     if (!target) {
-      setResetError('ဖုန်းနံပါတ် သို့မဟုတ် Email ထည့်သွင်းပါ');
+      setResetError(isMy ? 'ဖုန်းနံပါတ် သို့မဟုတ် Email ထည့်သွင်းပါ' : 'Please enter registered phone or email');
       return;
     }
     setResetLoading(true);
@@ -173,7 +173,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         setResetCode(data.devCode || '123456');
         setResetStep(2);
       } else {
-        setResetError(data.error || 'OTP တောင်းဆိုမှု မအောင်မြင်ပါ');
+        setResetError(data.error || (isMy ? 'OTP တောင်းဆိုမှု မအောင်မြင်ပါ' : 'Failed to request OTP'));
       }
     } catch {
       setResetDevCode('123456');
@@ -187,7 +187,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const handleConfirmResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!resetNewPass || resetNewPass.length < 6) {
-      setResetError('စကားဝှက် အသစ်သည် အနည်းဆုံး ၆ လုံး ရှိရပါမည်');
+      setResetError(isMy ? 'စကားဝှက် အသစ်သည် အနည်းဆုံး ၆ လုံး ရှိရပါမည်' : 'Password must be at least 6 characters');
       return;
     }
     setResetLoading(true);
@@ -204,14 +204,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       });
       const data = await res.json();
       if (data.success) {
-        setResetSuccess(data.message || 'စကားဝှက် အသစ် သတ်မှတ်ပြီးပါပြီ');
+        setResetSuccess(data.message || (isMy ? 'စကားဝှက် အသစ် သတ်မှတ်ပြီးပါပြီ' : 'Password reset successfully'));
         setResetStep(1);
         setResetNewPass('');
       } else {
-        setResetError(data.error || 'မအောင်မြင်ပါ');
+        setResetError(data.error || (isMy ? 'မအောင်မြင်ပါ' : 'Password reset failed'));
       }
     } catch {
-      setResetSuccess('စကားဝှက် အသစ် သတ်မှတ်ပြီးပါပြီ');
+      setResetSuccess(isMy ? 'စကားဝှက် အသစ် သတ်မှတ်ပြီးပါပြီ' : 'Password reset successfully');
       setResetStep(1);
       setResetNewPass('');
     } finally {
@@ -321,7 +321,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || 'Failed to reset password');
-      setTeamToast({ text: `✓ ${resetModalUser.name} ၏ စကားဝှက်အား [${adminNewPass}] သို့ အောင်မြင်စွာ ပြန်လည်သတ်မှတ်ပြီးပါပြီ`, success: true });
+      setTeamToast({
+        text: isMy
+          ? `✓ ${resetModalUser.name} ၏ စကားဝှက်အား [${adminNewPass}] သို့ အောင်မြင်စွာ ပြန်လည်သတ်မှတ်ပြီးပါပြီ`
+          : `✓ Password for ${resetModalUser.name} successfully reset to [${adminNewPass}]`,
+        success: true,
+      });
       setResetModalUser(null);
       setAdminNewPass('Agent!123');
     } catch (err: any) {
@@ -349,7 +354,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || 'Failed to add member');
-      setTeamToast({ text: `✓ အဖွဲ့ဝင် ${newMemberForm.name} အား အောင်မြင်စွာ ထည့်သွင်းပြီးပါပြီ`, success: true });
+      setTeamToast({
+        text: isMy
+          ? `✓ အဖွဲ့ဝင် ${newMemberForm.name} အား အောင်မြင်စွာ ထည့်သွင်းပြီးပါပြီ`
+          : `✓ Member ${newMemberForm.name} added successfully`,
+        success: true,
+      });
       setShowAddMember(false);
       setNewMemberForm({ name: '', email: '', phone: '', role: 'HELPER', password: 'Agent!123' });
       await fetchLiveAgents();
@@ -367,7 +377,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       const res = await fetch(`${getApiBaseUrl()}/api/v1/admin/users/${id}`, { method: 'DELETE' });
       const data = await res.json();
       if (data.success) {
-        setTeamToast({ text: `✓ ${name} အား ဖယ်ရှားပြီးပါပြီ`, success: true });
+        setTeamToast({
+          text: isMy ? `✓ ${name} အား ဖယ်ရှားပြီးပါပြီ` : `✓ Removed ${name}`,
+          success: true,
+        });
         await fetchLiveAgents();
       }
     } catch (e) {
@@ -521,7 +534,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         <span className="text-2xl font-extrabold text-slate-900">
                           {finalMonthly.toLocaleString()}
                         </span>
-                        <span className="text-xs text-slate-500 font-semibold">MMK / လ</span>
+                        <span className="text-xs text-slate-500 font-semibold">{isMy ? 'MMK / လ' : 'MMK / mo'}</span>
                       </div>
 
                       {billingCycle > 1 && (
@@ -590,10 +603,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <div className="p-3 bg-white/5 rounded-xl border border-white/10">
                   <span className="text-slate-400">{isMy ? 'အခြေခံ အစီအစဉ်ခ' : 'Base Plan Fee'}</span>
                   <p className="text-sm font-bold text-white mt-1">
-                    {selectedPlan.monthlyPrice.toLocaleString()} MMK / လ
+                    {selectedPlan.monthlyPrice.toLocaleString()} {isMy ? 'MMK / လ' : 'MMK / mo'}
                   </p>
                   <p className="text-[11px] text-blue-300">
-                    (Admin ၁ ဦး + Agent ၁ ဦး Free ပါဝင်သည်)
+                    {isMy ? '(Admin ၁ ဦး + Agent ၁ ဦး Free ပါဝင်သည်)' : '(1 Admin + 1 Agent Free included)'}
                   </p>
                 </div>
 
@@ -601,12 +614,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   <span className="text-slate-400">{isMy ? 'အပို အေးဂျင့်ဝန်ထမ်းခ (+30%)' : 'Extra Agent Fee (+30%)'}</span>
                   <p className="text-sm font-bold text-white mt-1">
                     {extraAgentsCount > 0
-                      ? `+${totalExtraAgentsMonthly.toLocaleString()} MMK / လ`
+                      ? `+${totalExtraAgentsMonthly.toLocaleString()} ${isMy ? 'MMK / လ' : 'MMK / mo'}`
                       : isMy ? '၀ ကျပ် (အပိုမရှိပါ)' : '0 MMK'}
                   </p>
                   <p className="text-[11px] text-blue-300">
                     {extraAgentsCount > 0
-                      ? `${extraAgentsCount} ဦး x ${extraAgentFeePerMonth.toLocaleString()} MMK`
+                      ? `${extraAgentsCount} ${isMy ? 'ဦး' : extraAgentsCount === 1 ? 'agent' : 'agents'} x ${extraAgentFeePerMonth.toLocaleString()} MMK`
                       : isMy ? 'ဝန်ထမ်း ၂ ဦးသာ သုံးထားသည်' : 'Within free seat quota'}
                   </p>
                 </div>
@@ -619,7 +632,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       : isMy ? 'ပုံမှန် လစဉ်နှုန်း' : 'None (Monthly)'}
                   </p>
                   <p className="text-[11px] text-slate-300">
-                    {billingCycle} လ စာချုပ်
+                    {billingCycle} {isMy ? 'လ စာချုပ်' : billingCycle === 1 ? 'Month contract' : 'Months contract'}
                   </p>
                 </div>
               </div>
@@ -706,7 +719,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     type="text"
                     value={txIdInput}
                     onChange={(e) => setTxIdInput(e.target.value)}
-                    placeholder="ဥပမာ: 020420967064"
+                    placeholder={isMy ? 'ဥပမာ: 020420967064' : 'e.g. 020420967064'}
                     className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all"
                   />
                 </div>
@@ -722,7 +735,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     }}
                     className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-md text-[10.5px] font-mono border border-blue-200"
                   >
-                    ✓ မှန်ကန်သော KPay TxID
+                    {isMy ? '✓ မှန်ကန်သော KPay TxID' : '✓ Valid KPay TxID'}
                   </button>
                   <button
                     type="button"
@@ -732,7 +745,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     }}
                     className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 rounded-md text-[10.5px] font-mono border border-amber-200"
                   >
-                    ✓ မှန်ကန်သော Wave TxID
+                    {isMy ? '✓ မှန်ကန်သော Wave TxID' : '✓ Valid Wave TxID'}
                   </button>
                   <button
                     type="button"
@@ -741,7 +754,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     }}
                     className="px-2 py-1 bg-red-50 hover:bg-red-100 text-red-700 rounded-md text-[10.5px] font-mono border border-red-200"
                   >
-                    ✕ စာလုံးမှား ထည့်မည် (Test Auto-Reject)
+                    {isMy ? '✕ စာလုံးမှား ထည့်မည် (Test Auto-Reject)' : '✕ Invalid TxID (Test Auto-Reject)'}
                   </button>
                 </div>
 
@@ -780,7 +793,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       setDepositResult({
                         success: false,
                         status: 'REJECTED',
-                        rejectionReasonBurmese: err.message || 'စနစ် ချိတ်ဆက်မှု မအောင်မြင်ပါ',
+                        rejectionReasonBurmese: err.message || (isMy ? 'စနစ် ချိတ်ဆက်မှု မအောင်မြင်ပါ' : 'Network error'),
                       });
                     } finally {
                       setIsSubmittingDeposit(false);
@@ -851,7 +864,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       <span>{isMy ? '❌ AUTO-REJECTED: ငွေလွှဲစလစ်အား ပယ်ချလိုက်ပါသည်' : '❌ AUTO-REJECTED: Verification Failed'}</span>
                     </div>
                     <p className="text-[11.5px] text-red-700 leading-relaxed font-medium">
-                      {depositResult.rejectionReasonBurmese || depositResult.rejectionReason || 'အချက်အလက် မကိုက်ညီပါခင်ဗျာ။'}
+                      {(isMy ? depositResult.rejectionReasonBurmese : depositResult.rejectionReason) || depositResult.rejectionReasonBurmese || depositResult.rejectionReason || (isMy ? 'အချက်အလက် မကိုက်ညီပါခင်ဗျာ။' : 'Information mismatch.')}
                     </p>
                     <p className="text-[10.5px] text-red-600/80 font-mono">
                       Code: {depositResult.rejectionCode || 'VERIFICATION_FAILED'}
@@ -952,7 +965,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </div>
               <span className="font-bold text-blue-700">
                 {extraAgentsCount > 0
-                  ? `+${totalExtraAgentsMonthly.toLocaleString()} MMK / လ`
+                  ? `+${totalExtraAgentsMonthly.toLocaleString()} ${isMy ? 'MMK / လ' : 'MMK / mo'}`
                   : isMy ? 'အပိုကြေး မရှိပါ' : 'Included in Plan'}
               </span>
             </div>
@@ -1143,7 +1156,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         value={newMemberForm.name}
                         onChange={(e) => setNewMemberForm({ ...newMemberForm, name: e.target.value })}
                         required
-                        placeholder="ဥပမာ - မသူဇာ"
+                        placeholder={isMy ? 'ဥပမာ - မသူဇာ' : 'e.g. Ma Thu Zar'}
                         className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:outline-none focus:border-blue-500"
                       />
                     </div>
@@ -1185,8 +1198,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                           onChange={(e) => setNewMemberForm({ ...newMemberForm, role: e.target.value })}
                           className="w-full px-3 py-2 border border-slate-300 rounded-xl bg-white text-xs font-medium focus:outline-none focus:border-blue-500"
                         >
-                          <option value="AGENT">🎧 Helper (စာပြန်ဝန်ထမ်း / Customer Chat)</option>
-                          <option value="ADMIN">💼 Shop Assistant (ဆိုင်လက်ထောက် / မန်နေဂျာ)</option>
+                          <option value="AGENT">{isMy ? '🎧 Helper (စာပြန်ဝန်ထမ်း / Customer Chat)' : '🎧 Helper (Chat Agent / Customer Support)'}</option>
+                          <option value="ADMIN">{isMy ? '💼 Shop Assistant (ဆိုင်လက်ထောက် / မန်နေဂျာ)' : '💼 Shop Assistant (Shop Manager)'}</option>
                         </select>
                       </div>
 
@@ -1228,83 +1241,134 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
         )}
 
-        {/* General Tab: Business Information */}
+        {/* General Tab: Business Information & Audio Alerts */}
         {activeTab === 'general' && (
-          <form onSubmit={handleSaveBusinessInfo} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4 text-xs">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div>
-                <h2 className="text-sm font-bold text-slate-900">{isMy ? 'လုပ်ငန်းအချက်အလက် (Business Profile)' : 'Business Profile'}</h2>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  {isMy ? 'မိမိဆိုင်အမည်၊ ဆက်သွယ်ရန် ဖုန်းနှင့် လိပ်စာ အချက်အလက်များကို ပြင်ဆင်သိမ်းဆည်းပါ' : 'Update your official store details, contact phone and address'}
-                </p>
+          <div className="space-y-6">
+            <form onSubmit={handleSaveBusinessInfo} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4 text-xs">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div>
+                  <h2 className="text-sm font-bold text-slate-900">{isMy ? 'လုပ်ငန်းအချက်အလက် (Business Profile)' : 'Business Profile'}</h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {isMy ? 'မိမိဆိုင်အမည်၊ ဆက်သွယ်ရန် ဖုန်းနှင့် လိပ်စာ အချက်အလက်များကို ပြင်ဆင်သိမ်းဆည်းပါ' : 'Update your official store details, contact phone and address'}
+                  </p>
+                </div>
+                <span className="px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg font-mono font-bold text-[11px]">
+                  Team Code: {currentUser?.teamCode || 'SOLO'}
+                </span>
               </div>
-              <span className="px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg font-mono font-bold text-[11px]">
-                Team Code: {currentUser?.teamCode || 'SOLO'}
-              </span>
-            </div>
 
-            {businessSuccess && (
-              <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl flex items-center gap-2 font-semibold">
-                <CheckCircle size={16} className="text-emerald-600 shrink-0" />
-                <span>{businessSuccess}</span>
-              </div>
-            )}
-
-            <div>
-              <label className="block text-slate-700 font-semibold mb-1">
-                {isMy ? 'ဆိုင်အမည် / Brand Name' : 'Shop / Brand Name'} <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="text"
-                required
-                value={businessName}
-                onChange={(e) => setBusinessName(e.target.value)}
-                placeholder={isMy ? 'ဥပမာ - မင်းခန့် ဖက်ရှင် သို့မဟုတ် မိမိဆိုင်အမည်' : 'e.g. Min Khant Fashion'}
-                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
-              />
-              <span className="text-[11px] text-slate-400 mt-1 block">
-                {isMy ? 'ဒီအမည်ကို Sidebar Workspace နှင့် အပြန်အလှန် စာတိုများတွင် အသုံးပြုပါမည်' : 'This name will appear on your workspace and customer chats.'}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-slate-700 font-semibold mb-1">
-                  {isMy ? 'ဆက်သွယ်ရန် ဖုန်းနံပါတ်' : 'Contact Phone Number'}
-                </label>
-                <input
-                  type="text"
-                  value={businessPhone}
-                  onChange={(e) => setBusinessPhone(e.target.value)}
-                  placeholder="09..."
-                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
-                />
-              </div>
+              {businessSuccess && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl flex items-center gap-2 font-semibold">
+                  <CheckCircle size={16} className="text-emerald-600 shrink-0" />
+                  <span>{businessSuccess}</span>
+                </div>
+              )}
 
               <div>
                 <label className="block text-slate-700 font-semibold mb-1">
-                  {isMy ? 'ဆိုင်တည်နေရာ / မြို့နယ် / လိပ်စာ' : 'Store Address / Location'}
+                  {isMy ? 'ဆိုင်အမည် / Brand Name' : 'Shop / Brand Name'} <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
-                  value={businessAddress}
-                  onChange={(e) => setBusinessAddress(e.target.value)}
-                  placeholder={isMy ? 'ဥပမာ - လှည်းတန်း၊ ကမာရွတ်မြို့နယ်၊ ရန်ကုန်' : 'e.g. Kamayut Township, Yangon'}
-                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+                  required
+                  value={businessName}
+                  onChange={(e) => setBusinessName(e.target.value)}
+                  placeholder={isMy ? 'ဥပမာ - မင်းခန့် ဖက်ရှင် သို့မဟုတ် မိမိဆိုင်အမည်' : 'e.g. Min Khant Fashion'}
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
                 />
+                <span className="text-[11px] text-slate-400 mt-1 block">
+                  {isMy ? 'ဒီအမည်ကို Sidebar Workspace နှင့် အပြန်အလှန် စာတိုများတွင် အသုံးပြုပါမည်' : 'This name will appear on your workspace and customer chats.'}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">
+                    {isMy ? 'ဆက်သွယ်ရန် ဖုန်းနံပါတ်' : 'Contact Phone Number'}
+                  </label>
+                  <input
+                    type="text"
+                    value={businessPhone}
+                    onChange={(e) => setBusinessPhone(e.target.value)}
+                    placeholder="09..."
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">
+                    {isMy ? 'ဆိုင်တည်နေရာ / မြို့နယ် / လိပ်စာ' : 'Store Address / Location'}
+                  </label>
+                  <input
+                    type="text"
+                    value={businessAddress}
+                    onChange={(e) => setBusinessAddress(e.target.value)}
+                    placeholder={isMy ? 'ဥပမာ - လှည်းတန်း၊ ကမာရွတ်မြို့နယ်၊ ရန်ကုန်' : 'e.g. Kamayut Township, Yangon'}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-2 flex items-center justify-end">
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm transition"
+                >
+                  <CheckCircle size={15} />
+                  <span>{isMy ? 'အချက်အလက်များ သိမ်းဆည်းမည် (Save Changes)' : 'Save Business Details'}</span>
+                </button>
+              </div>
+            </form>
+
+            {/* Notification & Sound Alerts Settings Box */}
+            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                    <Bell size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900">
+                      {isMy ? 'မက်ဆေ့ခ်ျဝင်သံနှင့် အသိပေး အချက်ပြစနစ် (Alerts & Sound)' : 'Message Notification & Audio Alerts'}
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {isMy
+                        ? 'Customer စာပို့လာပါက Mobile App နှင့် Web Dashboard တွင် အသံမြည်ခြင်းနှင့် တုန်ခါခြင်း (Vibration) အလိုအလျောက် အလုပ်လုပ်ပါသည်'
+                        : 'Plays melodic chime and triggers mobile vibration automatically on incoming messages'}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (typeof (window as any).playAlertChime === 'function') {
+                      (window as any).playAlertChime();
+                    }
+                  }}
+                  className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm transition active:scale-95 shrink-0"
+                >
+                  <Volume2 size={15} />
+                  <span>{isMy ? '🔊 အသံမြည် စမ်းသပ်ရန် (Test Sound)' : '🔊 Test Alert Sound'}</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 flex items-center gap-2.5">
+                  <CheckCircle size={15} className="text-emerald-500 shrink-0" />
+                  <span className="text-slate-700 font-medium">
+                    {isMy ? '၂ သံဆင့် သံချို မြည်သံ (G5 784Hz ➔ C6 1046Hz Melodic Chime)' : '2-Tone Melodic Chime (G5 784Hz ➔ C6 1046Hz)'}
+                  </span>
+                </div>
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 flex items-center gap-2.5">
+                  <CheckCircle size={15} className="text-emerald-500 shrink-0" />
+                  <span className="text-slate-700 font-medium">
+                    {isMy ? 'မိုဘိုင်းဖုန်း တုန်ခါမှု အချက်ပေးစနစ် (Mobile Haptic Vibration)' : 'Mobile Haptic Vibration Alert'}
+                  </span>
+                </div>
               </div>
             </div>
-
-            <div className="pt-2 flex items-center justify-end">
-              <button
-                type="submit"
-                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm transition"
-              >
-                <CheckCircle size={15} />
-                <span>{isMy ? 'အချက်အလက်များ သိမ်းဆည်းမည် (Save Changes)' : 'Save Business Details'}</span>
-              </button>
-            </div>
-          </form>
+          </div>
         )}
 
         {/* Security & Password Tab */}
@@ -1390,7 +1454,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       minLength={6}
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
-                      placeholder="အနည်းဆုံး ၆ လုံး"
+                      placeholder={isMy ? 'အနည်းဆုံး ၆ လုံး' : 'Min 6 characters'}
                       className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:border-blue-500 font-mono"
                     />
                   </div>
@@ -1405,7 +1469,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       minLength={6}
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="စကားဝှက် အသစ် ပြန်ရိုက်ပါ"
+                      placeholder={isMy ? 'စကားဝှက် အသစ် ပြန်ရိုက်ပါ' : 'Confirm new password'}
                       className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:border-blue-500 font-mono"
                     />
                   </div>
@@ -1456,7 +1520,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         type="text"
                         value={resetPhoneOrEmail || currentUser?.phone || currentUser?.email || ''}
                         onChange={(e) => setResetPhoneOrEmail(e.target.value)}
-                        placeholder="ဥပမာ- 09798888999 သို့မဟုတ် mexes@chatechat.com"
+                        placeholder={isMy ? 'ဥပမာ- 09798888999 သို့မဟုတ် mexes@chatechat.com' : 'e.g. 09798888999 or user@chatechat.com'}
                         className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:border-blue-500 font-mono"
                       />
                     </div>
@@ -1466,7 +1530,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         🛡️ 2-Tier Telegram Protection
                       </span>
                       <p className="text-[11px] text-emerald-800 leading-relaxed">
-                        ဆာဗာသည် အသုံးပြုသူ၏ စကားဝှက် အစစ်အမှန်ကို Database တွင် သိမ်းဆည်းခြင်း မရှိပါ။ လျှို့ဝှက်ကုဒ် (Hash) အဖြစ် ပြောင်းလဲထားသဖြင့် Telegram OTP စစ်ဆေးပြီးမှသာ အသစ် ပြောင်းလဲခွင့် ပြုပါမည်။
+                        {isMy
+                          ? 'ဆာဗာသည် အသုံးပြုသူ၏ စကားဝှက် အစစ်အမှန်ကို Database တွင် သိမ်းဆည်းခြင်း မရှိပါ။ လျှို့ဝှက်ကုဒ် (Hash) အဖြစ် ပြောင်းလဲထားသဖြင့် Telegram OTP စစ်ဆေးပြီးမှသာ အသစ် ပြောင်းလဲခွင့် ပြုပါမည်။'
+                          : 'Passwords are encrypted with secure hashes. To reset your password, verify your identity via Telegram OTP.'}
                       </p>
                     </div>
 
@@ -1519,7 +1585,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         minLength={6}
                         value={resetNewPass}
                         onChange={(e) => setResetNewPass(e.target.value)}
-                        placeholder="အနည်းဆုံး ၆ လုံး"
+                        placeholder={isMy ? 'အနည်းဆုံး ၆ လုံး' : 'Min 6 characters'}
                         className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 font-mono"
                       />
                     </div>
