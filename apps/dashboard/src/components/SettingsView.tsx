@@ -22,7 +22,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [currentUser, setCurrentUser] = useState<any>(propUser || null);
   const orgId = currentUser?.organizationId || 'org_royal';
   const isDemo = orgId === 'org_royal';
-  const isOwnerOrAdmin = currentUser?.role === 'OWNER' || currentUser?.role === 'ADMIN';
+  const isOwnerOrAdmin =
+    currentUser?.role === 'OWNER' ||
+    currentUser?.role === 'SHOP_OWNER' ||
+    currentUser?.role === 'ADMIN' ||
+    currentUser?.role === 'SHOP_ASSISTANT' ||
+    currentUser?.role === 'SUPER_ADMIN';
 
   // Business Profile Form State
   const [businessName, setBusinessName] = useState('');
@@ -262,13 +267,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [adminNewPass, setAdminNewPass] = useState('Agent!123');
   const [adminResetLoading, setAdminResetLoading] = useState(false);
   const [showAddMember, setShowAddMember] = useState(false);
-  const [newMemberForm, setNewMemberForm] = useState({ name: '', email: '', phone: '', role: 'AGENT', password: 'Agent!123' });
+  const [newMemberForm, setNewMemberForm] = useState({ name: '', email: '', phone: '', role: 'HELPER', password: 'Agent!123' });
   const [addMemberLoading, setAddMemberLoading] = useState(false);
   const [teamToast, setTeamToast] = useState<{ text: string; success: boolean } | null>(null);
 
   const fetchLiveAgents = async () => {
     try {
-      const res = await fetch(`${getApiBaseUrl()}/api/v1/admin/users`);
+      const res = await fetch(`${getApiBaseUrl()}/api/v1/admin/users?organizationId=${encodeURIComponent(orgId)}`);
       if (res.ok) {
         const data = await res.json();
         if (data.success && Array.isArray(data.users) && data.users.length > 0) {
@@ -277,7 +282,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             name: u.name,
             email: u.email,
             phone: u.phone || '',
-            role: u.role || 'AGENT',
+            role: u.role || 'HELPER',
             status: u.status || 'ONLINE',
             isIncluded: idx < 2,
           }));
@@ -335,13 +340,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       const res = await fetch(`${getApiBaseUrl()}/api/v1/admin/users`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newMemberForm),
+        body: JSON.stringify({
+          ...newMemberForm,
+          userType: 'APP',
+          organizationId: orgId,
+          shopName: businessName || currentUser?.organizationName || `${currentUser?.name}'s Shop`,
+        }),
       });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || 'Failed to add member');
       setTeamToast({ text: `✓ အဖွဲ့ဝင် ${newMemberForm.name} အား အောင်မြင်စွာ ထည့်သွင်းပြီးပါပြီ`, success: true });
       setShowAddMember(false);
-      setNewMemberForm({ name: '', email: '', phone: '', role: 'AGENT', password: 'Agent!123' });
+      setNewMemberForm({ name: '', email: '', phone: '', role: 'HELPER', password: 'Agent!123' });
       await fetchLiveAgents();
     } catch (err: any) {
       setTeamToast({ text: err.message || 'Error adding member', success: false });
@@ -951,7 +961,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <div className="divide-y divide-slate-100 text-xs">
               {agents.map((agent, index) => {
                 const isFree = index < 2;
-                const isOwner = agent.role === 'OWNER';
+                const isOwner = agent.role === 'OWNER' || agent.role === 'SHOP_OWNER' || agent.role === 'SUPER_ADMIN';
                 return (
                   <div key={agent.id} className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
@@ -974,16 +984,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                           <p className="font-bold text-slate-900">{agent.name}</p>
                           <span
                             className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                              agent.role === 'OWNER'
+                              agent.role === 'OWNER' || agent.role === 'SHOP_OWNER' || agent.role === 'SUPER_ADMIN'
                                 ? 'bg-purple-100 text-purple-800'
-                                : agent.role === 'ADMIN'
+                                : agent.role === 'ADMIN' || agent.role === 'SHOP_ASSISTANT'
                                 ? 'bg-blue-100 text-blue-800'
                                 : 'bg-slate-100 text-slate-700'
                             }`}
                           >
-                            {agent.role === 'OWNER'
+                            {agent.role === 'OWNER' || agent.role === 'SHOP_OWNER' || agent.role === 'SUPER_ADMIN'
                               ? (isMy ? '👑 Shop Owner' : '👑 Shop Owner')
-                              : agent.role === 'ADMIN'
+                              : agent.role === 'ADMIN' || agent.role === 'SHOP_ASSISTANT'
                               ? (isMy ? '💼 Shop Assistant' : '💼 Shop Assistant')
                               : (isMy ? '🎧 Helper' : '🎧 Helper')}
                           </span>
@@ -1002,8 +1012,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     </div>
 
                     <div className="flex items-center gap-2 self-end sm:self-center">
-                      {/* Admin Reset Password Button - ONLY FOR OWNER OR ADMIN! (Agents like Yoon cannot reset passwords) */}
-                      {isOwnerOrAdmin && agent.role !== 'OWNER' && (
+                      {/* Admin Reset Password Button - ONLY FOR OWNER OR ADMIN! (Helpers cannot reset passwords, and Owner cannot be reset) */}
+                      {isOwnerOrAdmin && !isOwner && (
                         <button
                           type="button"
                           onClick={() => {
@@ -1019,7 +1029,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       )}
 
                       {/* Remove Button (Only Owner or Admin, and never for Owner) */}
-                      {isOwnerOrAdmin && agent.role !== 'OWNER' && (
+                      {isOwnerOrAdmin && !isOwner && (
                         <button
                           type="button"
                           onClick={() => handleDeleteMember(agent.id, agent.name)}

@@ -145,18 +145,50 @@ const DEFAULT_USERS: StoredUser[] = [
     updatedAt: new Date().toISOString(),
   },
   {
-    id: 'user_agent_saung',
-    name: 'Saung (Shop Assistant)',
-    email: 'saung@chatechat.com',
-    phone: '09791112233',
+    id: 'user_yoon_helper_1',
+    name: 'Ma Moe (Yoon Helper)',
+    email: 'moe@yoonshop.com',
+    phone: '09792223301',
     passwordHash: hashPassword('Agent!123'),
     userType: 'APP',
     shopName: "Yoon's Fashion Shop",
     organizationId: 'org_yoon',
-    role: 'SHOP_ASSISTANT',
+    role: 'HELPER',
+    status: 'ONLINE',
+    maxConcurrentChats: 10,
+    channels: ['MESSENGER'],
+    createdAt: new Date('2026-03-01').toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'user_agent_saung',
+    name: 'Saung (Shop Owner)',
+    email: 'saung@chatechat.com',
+    phone: '09791112233',
+    passwordHash: hashPassword('Agent!123'),
+    userType: 'APP',
+    shopName: "Saung's Official Shop",
+    organizationId: 'org_saung',
+    role: 'SHOP_OWNER',
     status: 'ONLINE',
     maxConcurrentChats: 10,
     channels: ['MESSENGER', 'TELEGRAM'],
+    createdAt: new Date('2026-03-01').toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'user_saung_helper_1',
+    name: 'Nilar (Saung Helper)',
+    email: 'nilar@saungshop.com',
+    phone: '09791112201',
+    passwordHash: hashPassword('Agent!123'),
+    userType: 'APP',
+    shopName: "Saung's Official Shop",
+    organizationId: 'org_saung',
+    role: 'HELPER',
+    status: 'ONLINE',
+    maxConcurrentChats: 10,
+    channels: ['TELEGRAM'],
     createdAt: new Date('2026-03-01').toISOString(),
     updatedAt: new Date().toISOString(),
   },
@@ -189,46 +221,59 @@ class UserStoreService {
     const email = (u.email || '').toLowerCase();
     const name = (u.name || '').toLowerCase();
 
-    if (!u.userType) {
-      if (
-        email.includes('michael') ||
-        email.includes('admin@') ||
-        email.includes('susuwin') ||
-        email.includes('kyawkyaw') ||
-        email.includes('thiri') ||
-        name.includes('ceo') ||
-        name.includes('system administrator') ||
-        name.includes('finance lead')
-      ) {
-        u.userType = 'SYSTEM';
-        if (email.includes('michael') || name.includes('ceo')) {
-          u.role = 'SUPER_ADMIN';
-        } else if (email.includes('admin') || email.includes('susuwin')) {
-          u.role = 'ADMIN';
-        } else {
-          u.role = 'AGENT';
-        }
+    // STRICT SYSTEM USER CHECK: ONLY Michael, Admin root, Daw Su Su Win, Ko Kyaw Kyaw, Ma Thiri are System users
+    const isSystemUser =
+      email === 'michael@chatechat.com' ||
+      email === 'admin@chatechat.com' ||
+      email === 'susuwin@chatechat.com' ||
+      email === 'kyawkyaw@chatechat.com' ||
+      email === 'thiri@chatechat.com' ||
+      name.includes('founder & ceo') ||
+      name.includes('system administrator') ||
+      name.includes('finance lead');
+
+    if (isSystemUser) {
+      u.userType = 'SYSTEM';
+      if (email.includes('michael') || name.includes('ceo')) {
+        u.role = 'SUPER_ADMIN';
+      } else if (email.includes('admin') || email.includes('susuwin')) {
+        u.role = 'ADMIN';
       } else {
-        u.userType = 'APP';
-        if (name.includes('yoon') || email.includes('yoon')) {
-          u.role = 'SHOP_OWNER';
-          u.shopName = "Yoon's Fashion Shop";
-          u.organizationId = 'org_yoon';
-        } else if (name.includes('mexes') || email.includes('mexes')) {
-          u.role = 'SHOP_OWNER';
-          u.shopName = 'Mexes Official Shop';
-          u.organizationId = 'org_mexes';
-        } else if (name.includes('saung') || email.includes('saung')) {
-          u.role = 'SHOP_ASSISTANT';
-          u.shopName = "Yoon's Fashion Shop";
-          u.organizationId = 'org_yoon';
-        } else {
-          u.role = 'HELPER';
-          u.shopName = u.shopName || 'Mexes Official Shop';
-          u.organizationId = u.organizationId || 'org_mexes';
-        }
+        u.role = 'AGENT';
       }
+      return u;
     }
+
+    // ALL OTHER USERS ARE APP USERS (Shops & Merchants)
+    u.userType = 'APP';
+
+    if (email === 'yoon@chatechat.com' || (email.includes('yoon') && !email.includes('helper') && !name.includes('helper'))) {
+      u.role = 'SHOP_OWNER';
+      u.shopName = "Yoon's Fashion Shop";
+      u.organizationId = 'org_yoon';
+    } else if (email === 'saung@chatechat.com' || (email.includes('saung') && !email.includes('helper') && !name.includes('helper'))) {
+      u.role = 'SHOP_OWNER';
+      u.shopName = "Saung's Official Shop";
+      u.organizationId = 'org_saung';
+    } else if (email === 'mexes@chatechat.com' || (email.includes('mexes') && !email.includes('helper') && !name.includes('helper'))) {
+      u.role = 'SHOP_OWNER';
+      u.shopName = 'Mexes Official Shop';
+      u.organizationId = 'org_mexes';
+    } else if (email.includes('lynn')) {
+      u.role = 'HELPER';
+      u.shopName = 'Mexes Official Shop';
+      u.organizationId = 'org_mexes';
+    } else if (name.includes('helper') || email.includes('helper') || u.role === 'HELPER') {
+      u.role = 'HELPER';
+    } else if (name.includes('assistant') || email.includes('assistant') || u.role === 'SHOP_ASSISTANT') {
+      u.role = 'SHOP_ASSISTANT';
+    } else {
+      // Default signup is a SHOP_OWNER
+      u.role = 'SHOP_OWNER';
+      u.shopName = u.shopName || `${u.name}'s Shop`;
+      u.organizationId = u.organizationId || `org_${u.name.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+    }
+
     return u;
   }
 
@@ -302,7 +347,17 @@ class UserStoreService {
     telegramUsername?: string;
   }): StoredUser {
     const nowIso = new Date().toISOString();
-    const uType = payload.userType || (payload.role?.includes('SHOP') || payload.role === 'HELPER' ? 'APP' : 'SYSTEM');
+    const isSys = payload.userType === 'SYSTEM';
+    const uType: 'SYSTEM' | 'APP' = isSys ? 'SYSTEM' : 'APP';
+    let assignedRole = payload.role;
+    if (!assignedRole) {
+      assignedRole = isSys ? 'AGENT' : 'SHOP_OWNER';
+    } else if (assignedRole === 'OWNER') {
+      assignedRole = 'SHOP_OWNER';
+    } else if (assignedRole === 'AGENT' && !isSys) {
+      assignedRole = 'HELPER';
+    }
+
     const newUser: StoredUser = {
       id: `user_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
       name: payload.name.trim(),
@@ -312,7 +367,7 @@ class UserStoreService {
       userType: uType,
       shopName: payload.shopName?.trim() || (uType === 'APP' ? `${payload.name.trim()}'s Shop` : undefined),
       organizationId: payload.organizationId?.trim() || (uType === 'APP' ? `org_${payload.name.trim().toLowerCase().replace(/[^a-z0-9]/g, '_')}` : 'org_royal'),
-      role: payload.role || (uType === 'SYSTEM' ? 'AGENT' : 'HELPER'),
+      role: assignedRole,
       status: 'ONLINE',
       maxConcurrentChats: 10,
       channels: ['TELEGRAM', 'MESSENGER'],

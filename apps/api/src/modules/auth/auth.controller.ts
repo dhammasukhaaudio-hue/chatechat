@@ -113,17 +113,25 @@ authRouter.post('/login', (req: Request, res: Response) => {
         email: matched.email,
         phone: matched.phone || '',
         role: matched.role,
+        userType: matched.userType || 'APP',
+        shopName: matched.shopName || `${matched.name}'s Shop`,
+        organizationId: matched.organizationId || (matched.userType === 'SYSTEM' ? 'org_royal' : `org_${matched.name.toLowerCase().replace(/[^a-z0-9]/g, '_')}`),
+        organizationName: matched.shopName || `${matched.name}'s Shop`,
       },
     });
   }
 
   // 3. Permissive fallback for custom agent credentials (creates in user store automatically)
+  // Default new login is SHOP_OWNER (App User)
+  const isMichael = cleanId.includes('michael');
   const autoCreated = userStore.createUser({
     name: identifier.includes('@') ? identifier.split('@')[0] : identifier,
     email: identifier.includes('@') ? identifier : `${identifier}@chatechat.com`,
     phone: identifier.startsWith('09') ? identifier : '09798888123',
     password: password,
-    role: cleanId.includes('owner') || cleanId.includes('michael') ? 'OWNER' : 'AGENT',
+    userType: isMichael ? 'SYSTEM' : 'APP',
+    role: isMichael ? 'SUPER_ADMIN' : 'SHOP_OWNER',
+    shopName: isMichael ? undefined : `${identifier}'s Shop`,
   });
 
   return res.json({
@@ -136,6 +144,10 @@ authRouter.post('/login', (req: Request, res: Response) => {
       email: autoCreated.email,
       phone: autoCreated.phone || '',
       role: autoCreated.role,
+      userType: autoCreated.userType,
+      shopName: autoCreated.shopName,
+      organizationId: autoCreated.organizationId,
+      organizationName: autoCreated.shopName,
     },
   });
 });
@@ -143,7 +155,7 @@ authRouter.post('/login', (req: Request, res: Response) => {
 /**
  * 3. Frontend Sign Up - Step 1: Request Verification Code via Telegram or SMS
  */
-authRouter.post('/signup/request-code', (req: Request, res: Response) => {
+authRouter.post(['/signup/request-code', '/register/request-code'], (req: Request, res: Response) => {
   const { name, email, phone, method = 'TELEGRAM' } = req.body;
 
   if (!name || (!email && !phone)) {
@@ -184,7 +196,7 @@ authRouter.post('/signup/request-code', (req: Request, res: Response) => {
 /**
  * 4. Frontend Sign Up - Step 2: Verify Code & Complete Registration
  */
-authRouter.post('/signup/verify-code', (req: Request, res: Response) => {
+authRouter.post(['/signup/verify-code', '/register/verify-code'], (req: Request, res: Response) => {
   const { name, email, phone, password, code } = req.body;
   const cleanIdentifier = (email || phone || '').toString().trim().toLowerCase();
 
@@ -207,20 +219,26 @@ authRouter.post('/signup/verify-code', (req: Request, res: Response) => {
 
   activeOtps.delete(cleanIdentifier);
 
-  // Persist user directly to users.json
+  // Anyone who signs up on frontend is a SHOP OWNER (App User)
+  const shop = (req.body.shopName || `${name || 'My'}'s Shop`).trim();
+  const orgSlug = `org_${(name || 'shop').toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+
   const created = userStore.createUser({
-    name: name || 'New Agent',
+    name: name || 'Shop Owner',
     email: email || `${phone}@chatechat.com`,
     phone: phone || '',
     password: password || 'Agent!123',
-    role: 'AGENT',
+    userType: 'APP',
+    role: 'SHOP_OWNER',
+    shopName: shop,
+    organizationId: orgSlug,
   });
 
-  console.log(`✅ [SIGNUP SUCCESS] New user registered & persisted: ${created.name} (${created.email})`);
+  console.log(`✅ [SIGNUP SUCCESS] New Shop Owner registered & persisted: ${created.name} (${created.email}) - Shop: ${shop}`);
 
   return res.status(201).json({
     success: true,
-    message: 'အကောင့်အသစ် အောင်မြင်စွာ ဖွင့်လှစ်ပြီးပါပြီ',
+    message: 'Shop Owner အကောင့် အောင်မြင်စွာ ဖွင့်လှစ်ပြီးပါပြီ',
     token: `agent_session_${Date.now()}`,
     user: {
       id: created.id,
@@ -228,6 +246,10 @@ authRouter.post('/signup/verify-code', (req: Request, res: Response) => {
       email: created.email,
       phone: created.phone || '',
       role: created.role,
+      userType: created.userType,
+      shopName: created.shopName,
+      organizationId: created.organizationId,
+      organizationName: created.shopName,
     },
   });
 });

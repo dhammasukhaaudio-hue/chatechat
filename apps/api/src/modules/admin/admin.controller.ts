@@ -10,35 +10,26 @@ export const inMemoryUsers = userStore.getAll();
 
 /**
  * 1. Get All Users / Team Members (Persistent from userStore + DB)
+ * If organizationId is provided, filter by shop. If omitted, returns all (Super Admin view).
  */
-adminRouter.get('/users', async (_req: Request, res: Response) => {
-  const storeUsers = userStore.getAll();
-  try {
-    const dbUsers = await prisma.user.findMany({
-      orderBy: { createdAt: 'asc' },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        role: true,
-        status: true,
-        maxConcurrentChats: true,
-        createdAt: true,
-      },
-    });
+adminRouter.get('/users', async (req: Request, res: Response) => {
+  const { organizationId } = req.query;
+  let storeUsers = userStore.getAll();
 
-    if (dbUsers.length > 0) {
-      const combined = [...storeUsers];
-      for (const u of dbUsers) {
-        if (!combined.some(c => c.email?.toLowerCase() === u.email?.toLowerCase() || c.id === u.id)) {
-          combined.push(u as any);
-        }
-      }
-      return res.json({ success: true, users: combined });
-    }
-  } catch (err) {
-    // Database offline, use persistent userStore
+  if (organizationId && typeof organizationId === 'string' && organizationId.trim()) {
+    const cleanOrg = organizationId.trim().toLowerCase();
+    storeUsers = storeUsers.filter((u) => {
+      const uOrg = (u.organizationId || '').toLowerCase();
+      const uEmail = (u.email || '').toLowerCase();
+      const uName = (u.name || '').toLowerCase();
+
+      if (uOrg && uOrg === cleanOrg) return true;
+      if (cleanOrg.includes('yoon') && (uOrg.includes('yoon') || uEmail.includes('yoon') || uName.includes('yoon'))) return true;
+      if (cleanOrg.includes('saung') && (uOrg.includes('saung') || uEmail.includes('saung') || uName.includes('saung'))) return true;
+      if (cleanOrg.includes('mexes') && (uOrg.includes('mexes') || uEmail.includes('mexes') || uEmail.includes('lynn'))) return true;
+      return false;
+    });
+    return res.json({ success: true, users: storeUsers });
   }
 
   return res.json({ success: true, users: storeUsers });

@@ -89,25 +89,6 @@
     "updatedAt": "2026-11-22T09:00:00.000Z"
   },
   {
-    "id": "user_mexes",
-    "name": "mexes",
-    "email": "mexes@chatechat.com",
-    "phone": "09798888999",
-    "passwordHash": "9a30f7bc21126a4952f90caa403619ac8a693c5cd87bec8fb9ff82d5bb5e7424",
-    "userType": "APP",
-    "shopName": "Mexes Official Shop",
-    "organizationId": "org_mexes",
-    "role": "SHOP_OWNER",
-    "status": "ONLINE",
-    "maxConcurrentChats": 10,
-    "channels": [
-      "TELEGRAM"
-    ],
-    "telegramUsername": "@mexes_bot",
-    "createdAt": "2026-02-15T00:00:00.000Z",
-    "updatedAt": "2026-11-22T09:00:00.000Z"
-  },
-  {
     "id": "user_agent_yoon",
     "name": "Yoon (Shop Owner)",
     "email": "yoon@chatechat.com",
@@ -127,15 +108,33 @@
     "updatedAt": "2026-11-22T09:00:00.000Z"
   },
   {
-    "id": "user_agent_saung",
-    "name": "Saung (Shop Assistant)",
-    "email": "saung@chatechat.com",
-    "phone": "09791112233",
+    "id": "user_yoon_helper_1",
+    "name": "Ma Moe (Yoon Helper)",
+    "email": "moe@yoonshop.com",
+    "phone": "09792223301",
     "passwordHash": "9a30f7bc21126a4952f90caa403619ac8a693c5cd87bec8fb9ff82d5bb5e7424",
     "userType": "APP",
     "shopName": "Yoon's Fashion Shop",
     "organizationId": "org_yoon",
-    "role": "SHOP_ASSISTANT",
+    "role": "HELPER",
+    "status": "ONLINE",
+    "maxConcurrentChats": 10,
+    "channels": [
+      "MESSENGER"
+    ],
+    "createdAt": "2026-03-01T00:00:00.000Z",
+    "updatedAt": "2026-11-22T09:00:00.000Z"
+  },
+  {
+    "id": "user_agent_saung",
+    "name": "Saung (Shop Owner)",
+    "email": "saung@chatechat.com",
+    "phone": "09791112233",
+    "passwordHash": "9a30f7bc21126a4952f90caa403619ac8a693c5cd87bec8fb9ff82d5bb5e7424",
+    "userType": "APP",
+    "shopName": "Saung's Official Shop",
+    "organizationId": "org_saung",
+    "role": "SHOP_OWNER",
     "status": "ONLINE",
     "maxConcurrentChats": 10,
     "channels": [
@@ -143,6 +142,43 @@
       "TELEGRAM"
     ],
     "createdAt": "2026-03-01T00:00:00.000Z",
+    "updatedAt": "2026-11-22T09:00:00.000Z"
+  },
+  {
+    "id": "user_saung_helper_1",
+    "name": "Nilar (Saung Helper)",
+    "email": "nilar@saungshop.com",
+    "phone": "09791112201",
+    "passwordHash": "9a30f7bc21126a4952f90caa403619ac8a693c5cd87bec8fb9ff82d5bb5e7424",
+    "userType": "APP",
+    "shopName": "Saung's Official Shop",
+    "organizationId": "org_saung",
+    "role": "HELPER",
+    "status": "ONLINE",
+    "maxConcurrentChats": 10,
+    "channels": [
+      "TELEGRAM"
+    ],
+    "createdAt": "2026-03-01T00:00:00.000Z",
+    "updatedAt": "2026-11-22T09:00:00.000Z"
+  },
+  {
+    "id": "user_mexes",
+    "name": "mexes",
+    "email": "mexes@chatechat.com",
+    "phone": "09798888999",
+    "passwordHash": "9a30f7bc21126a4952f90caa403619ac8a693c5cd87bec8fb9ff82d5bb5e7424",
+    "userType": "APP",
+    "shopName": "Mexes Official Shop",
+    "organizationId": "org_mexes",
+    "role": "SHOP_OWNER",
+    "status": "ONLINE",
+    "maxConcurrentChats": 10,
+    "channels": [
+      "TELEGRAM"
+    ],
+    "telegramUsername": "@mexes_bot",
+    "createdAt": "2026-02-15T00:00:00.000Z",
     "updatedAt": "2026-11-22T09:00:00.000Z"
   },
   {

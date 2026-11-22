@@ -243,7 +243,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <Users size={15} className="shrink-0" />
                   <div className="flex items-center justify-between flex-1">
                     <span>{isMy ? 'တာဝန်ကျ အဖွဲ့ဝင်များ' : 'Team Members'}</span>
-                    {currentUser?.role === 'AGENT' && (
+                    {(currentUser?.role === 'AGENT' || currentUser?.role === 'HELPER') && (
                       <span className="text-[9px] bg-slate-700/80 text-slate-300 px-1.5 py-0.5 rounded font-mono">
                         View
                       </span>
@@ -328,10 +328,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <div className="mt-1 flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
                   <span className="text-[10px] text-emerald-400 font-semibold">
-                    {currentUser?.role === 'OWNER'
+                    {currentUser?.role === 'OWNER' || currentUser?.role === 'SHOP_OWNER'
                       ? '👑 Shop Owner'
-                      : currentUser?.role === 'ADMIN'
+                      : currentUser?.role === 'ADMIN' || currentUser?.role === 'SHOP_ASSISTANT'
                       ? '💼 Shop Assistant'
+                      : currentUser?.role === 'SUPER_ADMIN'
+                      ? '🛡️ Super Admin'
                       : '🎧 Helper'}
                   </span>
                 </div>
@@ -402,7 +404,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <div className="text-left truncate">
                 <p className="text-xs font-semibold text-white truncate">{currentUser?.name || 'Michael (Owner)'}</p>
                 <p className="text-[10px] text-emerald-400 font-medium">
-                  Online ({currentUser?.role === 'OWNER' ? '👑 Owner' : currentUser?.role === 'ADMIN' ? '💼 Assistant' : '🎧 Helper'})
+                  Online ({currentUser?.role === 'OWNER' || currentUser?.role === 'SHOP_OWNER' ? '👑 Owner' : currentUser?.role === 'ADMIN' || currentUser?.role === 'SHOP_ASSISTANT' ? '💼 Assistant' : currentUser?.role === 'SUPER_ADMIN' ? '🛡️ Super Admin' : '🎧 Helper'})
                 </p>
               </div>
             </div>

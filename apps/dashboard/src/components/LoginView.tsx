@@ -102,28 +102,35 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
     } catch (err: any) {
       // Fallback for offline demo accounts
       const lower = identifier.toLowerCase().trim();
-      let role = 'AGENT';
+      let role = 'SHOP_OWNER';
       let orgId = `org_${lower.replace(/[^a-z0-9]/g, '_')}`;
       let orgName = `${identifier}'s Shop`;
       let tCode = teamCode.trim().toUpperCase() || `${lower.toUpperCase().slice(0, 4)}-101`;
 
-      if (lower === 'mexes' || lower.includes('michael')) {
-        role = 'OWNER';
+      if (lower.includes('michael')) {
+        role = 'SUPER_ADMIN';
         orgId = 'org_royal';
-        orgName = 'Mexes Official Shop';
-        tCode = teamCode.trim().toUpperCase() || 'CHATE-101';
+        orgName = 'ChateChat Platform';
       } else if (lower === 'admin') {
-        role = 'OWNER';
-        orgId = 'org_admin';
+        role = 'ADMIN';
+        orgId = 'org_royal';
         orgName = 'ChateChat Official';
-        tCode = teamCode.trim().toUpperCase() || 'ROYAL-101';
-      } else if (lower === 'lynn') {
-        role = 'AGENT';
-        if (teamCode.trim().toUpperCase() === 'CHATE-101') {
-          orgId = 'org_royal';
-          orgName = 'Mexes Official Shop';
-          tCode = 'CHATE-101';
-        }
+      } else if (lower.includes('yoon')) {
+        role = 'SHOP_OWNER';
+        orgId = 'org_yoon';
+        orgName = "Yoon's Fashion Shop";
+      } else if (lower.includes('saung')) {
+        role = 'SHOP_OWNER';
+        orgId = 'org_saung';
+        orgName = "Saung's Official Shop";
+      } else if (lower.includes('mexes')) {
+        role = 'SHOP_OWNER';
+        orgId = 'org_mexes';
+        orgName = 'Mexes Official Shop';
+      } else if (lower.includes('lynn') || lower.includes('helper')) {
+        role = 'HELPER';
+        orgId = 'org_mexes';
+        orgName = 'Mexes Official Shop';
       }
 
       const mockUser = {
@@ -238,7 +245,8 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
         id: `usr_${Date.now()}`,
         name: signupName.trim(),
         email: signupEmail.trim() || `${signupName.toLowerCase().replace(/[^a-z0-9]/g, '_')}@chatechat.com`,
-        role: 'OWNER',
+        role: 'SHOP_OWNER',
+        userType: 'APP',
         phone: signupPhone.trim(),
         organizationId: `org_${Date.now()}`,
         organizationName: signupShopName.trim() || `${signupName.trim()}'s Shop`,
