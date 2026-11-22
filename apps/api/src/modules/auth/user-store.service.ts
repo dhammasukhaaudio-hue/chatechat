@@ -432,14 +432,26 @@ class UserStoreService {
     return user;
   }
 
-  public deleteUser(id: string): boolean {
-    const prevLen = this.users.length;
-    this.users = this.users.filter((u) => u.id !== id);
-    if (this.users.length !== prevLen) {
-      this.saveToFile();
-      return true;
+  public deleteUser(id: string, cascadeOrg = false): { success: boolean; deletedUser?: StoredUser; cascadeMembers: StoredUser[] } {
+    const targetUser = this.users.find((u) => u.id === id);
+    if (!targetUser) return { success: false, cascadeMembers: [] };
+
+    let cascadeMembers: StoredUser[] = [];
+    const isOwner = targetUser.role === 'OWNER' || targetUser.role === 'SHOP_OWNER';
+
+    if (cascadeOrg && isOwner && targetUser.organizationId) {
+      // Find all sub members in the same organization (helpers, assistants)
+      cascadeMembers = this.users.filter(
+        (u) => u.organizationId === targetUser.organizationId && u.id !== targetUser.id
+      );
+      const memberIdsToDelete = new Set([targetUser.id, ...cascadeMembers.map((m) => m.id)]);
+      this.users = this.users.filter((u) => !memberIdsToDelete.has(u.id));
+    } else {
+      this.users = this.users.filter((u) => u.id !== id);
     }
-    return false;
+
+    this.saveToFile();
+    return { success: true, deletedUser: targetUser, cascadeMembers };
   }
 }
 

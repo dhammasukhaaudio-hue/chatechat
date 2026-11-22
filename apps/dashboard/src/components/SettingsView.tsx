@@ -22,12 +22,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [currentUser, setCurrentUser] = useState<any>(propUser || null);
   const orgId = currentUser?.organizationId || 'org_royal';
   const isDemo = orgId === 'org_royal';
-  const isOwnerOrAdmin =
+  const isShopOwner =
     currentUser?.role === 'OWNER' ||
     currentUser?.role === 'SHOP_OWNER' ||
-    currentUser?.role === 'ADMIN' ||
-    currentUser?.role === 'SHOP_ASSISTANT' ||
     currentUser?.role === 'SUPER_ADMIN';
+  const isOwnerOrAdmin =
+    isShopOwner ||
+    currentUser?.role === 'ADMIN' ||
+    currentUser?.role === 'SHOP_ASSISTANT';
 
   // Business Profile Form State
   const [businessName, setBusinessName] = useState('');
@@ -271,6 +273,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [addMemberLoading, setAddMemberLoading] = useState(false);
   const [teamToast, setTeamToast] = useState<{ text: string; success: boolean } | null>(null);
 
+  // Shop Owner Member Deletion Modal & Reason State
+  const [deleteModalMember, setDeleteModalMember] = useState<{ id: string; name: string; role: string } | null>(null);
+  const [deleteReason, setDeleteReason] = useState('');
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
   const fetchLiveAgents = async () => {
     try {
       const res = await fetch(`${getApiBaseUrl()}/api/v1/admin/users?organizationId=${encodeURIComponent(orgId)}`);
@@ -371,22 +378,48 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }
   };
 
-  const handleDeleteMember = async (id: string, name: string) => {
-    if (!confirm(isMy ? `${name} အား အဖွဲ့ဝင်စာရင်းမှ ဖယ်ရှားမှာ သေချာပါသလား?` : `Remove ${name}?`)) return;
+  const confirmDeleteMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!deleteModalMember) return;
+    setDeleteLoading(true);
     try {
-      const res = await fetch(`${getApiBaseUrl()}/api/v1/admin/users/${id}`, { method: 'DELETE' });
+      const reasonText = deleteReason.trim() || (isMy ? 'အဖွဲ့ဝင်အား တာဝန်မှ ရပ်နားခြင်း' : 'Member removed from shop team');
+      const res = await fetch(`${getApiBaseUrl()}/api/v1/admin/users/${deleteModalMember.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-actor-role': currentUser?.role || 'SHOP_OWNER',
+          'x-actor-id': currentUser?.id || 'owner_id',
+          'x-actor-name': currentUser?.name || 'Shop Owner',
+          'x-actor-org': orgId,
+        },
+        body: JSON.stringify({
+          reason: reasonText,
+          actorRole: currentUser?.role || 'SHOP_OWNER',
+          actorId: currentUser?.id || 'owner_id',
+          actorName: currentUser?.name || 'Shop Owner',
+          actorOrg: orgId,
+        }),
+      });
       const data = await res.json();
-      if (data.success) {
-        setTeamToast({
-          text: isMy ? `✓ ${name} အား ဖယ်ရှားပြီးပါပြီ` : `✓ Removed ${name}`,
-          success: true,
-        });
-        await fetchLiveAgents();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to remove member');
       }
-    } catch (e) {
-      console.error(e);
+      setTeamToast({
+        text: isMy
+          ? `✓ ${deleteModalMember.name} အား အဖွဲ့ဝင်စာရင်းမှ အောင်မြင်စွာ ဖယ်ရှားပြီးပါပြီ`
+          : `✓ Successfully removed ${deleteModalMember.name}`,
+        success: true,
+      });
+      setDeleteModalMember(null);
+      setDeleteReason('');
+      await fetchLiveAgents();
+    } catch (e: any) {
+      setTeamToast({ text: e.message || 'Error removing member', success: false });
+    } finally {
+      setDeleteLoading(false);
+      setTimeout(() => setTeamToast(null), 4000);
     }
-    setTimeout(() => setTeamToast(null), 4000);
   };
 
   const plans = [
@@ -1041,11 +1074,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         </button>
                       )}
 
-                      {/* Remove Button (Only Owner or Admin, and never for Owner) */}
-                      {isOwnerOrAdmin && !isOwner && (
+                      {/* Remove Button (Only Shop Owner can remove members, and never for Owner) */}
+                      {isShopOwner && !isOwner && (
                         <button
                           type="button"
-                          onClick={() => handleDeleteMember(agent.id, agent.name)}
+                          onClick={() => {
+                            setDeleteModalMember({ id: agent.id, name: agent.name, role: agent.role });
+                            setDeleteReason('');
+                          }}
                           className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
                           title="Remove Member"
                         >
@@ -1116,6 +1152,74 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       >
                         <CheckCircle size={14} />
                         <span>{adminResetLoading ? (isMy ? 'သတ်မှတ်နေပါသည်...' : 'Saving...') : (isMy ? 'အတည်ပြု သတ်မှတ်မည်' : 'Reset Password')}</span>
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {/* Member Deletion Confirmation & Reason Modal (Shop Owner ONLY) */}
+            {deleteModalMember && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 p-5 space-y-4 animate-in fade-in duration-150">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center font-bold">
+                        <Trash2 size={16} />
+                      </div>
+                      <div>
+                        <h3 className="text-xs font-bold text-slate-900">
+                          {isMy ? 'ဆိုင်အဖွဲ့ဝင်အား စာရင်းမှ ဖယ်ရှားခြင်း' : 'Remove Team Member'}
+                        </h3>
+                        <p className="text-[11px] text-slate-500">{deleteModalMember.name} ({deleteModalMember.role})</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setDeleteModalMember(null)}
+                      className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+
+                  <form onSubmit={confirmDeleteMember} className="space-y-3.5 text-xs">
+                    <div className="p-3 rounded-xl bg-rose-50 border border-rose-100 text-rose-900 text-[11.5px] leading-relaxed">
+                      {isMy
+                        ? `ဆိုင်ပိုင်ရှင် အနေဖြင့် အဖွဲ့ဝင် [${deleteModalMember.name}] အား ဆိုင်စာရင်းမှ အပြီးတိုင် ဖယ်ရှားပါမည်။ ဤလုပ်ဆောင်ချက်ကို မှတ်တမ်း (Audit Log) အဖြစ် သိမ်းဆည်းထားပါမည်။`
+                        : `As Shop Owner, removing [${deleteModalMember.name}] will permanently revoke their access. This action is logged for security audit.`}
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        {isMy ? 'ဖယ်ရှားရသည့် အကြောင်းပြချက် (Reason) *' : 'Reason for Removal *'}
+                      </label>
+                      <input
+                        type="text"
+                        value={deleteReason}
+                        onChange={(e) => setDeleteReason(e.target.value)}
+                        required
+                        placeholder={isMy ? 'ဥပမာ - ဝန်ထမ်းတာဝန်မှ နုတ်ထွက်ခြင်း / အသုံးမပြုတော့ခြင်း' : 'e.g. Employee resigned / Access no longer needed'}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs focus:outline-none focus:border-rose-500"
+                      />
+                    </div>
+
+                    <div className="pt-2 flex justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setDeleteModalMember(null)}
+                        className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold text-xs"
+                      >
+                        {isMy ? 'မလုပ်တော့ပါ' : 'Cancel'}
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={deleteLoading}
+                        className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+                      >
+                        <Trash2 size={14} />
+                        <span>{deleteLoading ? (isMy ? 'ဖယ်ရှားနေပါသည်...' : 'Removing...') : (isMy ? 'အပြီးတိုင် ဖယ်ရှားမည်' : 'Confirm Removal')}</span>
                       </button>
                     </div>
                   </form>

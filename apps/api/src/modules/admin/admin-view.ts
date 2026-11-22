@@ -292,6 +292,11 @@ export function getAdminPortalHtml(): string {
           <i class="fa-solid fa-shield-virus text-blue-400"></i>
           <span>7-Tier Security Architecture</span>
         </button>
+
+        <button onclick="switchTab('audit')" id="tab-btn-audit" class="tab-button px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 text-slate-300 hover:text-white hover:bg-slate-800 transition">
+          <i class="fa-solid fa-clock-rotate-left text-rose-400"></i>
+          <span>Delete Audit Logs (ပယ်ဖျက်မှု မှတ်တမ်း)</span>
+        </button>
       </div>
 
       <!-- TAB 1: PAYMENT HISTORY & VERIFICATION ENGINE -->
@@ -647,6 +652,45 @@ export function getAdminPortalHtml(): string {
         </div>
       </div>
 
+      <!-- TAB 6: DELETE AUDIT LOGS -->
+      <div id="tab-pane-audit" class="tab-pane hidden space-y-4">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-slate-900 border border-slate-800 p-4 rounded-xl">
+          <div>
+            <h2 class="text-sm font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-clock-rotate-left text-rose-400"></i>
+              <span>User Deletion Audit Logs (ပယ်ဖျက်မှု မှတ်တမ်းများ)</span>
+            </h2>
+            <p class="text-xs text-slate-400 mt-0.5">
+              Super Admin နှင့် Shop Owner များမှ အကောင့်များ ပယ်ဖျက်ခဲ့သည့် အချိန်၊ အကြောင်းပြချက်နှင့် တွဲဖက်ဖျက်သိမ်းခံရသော စာရင်းများ
+            </p>
+          </div>
+          <button onclick="refreshData()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition">
+            <i class="fa-solid fa-arrows-rotate"></i>
+            <span>Refresh Logs</span>
+          </button>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-850/80 text-slate-400 font-semibold border-b border-slate-800">
+                <tr>
+                  <th class="py-3 px-4">အချိန် (MMT)</th>
+                  <th class="py-3 px-3">ပယ်ဖျက်သူ (Actor)</th>
+                  <th class="py-3 px-3">အကောင့် (Target User)</th>
+                  <th class="py-3 px-3">အမျိုးအစား (Action)</th>
+                  <th class="py-3 px-4">ပယ်ဖျက်ရသည့် အကြောင်းပြချက် (Reason)</th>
+                  <th class="py-3 px-3 text-center">Cascade ဝန်ထမ်းများ</th>
+                </tr>
+              </thead>
+              <tbody id="audit-table-body" class="divide-y divide-slate-800/60">
+                <!-- Populated via JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
     </main>
   </div>
 
@@ -725,12 +769,107 @@ export function getAdminPortalHtml(): string {
     </div>
   </div>
 
+  <!-- BIG CASCADE DELETE WARNING MODAL FOR SUPER ADMIN -->
+  <div id="cascade-delete-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border-2 border-rose-600 rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl shadow-rose-950/80 space-y-5 animate-in fade-in duration-150">
+      <div class="flex items-center gap-3.5 pb-4 border-b border-rose-500/30">
+        <div class="w-14 h-14 rounded-2xl bg-rose-500/20 text-rose-500 flex items-center justify-center text-3xl font-bold border border-rose-500/40 animate-pulse">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+        </div>
+        <div>
+          <h3 class="text-base sm:text-lg font-black text-white tracking-wide">
+            ⚠️ အထူးသတိပေးချက် - ဆိုင်ပိုင်ရှင် (Shop Owner) အား ပယ်ဖျက်ခြင်း
+          </h3>
+          <p class="text-xs text-rose-400 font-semibold mt-0.5">
+            ဆိုင်အောက်ရှိ အဖွဲ့ဝင်များ အားလုံးပါ အပြီးတိုင် ပျက်ပြယ်မည့် Cascade Delete စနစ်
+          </p>
+        </div>
+      </div>
+
+      <div class="text-xs sm:text-sm text-slate-200 leading-relaxed">
+        <p>
+          <span class="text-rose-400 font-bold">သတိပြုပါ Super Admin:</span> သင်သည် ဆိုင်ပိုင်ရှင် <strong id="cascade-owner-name" class="text-amber-400 font-bold"></strong> (<span id="cascade-owner-shop" class="text-emerald-400 font-mono"></span>) အား ပယ်ဖျက်ရန် ပြင်ဆင်နေပါသည်။
+        </p>
+      </div>
+
+      <!-- Cascade Affected Box -->
+      <div class="p-4 rounded-2xl bg-rose-950/50 border border-rose-500/50 space-y-2.5">
+        <div class="flex items-center justify-between text-xs font-bold text-rose-300">
+          <span>🚨 အပြီးတိုင် ဖျက်ပစ်မည့် ဆိုင်ခွဲ ဝန်ထမ်းများစာရင်း:</span>
+          <span id="cascade-sub-count" class="px-2 py-0.5 rounded bg-rose-600 text-white text-[11px] font-mono">0 ဦး</span>
+        </div>
+        <p class="text-[11px] text-rose-200/80">
+          ဆိုင်ပိုင်ရှင်အား ဖျက်လိုက်သည်နှင့် တစ်ပြိုင်နက် ၎င်းဆိုင်အောက်ရှိ အောက်ပါ Helper နှင့် Assistant ဝန်ထမ်းများပါ စနစ်ထဲမှ အပြီးတိုင် ဖျက်ပစ်မည် ဖြစ်ပါသည်:
+        </p>
+        <div id="cascade-sub-list" class="max-h-40 overflow-y-auto space-y-1.5 pr-1 text-xs">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold text-slate-300 mb-1.5">
+          ဖျက်ရသည့် အကြောင်းပြချက် (Reason for Deletion) <span class="text-rose-400">*</span>
+        </label>
+        <input type="text" id="cascade-delete-reason" placeholder="ဥပမာ - ဆိုင်ဝန်ဆောင်မှု သက်တမ်းကုန်ဆုံးခြင်း / ဆိုင်ရှင်ကိုယ်တိုင် အကောင့်ဖျက်ရန် တောင်းဆိုခြင်း" class="w-full bg-slate-950 border border-slate-700 focus:border-rose-500 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none" />
+      </div>
+
+      <div class="pt-2 flex flex-col sm:flex-row items-center justify-end gap-2.5">
+        <button type="button" onclick="closeCascadeDeleteModal()" class="w-full sm:w-auto px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition">
+          မဖျက်တော့ပါ (Cancel)
+        </button>
+        <button type="button" id="cascade-confirm-btn" onclick="executeCascadeDelete()" class="w-full sm:w-auto px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-lg shadow-rose-600/40 transition flex items-center justify-center gap-2">
+          <i class="fa-solid fa-trash-can"></i>
+          <span id="cascade-confirm-label">ဆိုင်ပိုင်ရှင်နှင့် ဝန်ထမ်းအားလုံးကို အပြီးတိုင် ဖျက်မည်</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- STANDARD DELETE CONFIRMATION MODAL -->
+  <div id="standard-delete-modal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+      <div class="flex items-center gap-3 pb-3 border-b border-slate-800">
+        <div class="w-10 h-10 rounded-xl bg-rose-500/20 text-rose-400 flex items-center justify-center text-xl font-bold border border-rose-500/30">
+          <i class="fa-solid fa-trash-can"></i>
+        </div>
+        <div>
+          <h3 class="text-sm font-bold text-white">အဖွဲ့ဝင်အား ပယ်ဖျက်ခြင်း (Delete Member)</h3>
+          <p class="text-[11px] text-slate-400">စနစ်စာရင်းမှ အပြီးတိုင် ဖယ်ရှားပါမည်</p>
+        </div>
+      </div>
+
+      <p class="text-xs text-slate-300">
+        အဖွဲ့ဝင် <strong id="standard-delete-name" class="text-white font-bold"></strong> (<span id="standard-delete-role" class="text-amber-400"></span>) အား စာရင်းမှ ပယ်ဖျက်ရန် သေချာပါသလား?
+      </p>
+
+      <div>
+        <label class="block text-xs font-semibold text-slate-300 mb-1">
+          ဖျက်ရသည့် အကြောင်းပြချက် (Reason) <span class="text-rose-400">*</span>
+        </label>
+        <input type="text" id="standard-delete-reason" placeholder="ဥပမာ - ဝန်ထမ်းထွက်သွားခြင်း / အကောင့်အသုံးမပြုတော့ခြင်း" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500" />
+      </div>
+
+      <div class="pt-2 flex justify-end gap-2">
+        <button type="button" onclick="closeStandardDeleteModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs transition">
+          မဖျက်တော့ပါ
+        </button>
+        <button type="button" id="standard-confirm-btn" onclick="executeStandardDelete()" class="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-lg text-xs transition shadow flex items-center gap-1.5">
+          <i class="fa-solid fa-trash-can text-xs"></i>
+          <span>ပယ်ဖျက်မည်</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- JAVASCRIPT LOGIC -->
   <script>
     // State
     let rawSlips = [];
     let rawLedgers = [];
     let rawUsers = [];
+    let rawDeleteLogs = [];
+    let pendingDeleteTarget = null;
+    let pendingCascadeMembers = [];
     let currentTab = 'payments';
     let socket = null;
 
@@ -784,6 +923,8 @@ export function getAdminPortalHtml(): string {
       if (isOfficialAdmin) {
         localStorage.setItem('chatechat_admin_token', 'admin_session_valid_' + Date.now());
         sessionStorage.setItem('chatechat_admin_token', 'admin_session_valid_' + Date.now());
+        localStorage.setItem('chatechat_admin_role', 'SUPER_ADMIN');
+        localStorage.setItem('chatechat_admin_user', JSON.stringify({ id: 'admin_root', name: 'Michael (Super Admin & Owner)', role: 'SUPER_ADMIN' }));
         checkAdminAuth();
 
         // Background server sync
@@ -808,6 +949,8 @@ export function getAdminPortalHtml(): string {
 
         if (data.success && data.token) {
           localStorage.setItem('chatechat_admin_token', data.token);
+          localStorage.setItem('chatechat_admin_role', data.admin?.role || 'SUPER_ADMIN');
+          localStorage.setItem('chatechat_admin_user', JSON.stringify(data.admin || { id: 'admin_root', name: 'Admin', role: 'SUPER_ADMIN' }));
           checkAdminAuth();
         } else {
           if (errorText) errorText.textContent = data.error || 'စကားဝှက် မှားယွင်းနေပါသည်။ Username: "admin" နှင့် Password: "Admin!123" ကို ထည့်သွင်းပါ';
@@ -886,6 +1029,9 @@ export function getAdminPortalHtml(): string {
         btn.classList.add('bg-brand-500', 'text-slate-950', 'shadow');
         btn.classList.remove('text-slate-300', 'hover:bg-slate-800');
       }
+      if (tabId === 'audit') {
+        renderAuditTable();
+      }
     }
 
     async function refreshData() {
@@ -928,6 +1074,16 @@ export function getAdminPortalHtml(): string {
           if (uJson.success) {
             rawUsers = uJson.users || [];
             renderUsersTable();
+          }
+        }
+
+        // 4. Fetch Delete Audit Logs
+        const logsRes = await fetch('/api/v1/admin/delete-logs');
+        if (logsRes.ok) {
+          const logJson = await logsRes.json();
+          if (logJson.success) {
+            rawDeleteLogs = logJson.logs || [];
+            if (currentTab === 'audit') renderAuditTable();
           }
         }
       } catch (err) {
@@ -1141,7 +1297,7 @@ export function getAdminPortalHtml(): string {
               '<button onclick="promptResetPassword(\\'' + u.id + '\\', \\'' + (u.name || '').replace(/['"]/g, '') + '\\')" class="text-[11px] text-blue-300 hover:text-white px-2 py-1 rounded bg-blue-950/80 hover:bg-blue-900 border border-blue-800/60 transition" title="စကားဝှက် ပြန်လည်သတ်မှတ်မည် (Reset Password)">' +
                 '<i class="fa-solid fa-key text-blue-400 mr-1"></i> Reset Pass' +
               '</button>' +
-              (u.role !== 'OWNER' && u.role !== 'SUPER_ADMIN' ? '<button onclick="confirmDeleteUser(\\'' + u.id + '\\', \\'' + (u.name || '').replace(/['"]/g, '') + '\\')" class="text-[11px] text-rose-400 hover:text-white px-2 py-1 rounded bg-rose-950/60 hover:bg-rose-900 border border-rose-900/60 transition" title="ဖျက်မည်">' +
+              (u.id !== 'user_michael_1' ? '<button onclick="initiateDeleteUser(\\'' + u.id + '\\')" class="text-[11px] text-rose-400 hover:text-white px-2 py-1 rounded bg-rose-950/60 hover:bg-rose-900 border border-rose-900/60 transition" title="အကောင့် ပယ်ဖျက်မည် (Delete)">' +
                 '<i class="fa-solid fa-trash-can"></i>' +
               '</button>' : '') +
             '</div>' +
@@ -1247,20 +1403,210 @@ export function getAdminPortalHtml(): string {
       }
     }
 
-    async function confirmDeleteUser(id, name) {
-      if (!confirm(name + ' အား အဖွဲ့ဝင်စာရင်းမှ ပယ်ဖျက်မည် သေချာပါသလား?')) return;
+    function initiateDeleteUser(id) {
+      const user = rawUsers.find(u => u.id === id);
+      if (!user) return;
+
+      const adminRole = localStorage.getItem('chatechat_admin_role') || 'SUPER_ADMIN';
+      if (adminRole !== 'SUPER_ADMIN') {
+        alert('❌ အခွင့်အာဏာ မလုံလောက်ပါ: App user accounts များကို ပယ်ဖျက်ရန် Super Admin တွင်သာ အခွင့်အာဏာ (Privilege) ရှိပါသည်ခင်ဗျာ။');
+        return;
+      }
+
+      if (user.id === 'user_michael_1') {
+        alert('❌ Founder & Super Admin အကောင့်အား ဖျက်ခွင့်မရှိပါ');
+        return;
+      }
+
+      const isOwner = user.role === 'SHOP_OWNER' || user.role === 'OWNER';
+
+      if (isOwner) {
+        // Cascade deletion of shop owner + all sub members
+        const subMembers = rawUsers.filter(u => u.organizationId === user.organizationId && u.id !== user.id);
+        pendingDeleteTarget = user;
+        pendingCascadeMembers = subMembers;
+
+        document.getElementById('cascade-owner-name').textContent = user.name;
+        document.getElementById('cascade-owner-shop').textContent = user.shopName || user.organizationId || 'Shop';
+        document.getElementById('cascade-sub-count').textContent = subMembers.length + ' ဦး';
+        document.getElementById('cascade-delete-reason').value = '';
+
+        const listContainer = document.getElementById('cascade-sub-list');
+        if (subMembers.length === 0) {
+          listContainer.innerHTML = '<div class="py-2 text-center text-slate-400 italic">ဆိုင်အောက်တွင် အခြား Helper ဝန်ထမ်းများ မရှိပါ (Owner သီးသန့် ဖြစ်သည်)</div>';
+        } else {
+          listContainer.innerHTML = subMembers.map(m => '<div class="flex items-center justify-between py-1.5 px-3 rounded-xl bg-slate-950/70 border border-rose-900/40 text-xs">' +
+            '<span class="font-bold text-white">👤 ' + m.name + '</span>' +
+            '<span class="px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono text-[10px]">' + m.role + '</span>' +
+            '<span class="text-slate-400 text-[11px] font-mono">' + m.email + '</span>' +
+          '</div>').join('');
+        }
+
+        document.getElementById('cascade-confirm-label').textContent = subMembers.length > 0 
+          ? ('ဆိုင်ပိုင်ရှင်နှင့် ဝန်ထမ်းအားလုံး (' + (subMembers.length + 1) + ' ဦး) အပြီးတိုင် ဖျက်မည်')
+          : 'ဆိုင်ပိုင်ရှင်အား အပြီးတိုင် ဖျက်မည်';
+
+        document.getElementById('cascade-delete-modal').classList.remove('hidden');
+      } else {
+        // Standard single user deletion
+        pendingDeleteTarget = user;
+        pendingCascadeMembers = [];
+
+        document.getElementById('standard-delete-name').textContent = user.name;
+        document.getElementById('standard-delete-role').textContent = user.role;
+        document.getElementById('standard-delete-reason').value = '';
+        document.getElementById('standard-delete-modal').classList.remove('hidden');
+      }
+    }
+
+    function closeCascadeDeleteModal() {
+      document.getElementById('cascade-delete-modal').classList.add('hidden');
+      pendingDeleteTarget = null;
+      pendingCascadeMembers = [];
+    }
+
+    function closeStandardDeleteModal() {
+      document.getElementById('standard-delete-modal').classList.add('hidden');
+      pendingDeleteTarget = null;
+    }
+
+    async function executeCascadeDelete() {
+      if (!pendingDeleteTarget) return;
+      const reasonInput = (document.getElementById('cascade-delete-reason').value || '').trim();
+      if (!reasonInput) {
+        alert('⚠️ ပယ်ဖျက်ရသည့် အကြောင်းပြချက် (Reason) ကို ထည့်သွင်းပေးရန် လိုအပ်ပါသည်ခင်ဗျာ');
+        document.getElementById('cascade-delete-reason').focus();
+        return;
+      }
+
+      const btn = document.getElementById('cascade-confirm-btn');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>ဖျက်နေပါသည်...</span>';
+
       try {
-        const res = await fetch('/api/v1/admin/users/' + id, { method: 'DELETE' });
+        const adminUser = JSON.parse(localStorage.getItem('chatechat_admin_user') || '{"id":"admin_root","name":"Michael (Super Admin)","role":"SUPER_ADMIN"}');
+        const res = await fetch('/api/v1/admin/users/' + pendingDeleteTarget.id, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-actor-role': 'SUPER_ADMIN',
+            'x-actor-id': adminUser.id || 'admin_root',
+            'x-actor-name': adminUser.name || 'Michael (Super Admin)',
+          },
+          body: JSON.stringify({
+            reason: reasonInput,
+            cascade: true,
+            actorRole: 'SUPER_ADMIN',
+            actorId: adminUser.id || 'admin_root',
+            actorName: adminUser.name || 'Michael (Super Admin)',
+          })
+        });
+
         const json = await res.json();
         if (json.success) {
-          showToast('✓ ' + name + ' အား စာရင်းမှ ပယ်ဖျက်ပြီးပါပြီ');
+          showToast('✓ ' + (json.message || 'ဆိုင်ပိုင်ရှင်နှင့် ဝန်ထမ်းများအား အပြီးတိုင် ဖျက်ပြီးပါပြီ'));
+          closeCascadeDeleteModal();
+          refreshData();
+        } else {
+          alert('Error: ' + (json.error || 'Failed to cascade delete user'));
+        }
+      } catch (err) {
+        alert('Failed: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-trash-can"></i><span id="cascade-confirm-label">ဆိုင်ပိုင်ရှင်နှင့် ဝန်ထမ်းအားလုံးကို အပြီးတိုင် ဖျက်မည်</span>';
+      }
+    }
+
+    async function executeStandardDelete() {
+      if (!pendingDeleteTarget) return;
+      const reasonInput = (document.getElementById('standard-delete-reason').value || '').trim();
+      if (!reasonInput) {
+        alert('⚠️ ပယ်ဖျက်ရသည့် အကြောင်းပြချက် (Reason) ကို ထည့်သွင်းပေးရန် လိုအပ်ပါသည်ခင်ဗျာ');
+        document.getElementById('standard-delete-reason').focus();
+        return;
+      }
+
+      const btn = document.getElementById('standard-confirm-btn');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>ဖျက်နေပါသည်...</span>';
+
+      try {
+        const adminUser = JSON.parse(localStorage.getItem('chatechat_admin_user') || '{"id":"admin_root","name":"Michael (Super Admin)","role":"SUPER_ADMIN"}');
+        const res = await fetch('/api/v1/admin/users/' + pendingDeleteTarget.id, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-actor-role': 'SUPER_ADMIN',
+            'x-actor-id': adminUser.id || 'admin_root',
+            'x-actor-name': adminUser.name || 'Michael (Super Admin)',
+          },
+          body: JSON.stringify({
+            reason: reasonInput,
+            actorRole: 'SUPER_ADMIN',
+            actorId: adminUser.id || 'admin_root',
+            actorName: adminUser.name || 'Michael (Super Admin)',
+          })
+        });
+
+        const json = await res.json();
+        if (json.success) {
+          showToast('✓ ' + (json.message || 'အဖွဲ့ဝင်အား စာရင်းမှ ဖျက်ပြီးပါပြီ'));
+          closeStandardDeleteModal();
           refreshData();
         } else {
           alert('Error: ' + (json.error || 'Failed to delete user'));
         }
       } catch (err) {
         alert('Failed: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-trash-can text-xs"></i><span>ပယ်ဖျက်မည်</span>';
       }
+    }
+
+    // Render Audit Table
+    function renderAuditTable() {
+      const tbody = document.getElementById('audit-table-body');
+      if (!tbody) return;
+
+      if (!rawDeleteLogs || rawDeleteLogs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-10 text-slate-500 font-medium">ပယ်ဖျက်မှု မှတ်တမ်း မရှိသေးပါ (No deletion records yet)</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = rawDeleteLogs.map(l => {
+        const isCascade = l.action === 'CASCADE_DELETE_SHOP_OWNER' || (l.cascadeDeletedCount && l.cascadeDeletedCount > 0);
+        let actionBadge = isCascade
+          ? '<span class="px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 font-bold text-[10px]">💥 CASCADE (OWNER)</span>'
+          : '<span class="px-2.5 py-0.5 rounded-full bg-slate-700 text-slate-300 font-bold text-[10px]">🗑️ SINGLE USER</span>';
+
+        let cascadeInfo = '-';
+        if (isCascade && l.cascadeDeletedMembers && l.cascadeDeletedMembers.length > 0) {
+          cascadeInfo = '<div class="space-y-1">' +
+            '<span class="text-rose-400 font-bold text-[11px] block">+' + l.cascadeDeletedMembers.length + ' ဦး ပါဝင်သည်</span>' +
+            l.cascadeDeletedMembers.map(m => '<span class="inline-block px-1.5 py-0.5 rounded bg-slate-800 text-[10px] text-slate-300 mr-1">' + m.name + ' (' + m.role + ')</span>').join('') +
+          '</div>';
+        }
+
+        return '<tr class="hover:bg-slate-850/50 transition">' +
+          '<td class="py-3 px-4 font-mono text-slate-300 text-[11px] whitespace-nowrap">' + (l.formattedMmtTime || l.timestamp) + '</td>' +
+          '<td class="py-3 px-3">' +
+            '<span class="font-bold text-white block">' + (l.deletedBy?.name || 'Super Admin') + '</span>' +
+            '<span class="text-[10px] text-purple-300 font-mono">' + (l.deletedBy?.role || 'SUPER_ADMIN') + '</span>' +
+          '</td>' +
+          '<td class="py-3 px-3">' +
+            '<span class="font-bold text-amber-300 block">' + (l.targetUser?.name || '-') + '</span>' +
+            '<span class="text-[10px] text-slate-400 font-mono">' + (l.targetUser?.email || '') + ' (' + (l.targetUser?.role || '') + ')</span>' +
+            (l.targetUser?.shopName ? '<span class="block text-[10px] text-emerald-400 mt-0.5">🏬 ' + l.targetUser.shopName + '</span>' : '') +
+          '</td>' +
+          '<td class="py-3 px-3">' + actionBadge + '</td>' +
+          '<td class="py-3 px-4 text-slate-200 font-medium max-w-xs">' +
+            '<div class="p-2 rounded-lg bg-slate-800/60 border border-slate-700/60 text-[11px]">' + (l.reason || '-') + '</div>' +
+          '</td>' +
+          '<td class="py-3 px-3 text-center">' + cascadeInfo + '</td>' +
+        '</tr>';
+      }).join('');
     }
 
     // Simulation Form & Presets

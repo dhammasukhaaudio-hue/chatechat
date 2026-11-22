@@ -2,6 +2,7 @@ import { Request, Response, Router } from 'express';
 import { prisma } from '@chatechat/database';
 import { PaymentVerificationEngine } from '../financial/payment-verification.service';
 import { userStore } from '../auth/user-store.service';
+import { auditLogService } from '../audit/audit-log.service';
 
 export const adminRouter = Router();
 
@@ -110,31 +111,120 @@ adminRouter.post('/users/:id/reset-password', (req: Request, res: Response) => {
 });
 
 /**
- * 5. Delete User / Team Member
+ * 5. Delete User / Team Member with Role-based Access Control & Audit Logging
  */
 adminRouter.delete('/users/:id', (req: Request, res: Response) => {
   const { id } = req.params;
+  const reason = (req.body?.reason || req.query?.reason || '').toString().trim() || 'အကြောင်းပြချက် မဖော်ပြထားပါ (No reason provided)';
+  const cascadeParam = req.body?.cascade === true || req.body?.cascade === 'true' || req.query?.cascade === 'true';
+
+  // Extract Actor Identity & Privilege
+  const actorRole = (req.headers['x-actor-role'] || req.body?.actorRole || req.query?.actorRole || 'SUPER_ADMIN').toString().trim().toUpperCase();
+  const actorId = (req.headers['x-actor-id'] || req.body?.actorId || req.query?.actorId || 'admin_root').toString().trim();
+  const actorName = (req.headers['x-actor-name'] || req.body?.actorName || req.query?.actorName || 'Super Admin').toString().trim();
+  const actorOrgId = (req.headers['x-actor-org'] || req.body?.actorOrg || req.query?.actorOrg || '').toString().trim();
 
   const targetUser = userStore.getById(id);
   if (!targetUser) {
-    return res.status(404).json({ success: false, error: 'User not found' });
+    return res.status(404).json({ success: false, error: 'User not found (အကောင့် မတွေ့ရှိပါ)' });
   }
 
-  if (targetUser.role === 'OWNER') {
-    return res.status(403).json({
-      success: false,
-      error: 'Owner (ပိုင်ရှင်) ၏ အကောင့်အား ပယ်ဖျက်ခွင့်မရှိပါခင်ဗျာ',
-    });
+  const isTargetAppUser = targetUser.userType === 'APP' || targetUser.role === 'SHOP_OWNER' || targetUser.role === 'SHOP_ASSISTANT' || targetUser.role === 'HELPER';
+  const isTargetOwner = targetUser.role === 'OWNER' || targetUser.role === 'SHOP_OWNER';
+
+  // Check if this request is from App User frontend (Shop Owner deleting their own member)
+  const isShopOwnerDeletingOwnMember = 
+    (actorRole === 'OWNER' || actorRole === 'SHOP_OWNER') && 
+    actorOrgId && 
+    actorOrgId === targetUser.organizationId;
+
+  if (isTargetAppUser) {
+    if (isShopOwnerDeletingOwnMember) {
+      // RULE 2: In App User side, only Owner can delete Assistants and Helpers
+      if (isTargetOwner) {
+        return res.status(403).json({
+          success: false,
+          error: 'ဆိုင်ပိုင်ရှင် (Shop Owner) အကောင့်အား ဆိုင်အတွင်းမှ ဖယ်ရှားခွင့် မရှိပါ။ Super Admin သာ ဖျက်ခွင့်ရှိပါသည်',
+        });
+      }
+    } else {
+      // Deleting from Admin Backend: ONLY Super Admin has privilege!
+      if (actorRole !== 'SUPER_ADMIN') {
+        return res.status(403).json({
+          success: false,
+          error: 'App User Accounts များကို ပယ်ဖျက်ရန် Super Admin တွင်သာ အခွင့်အာဏာ (Privilege) ရှိပါသည်ခင်ဗျာ',
+        });
+      }
+    }
+  } else {
+    // Target is SYSTEM USER: Only Super Admin can delete system users
+    if (actorRole !== 'SUPER_ADMIN') {
+      return res.status(403).json({
+        success: false,
+        error: 'System User Accounts များကို ပယ်ဖျက်ရန် Super Admin တွင်သာ အခွင့်အာဏာ ရှိပါသည်',
+      });
+    }
+    if (targetUser.role === 'SUPER_ADMIN' || targetUser.id === 'user_michael_1') {
+      return res.status(403).json({
+        success: false,
+        error: 'ChateChat Founder & Super Admin အကောင့်အား ဖျက်ခွင့်မရှိပါ',
+      });
+    }
   }
 
-  const ok = userStore.deleteUser(id);
-  if (!ok) {
-    return res.status(404).json({ success: false, error: 'User not found' });
+  // RULE 3: If Super Admin deletes a Shop Owner, cascade delete all team members under that Owner's organization!
+  const shouldCascade = (actorRole === 'SUPER_ADMIN' && isTargetOwner) || cascadeParam;
+
+  const result = userStore.deleteUser(id, shouldCascade);
+  if (!result.success) {
+    return res.status(404).json({ success: false, error: 'User could not be deleted' });
   }
+
+  // RULE 4: Audit Logging for all deletions
+  const auditLog = auditLogService.recordDelete({
+    action: result.cascadeMembers.length > 0 ? 'CASCADE_DELETE_SHOP_OWNER' : 'DELETE_USER',
+    deletedBy: {
+      id: actorId,
+      name: actorName,
+      role: actorRole,
+      userType: isShopOwnerDeletingOwnMember ? 'APP' : 'SYSTEM',
+    },
+    targetUser: {
+      id: targetUser.id,
+      name: targetUser.name,
+      email: targetUser.email,
+      role: targetUser.role,
+      userType: targetUser.userType,
+      shopName: targetUser.shopName,
+      organizationId: targetUser.organizationId,
+    },
+    reason,
+    cascadeDeletedMembers: result.cascadeMembers.map((m) => ({
+      id: m.id,
+      name: m.name,
+      email: m.email,
+      role: m.role,
+    })),
+  });
 
   return res.json({
     success: true,
-    message: 'အဖွဲ့ဝင်အား စာရင်းမှ အောင်မြင်စွာ ပယ်ဖျက်ပြီးပါပြီ',
+    message: result.cascadeMembers.length > 0
+      ? `ဆိုင်ပိုင်ရှင် (${targetUser.name}) နှင့် ၎င်းအောက်ရှိ ဝန်ထမ်း (${result.cascadeMembers.length} ဦး) အားလုံးကို အောင်မြင်စွာ ပယ်ဖျက်ပြီးပါပြီ`
+      : `${targetUser.name} အား စာရင်းမှ အောင်မြင်စွာ ပယ်ဖျက်ပြီးပါပြီ`,
+    auditLog,
+    cascadeDeletedCount: result.cascadeMembers.length,
+    cascadeDeletedMembers: result.cascadeMembers,
+  });
+});
+
+/**
+ * 5.1 Get Deletion Audit Logs
+ */
+adminRouter.get('/delete-logs', (_req: Request, res: Response) => {
+  return res.json({
+    success: true,
+    logs: auditLogService.getDeleteLogs(),
   });
 });
 
