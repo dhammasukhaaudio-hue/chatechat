@@ -888,12 +888,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <div>
                 <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                   <Users size={17} className="text-blue-600" />
-                  <span>{isMy ? 'တာဝန်ကျ အေးဂျင့်နှင့် အဖွဲ့ဝင် ဝန်ထမ်းများ စီမံခန့်ခွဲမှု' : 'Team Members & Agent Access Control'}</span>
+                  <span>{isMy ? 'ဆိုင်၏ Helper စာပြန်ဝန်ထမ်းများနှင့် လက်ထောက်များ စီမံခန့်ခွဲမှု' : 'Shop Helpers & Assistants Access Control'}</span>
                 </h2>
                 <p className="text-xs text-slate-500 mt-0.5">
                   {isMy
-                    ? 'စနစ်အတွင်းရှိ အဖွဲ့ဝင်များ၏ အဆင့်၊ စကားဝှက် Reset ချပေးခြင်းနှင့် အကောင့်များကို စီမံခန့်ခွဲပါ'
-                    : 'Manage active team members, reset passwords, and assign roles'}
+                    ? 'ဆိုင်၏ စာပြန်ဝန်ထမ်း (Helper) များနှင့် ဆိုင်လက်ထောက် (Shop Assistant) များ၏ အကောင့်များကို စီမံခန့်ခွဲပါ'
+                    : 'Manage active shop helpers and assistants, reset passwords, and assign roles'}
                 </p>
               </div>
 
@@ -981,7 +981,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                                 : 'bg-slate-100 text-slate-700'
                             }`}
                           >
-                            {agent.role}
+                            {agent.role === 'OWNER'
+                              ? (isMy ? '👑 Shop Owner' : '👑 Shop Owner')
+                              : agent.role === 'ADMIN'
+                              ? (isMy ? '💼 Shop Assistant' : '💼 Shop Assistant')
+                              : (isMy ? '🎧 Helper' : '🎧 Helper')}
                           </span>
                           <span
                             className={`px-2 py-0.5 rounded text-[10px] font-bold ${
@@ -1169,10 +1173,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         <select
                           value={newMemberForm.role}
                           onChange={(e) => setNewMemberForm({ ...newMemberForm, role: e.target.value })}
-                          className="w-full px-3 py-2 border border-slate-300 rounded-xl bg-white focus:outline-none focus:border-blue-500"
+                          className="w-full px-3 py-2 border border-slate-300 rounded-xl bg-white text-xs font-medium focus:outline-none focus:border-blue-500"
                         >
-                          <option value="AGENT">AGENT (အရောင်းဝန်ထမ်း)</option>
-                          <option value="ADMIN">ADMIN (မန်နေဂျာ)</option>
+                          <option value="AGENT">🎧 Helper (စာပြန်ဝန်ထမ်း / Customer Chat)</option>
+                          <option value="ADMIN">💼 Shop Assistant (ဆိုင်လက်ထောက် / မန်နေဂျာ)</option>
                         </select>
                       </div>
 

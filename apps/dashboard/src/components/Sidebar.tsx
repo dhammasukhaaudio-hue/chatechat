@@ -327,7 +327,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <p className="text-[10px] text-slate-400 truncate">{currentUser?.email || 'michael@chatechat.com'}</p>
                 <div className="mt-1 flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                  <span className="text-[10px] text-emerald-400 font-medium uppercase">{currentUser?.role || 'OWNER'}</span>
+                  <span className="text-[10px] text-emerald-400 font-semibold">
+                    {currentUser?.role === 'OWNER'
+                      ? '👑 Shop Owner'
+                      : currentUser?.role === 'ADMIN'
+                      ? '💼 Shop Assistant'
+                      : '🎧 Helper'}
+                  </span>
                 </div>
               </div>
 
@@ -395,7 +401,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
               <div className="text-left truncate">
                 <p className="text-xs font-semibold text-white truncate">{currentUser?.name || 'Michael (Owner)'}</p>
-                <p className="text-[10px] text-emerald-400 font-medium">Online ({currentUser?.role || 'OWNER'})</p>
+                <p className="text-[10px] text-emerald-400 font-medium">
+                  Online ({currentUser?.role === 'OWNER' ? '👑 Owner' : currentUser?.role === 'ADMIN' ? '💼 Assistant' : '🎧 Helper'})
+                </p>
               </div>
             </div>
 
