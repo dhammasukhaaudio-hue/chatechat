@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CreditCard, Users, Building, Upload, CheckCircle, Plus, Info, Tag, Calendar, Clock, AlertTriangle, XCircle, ShieldCheck, RefreshCw, KeyRound, Lock, Send } from 'lucide-react';
+import { CreditCard, Users, Building, Upload, CheckCircle, Plus, Info, Tag, Calendar, Clock, AlertTriangle, XCircle, ShieldCheck, RefreshCw, KeyRound, Lock, Send, Trash2, UserPlus, X } from 'lucide-react';
 import { getApiBaseUrl } from '../lib/api-config';
 
 interface SettingsViewProps {
@@ -243,37 +243,115 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ lang }) => {
     return () => clearTimeout(timer);
   }, [queuedCountdown, activeSlipId]);
 
-  // Agent team state loaded per organization
-  const [agents, setAgents] = useState<Array<{ id: string; name: string; email: string; role: string; isIncluded: boolean }>>([]);
+  // Agent team state loaded from backend API & per organization
+  const [agents, setAgents] = useState<Array<{ id: string; name: string; email: string; phone?: string; role: string; status?: string; isIncluded: boolean }>>([]);
+  const [resetModalUser, setResetModalUser] = useState<{ id: string; name: string } | null>(null);
+  const [adminNewPass, setAdminNewPass] = useState('Agent!123');
+  const [adminResetLoading, setAdminResetLoading] = useState(false);
+  const [showAddMember, setShowAddMember] = useState(false);
+  const [newMemberForm, setNewMemberForm] = useState({ name: '', email: '', phone: '', role: 'AGENT', password: 'Agent!123' });
+  const [addMemberLoading, setAddMemberLoading] = useState(false);
+  const [teamToast, setTeamToast] = useState<{ text: string; success: boolean } | null>(null);
 
-  useEffect(() => {
-    if (!currentUser) return;
+  const fetchLiveAgents = async () => {
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/v1/admin/users`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.users) && data.users.length > 0) {
+          const mapped = data.users.map((u: any, idx: number) => ({
+            id: u.id,
+            name: u.name,
+            email: u.email,
+            phone: u.phone || '',
+            role: u.role || 'AGENT',
+            status: u.status || 'ONLINE',
+            isIncluded: idx < 2,
+          }));
+          setAgents(mapped);
+          try {
+            localStorage.setItem('chatechat_agents_' + orgId, JSON.stringify(mapped));
+          } catch {}
+          return;
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to fetch /api/v1/admin/users', e);
+    }
+
     try {
       const saved = localStorage.getItem('chatechat_agents_' + orgId);
       if (saved) {
         setAgents(JSON.parse(saved));
-        return;
       }
     } catch {}
+  };
 
-    if (isDemo) {
-      setAgents([
-        { id: '1', name: 'မသူဇာ', email: 'thuza@royalfashion.com', role: 'Admin', isIncluded: true },
-        { id: '2', name: 'ကိုမင်းသူ', email: 'minthu@royalfashion.com', role: 'Agent', isIncluded: true },
-      ]);
-    } else {
-      // Clean start for real customer: only themselves as Owner!
-      setAgents([
-        {
-          id: currentUser.id || 'owner_1',
-          name: currentUser.name || 'Owner',
-          email: currentUser.email || `${currentUser.name || 'owner'}@shop.com`,
-          role: currentUser.role || 'OWNER',
-          isIncluded: true,
-        },
-      ]);
+  useEffect(() => {
+    fetchLiveAgents();
+  }, [orgId, currentUser]);
+
+  const handleAdminResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetModalUser) return;
+    setAdminResetLoading(true);
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/v1/admin/users/${resetModalUser.id}/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newPassword: adminNewPass.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'Failed to reset password');
+      setTeamToast({ text: `✓ ${resetModalUser.name} ၏ စကားဝှက်အား [${adminNewPass}] သို့ အောင်မြင်စွာ ပြန်လည်သတ်မှတ်ပြီးပါပြီ`, success: true });
+      setResetModalUser(null);
+      setAdminNewPass('Agent!123');
+    } catch (err: any) {
+      setTeamToast({ text: err.message || 'Error resetting password', success: false });
+    } finally {
+      setAdminResetLoading(false);
+      setTimeout(() => setTeamToast(null), 4000);
     }
-  }, [currentUser, orgId, isDemo]);
+  };
+
+  const handleCreateMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newMemberForm.name || !newMemberForm.email) return;
+    setAddMemberLoading(true);
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/v1/admin/users`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newMemberForm),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'Failed to add member');
+      setTeamToast({ text: `✓ အဖွဲ့ဝင် ${newMemberForm.name} အား အောင်မြင်စွာ ထည့်သွင်းပြီးပါပြီ`, success: true });
+      setShowAddMember(false);
+      setNewMemberForm({ name: '', email: '', phone: '', role: 'AGENT', password: 'Agent!123' });
+      await fetchLiveAgents();
+    } catch (err: any) {
+      setTeamToast({ text: err.message || 'Error adding member', success: false });
+    } finally {
+      setAddMemberLoading(false);
+      setTimeout(() => setTeamToast(null), 4000);
+    }
+  };
+
+  const handleDeleteMember = async (id: string, name: string) => {
+    if (!confirm(isMy ? `${name} အား အဖွဲ့ဝင်စာရင်းမှ ဖယ်ရှားမှာ သေချာပါသလား?` : `Remove ${name}?`)) return;
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/v1/admin/users/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        setTeamToast({ text: `✓ ${name} အား ဖယ်ရှားပြီးပါပြီ`, success: true });
+        await fetchLiveAgents();
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    setTimeout(() => setTeamToast(null), 4000);
+  };
 
   const plans = [
     {
@@ -811,45 +889,53 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ lang }) => {
           </div>
         )}
 
-        {/* Agents Tab Content with Seat Quotas */}
+        {/* Agents Tab Content with Seat Quotas & Live Admin Management */}
         {activeTab === 'agents' && (
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-5">
+            {teamToast && (
+              <div
+                className={`p-3.5 rounded-xl border flex items-center gap-2.5 text-xs font-semibold ${
+                  teamToast.success
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                    : 'bg-rose-50 border-rose-200 text-rose-800'
+                }`}
+              >
+                {teamToast.success ? <CheckCircle size={16} className="text-emerald-600 shrink-0" /> : <AlertTriangle size={16} className="text-rose-600 shrink-0" />}
+                <span>{teamToast.text}</span>
+              </div>
+            )}
+
             <div className="flex flex-col md:flex-row md:items-center justify-between pb-3 border-b border-slate-100 gap-3">
               <div>
-                <h2 className="text-sm font-bold text-slate-900">
-                  {isMy ? 'တာဝန်ကျ အေးဂျင့်ဝန်ထမ်းများ စီမံခန့်ခွဲမှု' : 'Team Members & Agent Seats'}
+                <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <Users size={17} className="text-blue-600" />
+                  <span>{isMy ? 'တာဝန်ကျ အေးဂျင့်နှင့် အဖွဲ့ဝင် ဝန်ထမ်းများ စီမံခန့်ခွဲမှု' : 'Team Members & Agent Access Control'}</span>
                 </h2>
                 <p className="text-xs text-slate-500 mt-0.5">
                   {isMy
-                    ? 'အစီအစဉ်တိုင်းတွင် Admin ၁ ဦး + Agent ၁ ဦး အခမဲ့ ပါဝင်သည်။ အပိုအေးဂျင့် တစ်ဦးလျှင် ပလန်တန်ဖိုး၏ 30% ကျသင့်မည်။'
-                    : 'Each plan includes 1 Admin + 1 Agent free. Extra agents cost +30% of the plan price.'}
+                    ? 'စနစ်အတွင်းရှိ အဖွဲ့ဝင်များ၏ အဆင့်၊ စကားဝှက် Reset ချပေးခြင်းနှင့် အကောင့်များကို စီမံခန့်ခွဲပါ'
+                    : 'Manage active team members, reset passwords, and assign roles'}
                 </p>
               </div>
 
-              <button
-                onClick={() => {
-                  const newId = (agents.length + 1).toString();
-                  const shopDomain = (currentUser?.name || 'shop').toLowerCase().replace(/[^a-z0-9]/g, '');
-                  const updated = [
-                    ...agents,
-                    {
-                      id: `agent_${Date.now()}`,
-                      name: isMy ? `အေးဂျင့် ဝန်ထမ်း ${newId}` : `Support Agent ${newId}`,
-                      email: `staff${newId}@${shopDomain}.com`,
-                      role: 'Agent',
-                      isIncluded: false,
-                    },
-                  ];
-                  setAgents(updated);
-                  try {
-                    localStorage.setItem('chatechat_agents_' + orgId, JSON.stringify(updated));
-                  } catch {}
-                }}
-                className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-blue-700 shadow-sm"
-              >
-                <Plus size={15} />
-                <span>{isMy ? 'အေးဂျင့်အသစ် ထည့်သွင်းရန် (+30%)' : 'Add New Agent (+30%)'}</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={fetchLiveAgents}
+                  title="Refresh"
+                  className="p-2 border border-slate-200 hover:bg-slate-50 rounded-xl text-slate-600 transition"
+                >
+                  <RefreshCw size={15} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowAddMember(true)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-blue-700 shadow-sm transition"
+                >
+                  <UserPlus size={15} />
+                  <span>{isMy ? 'အဖွဲ့ဝင်အသစ် ထည့်သွင်းရန်' : 'Add Team Member'}</span>
+                </button>
+              </div>
             </div>
 
             {/* Quota Information Banner */}
@@ -858,58 +944,91 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ lang }) => {
                 <Info size={16} className="text-blue-600 flex-shrink-0" />
                 <span>
                   {isMy
-                    ? `လက်ရှိ ဝန်ထမ်း: ${agents.length} ဦး (အခမဲ့ခွင့်ပြုချက်: ၂ ဦး | အပိုဝန်ထမ်း: ${extraAgentsCount} ဦး)`
-                    : `Active Agents: ${agents.length} (Included: 2 | Extra: ${extraAgentsCount})`}
+                    ? `လက်ရှိ အဖွဲ့ဝင်: ${agents.length} ဦး (အခမဲ့ခွင့်ပြုချက်: ၂ ဦး | အပိုဝန်ထမ်း: ${extraAgentsCount} ဦး)`
+                    : `Active Members: ${agents.length} (Included: 2 | Extra: ${extraAgentsCount})`}
                 </span>
               </div>
               <span className="font-bold text-blue-700">
                 {extraAgentsCount > 0
                   ? `+${totalExtraAgentsMonthly.toLocaleString()} MMK / လ`
-                  : isMy ? 'အပိုကြေး မရှိပါ' : 'No Extra Fee'}
+                  : isMy ? 'အပိုကြေး မရှိပါ' : 'Included in Plan'}
               </span>
             </div>
 
-            {/* Agent List */}
+            {/* Team Members List */}
             <div className="divide-y divide-slate-100 text-xs">
               {agents.map((agent, index) => {
                 const isFree = index < 2;
+                const isOwner = agent.role === 'OWNER';
                 return (
-                  <div key={agent.id} className="py-3.5 flex items-center justify-between">
+                  <div key={agent.id} className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center font-bold text-slate-700 text-xs">
-                        {agent.name.slice(0, 2)}
+                      <div className="relative">
+                        <div className="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center font-bold text-slate-700 text-xs shadow-inner">
+                          {agent.name.slice(0, 2).toUpperCase()}
+                        </div>
+                        <span
+                          className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white ${
+                            agent.status === 'BUSY'
+                              ? 'bg-amber-400'
+                              : agent.status === 'OFFLINE'
+                              ? 'bg-slate-400'
+                              : 'bg-emerald-500'
+                          }`}
+                        />
                       </div>
                       <div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-bold text-slate-900">{agent.name}</p>
                           <span
-                            className={`px-2 py-0.2 rounded text-[10px] font-bold ${
-                              isFree ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                              agent.role === 'OWNER'
+                                ? 'bg-purple-100 text-purple-800'
+                                : agent.role === 'ADMIN'
+                                ? 'bg-blue-100 text-blue-800'
+                                : 'bg-slate-100 text-slate-700'
                             }`}
                           >
-                            {isFree ? (isMy ? 'Free ပါဝင်သည်' : 'Included Seat') : isMy ? '+30% Charges' : '+30% Paid Seat'}
+                            {agent.role}
+                          </span>
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                              isFree ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'
+                            }`}
+                          >
+                            {isFree ? (isMy ? 'ခွင့်ပြုချက် ပါဝင်သည်' : 'Included Seat') : (isMy ? '+30% Seat' : '+30% Seat')}
                           </span>
                         </div>
-                        <p className="text-slate-400 text-[11px] mt-0.5">{agent.email}</p>
+                        <p className="text-slate-400 text-[11px] mt-0.5">
+                          {agent.email} {agent.phone ? `• ${agent.phone}` : ''}
+                        </p>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3">
-                      <span className="px-2.5 py-1 bg-slate-100 rounded-md text-slate-700 font-semibold text-xs">
-                        {agent.role}
-                      </span>
-                      {index >= 1 && (
+                    <div className="flex items-center gap-2 self-end sm:self-center">
+                      {/* Admin Reset Password Button */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setResetModalUser({ id: agent.id, name: agent.name });
+                          setAdminNewPass('Agent!123');
+                        }}
+                        className="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 rounded-lg font-semibold text-[11px] flex items-center gap-1.5 transition"
+                        title="Admin Password Reset"
+                      >
+                        <KeyRound size={13} className="text-amber-600" />
+                        <span>{isMy ? 'စကားဝှက် Reset ချပေးရန်' : 'Reset Password'}</span>
+                      </button>
+
+                      {/* Remove Button (Non-Owners only) */}
+                      {!isOwner && (
                         <button
-                          onClick={() => {
-                            const updated = agents.filter((a) => a.id !== agent.id);
-                            setAgents(updated);
-                            try {
-                              localStorage.setItem('chatechat_agents_' + orgId, JSON.stringify(updated));
-                            } catch {}
-                          }}
-                          className="text-red-500 hover:text-red-700 font-bold px-2 py-1"
+                          type="button"
+                          onClick={() => handleDeleteMember(agent.id, agent.name)}
+                          className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                          title="Remove Member"
                         >
-                          {isMy ? 'ဖယ်ရှားရန်' : 'Remove'}
+                          <Trash2 size={15} />
                         </button>
                       )}
                     </div>
@@ -917,6 +1036,187 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ lang }) => {
                 );
               })}
             </div>
+
+            {/* Admin Reset Password Modal */}
+            {resetModalUser && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 p-5 space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center font-bold">
+                        <KeyRound size={16} />
+                      </div>
+                      <div>
+                        <h3 className="text-xs font-bold text-slate-900">{isMy ? 'စကားဝှက် ပြန်လည်သတ်မှတ်ခြင်း' : 'Reset Member Password'}</h3>
+                        <p className="text-[11px] text-slate-500">{resetModalUser.name}</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setResetModalUser(null)}
+                      className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+
+                  <form onSubmit={handleAdminResetPassword} className="space-y-3 text-xs">
+                    <p className="text-slate-600 text-[11.5px]">
+                      {isMy
+                        ? `အဖွဲ့ဝင် [${resetModalUser.name}] အတွက် စကားဝှက် အသစ်ကို သတ်မှတ်ပေးပါ။ (အဖွဲ့ဝင်မှ ၎င်းစကားဝှက်ဖြင့် ချက်ချင်း ပြန်လည်ဝင်ရောက်နိုင်မည်ဖြစ်သည်)`
+                        : `Set a new temporary or permanent password for [${resetModalUser.name}]:`}
+                    </p>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        {isMy ? 'စကားဝှက် အသစ် (New Password)' : 'New Password'}
+                      </label>
+                      <input
+                        type="text"
+                        value={adminNewPass}
+                        onChange={(e) => setAdminNewPass(e.target.value)}
+                        required
+                        className="w-full px-3 py-2 border border-slate-300 rounded-xl font-mono text-sm focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+
+                    <div className="pt-2 flex justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setResetModalUser(null)}
+                        className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold text-xs"
+                      >
+                        {isMy ? 'မလုပ်တော့ပါ' : 'Cancel'}
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={adminResetLoading}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+                      >
+                        <CheckCircle size={14} />
+                        <span>{adminResetLoading ? (isMy ? 'သတ်မှတ်နေပါသည်...' : 'Saving...') : (isMy ? 'အတည်ပြု သတ်မှတ်မည်' : 'Reset Password')}</span>
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {/* Add Team Member Modal */}
+            {showAddMember && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 p-5 space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
+                        <UserPlus size={16} />
+                      </div>
+                      <div>
+                        <h3 className="text-xs font-bold text-slate-900">{isMy ? 'အဖွဲ့ဝင်အသစ် ထည့်သွင်းခြင်း' : 'Add New Team Member'}</h3>
+                        <p className="text-[11px] text-slate-500">{isMy ? 'အေးဂျင့် သို့မဟုတ် Admin အကောင့် ဖန်တီးပါ' : 'Create Agent or Admin access'}</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddMember(false)}
+                      className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+
+                  <form onSubmit={handleCreateMember} className="space-y-3 text-xs">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        {isMy ? 'အမည် (Full Name)' : 'Full Name'}
+                      </label>
+                      <input
+                        type="text"
+                        value={newMemberForm.name}
+                        onChange={(e) => setNewMemberForm({ ...newMemberForm, name: e.target.value })}
+                        required
+                        placeholder="ဥပမာ - မသူဇာ"
+                        className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        {isMy ? 'အီးမေးလ် (Email Address - Login အတွက်)' : 'Email Address'}
+                      </label>
+                      <input
+                        type="email"
+                        value={newMemberForm.email}
+                        onChange={(e) => setNewMemberForm({ ...newMemberForm, email: e.target.value })}
+                        required
+                        placeholder="agent@shop.com"
+                        className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        {isMy ? 'ဖုန်းနံပါတ် (Phone Number)' : 'Phone Number'}
+                      </label>
+                      <input
+                        type="tel"
+                        value={newMemberForm.phone}
+                        onChange={(e) => setNewMemberForm({ ...newMemberForm, phone: e.target.value })}
+                        placeholder="09..."
+                        className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                          {isMy ? 'ရာထူး / အဆင့်' : 'Role'}
+                        </label>
+                        <select
+                          value={newMemberForm.role}
+                          onChange={(e) => setNewMemberForm({ ...newMemberForm, role: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-300 rounded-xl bg-white focus:outline-none focus:border-blue-500"
+                        >
+                          <option value="AGENT">AGENT (အရောင်းဝန်ထမ်း)</option>
+                          <option value="ADMIN">ADMIN (မန်နေဂျာ)</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                          {isMy ? 'စကားဝှက် (Password)' : 'Password'}
+                        </label>
+                        <input
+                          type="text"
+                          value={newMemberForm.password}
+                          onChange={(e) => setNewMemberForm({ ...newMemberForm, password: e.target.value })}
+                          required
+                          className="w-full px-3 py-2 border border-slate-300 rounded-xl font-mono focus:outline-none focus:border-blue-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="pt-2 flex justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowAddMember(false)}
+                        className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold text-xs"
+                      >
+                        {isMy ? 'မလုပ်တော့ပါ' : 'Cancel'}
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={addMemberLoading}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+                      >
+                        <CheckCircle size={14} />
+                        <span>{addMemberLoading ? (isMy ? 'ထည့်သွင်းနေပါသည်...' : 'Adding...') : (isMy ? 'အဖွဲ့ဝင် ထည့်သွင်းမည်' : 'Add Member')}</span>
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

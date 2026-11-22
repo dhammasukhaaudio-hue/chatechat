@@ -114,6 +114,32 @@ const DEFAULT_USERS: StoredUser[] = [
     createdAt: new Date('2026-02-10').toISOString(),
     updatedAt: new Date().toISOString(),
   },
+  {
+    id: 'user_agent_saung',
+    name: 'Saung (Support Agent)',
+    email: 'saung@chatechat.com',
+    phone: '09791112233',
+    passwordHash: hashPassword('Agent!123'),
+    role: 'AGENT',
+    status: 'ONLINE',
+    maxConcurrentChats: 10,
+    channels: ['MESSENGER', 'TELEGRAM'],
+    createdAt: new Date('2026-03-01').toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'user_agent_yoon',
+    name: 'Yoon (Support Agent)',
+    email: 'yoon@chatechat.com',
+    phone: '09792223344',
+    passwordHash: hashPassword('Agent!123'),
+    role: 'AGENT',
+    status: 'ONLINE',
+    maxConcurrentChats: 10,
+    channels: ['TELEGRAM', 'VIBER'],
+    createdAt: new Date('2026-03-01').toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
 ];
 
 class UserStoreService {

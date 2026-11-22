@@ -10,6 +10,7 @@ import { ChannelsView } from '../components/ChannelsView';
 import { AiBotView } from '../components/AiBotView';
 import { SettingsView } from '../components/SettingsView';
 import { LoginView } from '../components/LoginView';
+import { ProfileModal } from '../components/ProfileModal';
 import { ChateChatLogo } from '../components/ChateChatLogo';
 import { useSocket } from '../hooks/useSocket';
 import { Conversation, Message, CannedResponse, ChannelQuotaDetails, ChannelType, ConversationStatus, HandoverStatus } from '../types';
@@ -292,6 +293,8 @@ export default function InboxPage() {
   const [lang, setLang] = useState<Language>('my');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showMobileProfile, setShowMobileProfile] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [profileInitialTab, setProfileInitialTab] = useState<'info' | 'password'>('info');
 
   // Responsive: On mobile screens upon initial load, show conversation list instead of defaulting to a selected chat
   useEffect(() => {
@@ -1200,6 +1203,10 @@ export default function InboxPage() {
         setLang={setLang}
         currentUser={currentUser || undefined}
         onLogout={handleLogout}
+        onOpenProfile={(tab) => {
+          setProfileInitialTab(tab || 'info');
+          setShowProfileModal(true);
+        }}
       />
 
       {/* Main Content Area */}
@@ -1481,6 +1488,16 @@ export default function InboxPage() {
           </nav>
         )}
       </div>
+
+      {/* User Profile & Password Change Modal */}
+      <ProfileModal
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+        currentUser={currentUser}
+        onUpdateUser={(updated) => setCurrentUser(updated)}
+        initialTab={profileInitialTab}
+        lang={lang}
+      />
     </div>
   );
 }

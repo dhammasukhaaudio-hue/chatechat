@@ -12,6 +12,7 @@ export const inMemoryUsers = userStore.getAll();
  * 1. Get All Users / Team Members (Persistent from userStore + DB)
  */
 adminRouter.get('/users', async (_req: Request, res: Response) => {
+  const storeUsers = userStore.getAll();
   try {
     const dbUsers = await prisma.user.findMany({
       orderBy: { createdAt: 'asc' },
@@ -28,13 +29,19 @@ adminRouter.get('/users', async (_req: Request, res: Response) => {
     });
 
     if (dbUsers.length > 0) {
-      return res.json({ success: true, users: dbUsers });
+      const combined = [...storeUsers];
+      for (const u of dbUsers) {
+        if (!combined.some(c => c.email?.toLowerCase() === u.email?.toLowerCase() || c.id === u.id)) {
+          combined.push(u as any);
+        }
+      }
+      return res.json({ success: true, users: combined });
     }
   } catch (err) {
     // Database offline, use persistent userStore
   }
 
-  return res.json({ success: true, users: userStore.getAll() });
+  return res.json({ success: true, users: storeUsers });
 });
 
 /**

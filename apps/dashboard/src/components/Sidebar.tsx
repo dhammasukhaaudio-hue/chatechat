@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   MessageSquare,
   Users,
@@ -9,6 +9,10 @@ import {
   Globe,
   LogOut,
   X,
+  User,
+  KeyRound,
+  MoreVertical,
+  ChevronUp,
 } from 'lucide-react';
 import { ChateChatLogo } from './ChateChatLogo';
 import { ChannelQuotaDetails } from '../types';
@@ -31,8 +35,10 @@ interface SidebarProps {
     organizationId?: string;
     organizationName?: string;
     teamCode?: string;
+    status?: string;
   };
   onLogout?: () => void;
+  onOpenProfile?: (initialTab?: 'info' | 'password') => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -46,8 +52,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
   setLang,
   currentUser,
   onLogout,
+  onOpenProfile,
 }) => {
   const t = translations[lang] || translations.my;
+  const isMy = lang === 'my';
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
   const handleNavClick = (nav: string) => {
     setActiveNav(nav);
@@ -218,30 +227,116 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         </div>
 
-        {/* User / Agent Footer */}
-        <div className="p-3 border-t border-slate-800 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2.5 overflow-hidden">
-            <div className="relative shrink-0">
-              <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-xs font-bold text-white shadow">
-                {(currentUser?.name || 'M').charAt(0).toUpperCase()}
-              </div>
-              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-slate-900 rounded-full" />
-            </div>
-            <div className="text-left truncate">
-              <p className="text-xs font-semibold text-white truncate">{currentUser?.name || 'Michael (Owner)'}</p>
-              <p className="text-[10px] text-emerald-400 font-medium">Online ({currentUser?.role || 'OWNER'})</p>
-            </div>
-          </div>
-
-          {onLogout && (
-            <button
-              onClick={onLogout}
-              title="Log Out (ထွက်မည်)"
-              className="p-1.5 rounded-lg bg-slate-800 hover:bg-rose-950/70 border border-slate-700 hover:border-rose-500/50 text-slate-400 hover:text-rose-400 transition"
-            >
-              <LogOut size={15} />
-            </button>
+        {/* User Profile & Settings Dropdown Trigger */}
+        <div className="p-3 border-t border-slate-800 shrink-0 relative">
+          {/* Dropdown Backdrop */}
+          {isUserMenuOpen && (
+            <div
+              className="fixed inset-0 z-40 bg-black/20"
+              onClick={() => setIsUserMenuOpen(false)}
+            />
           )}
+
+          {/* Upward Floating Dropdown Menu */}
+          {isUserMenuOpen && (
+            <div className="absolute bottom-[calc(100%+8px)] left-3 right-3 bg-slate-900/95 backdrop-blur-xl border border-slate-700/80 rounded-2xl shadow-2xl p-1.5 z-50 animate-in fade-in slide-in-from-bottom-2 duration-150">
+              <div className="px-3 py-2 border-b border-slate-800">
+                <p className="text-xs font-bold text-white truncate">{currentUser?.name || 'Michael (Owner)'}</p>
+                <p className="text-[10px] text-slate-400 truncate">{currentUser?.email || 'michael@chatechat.com'}</p>
+                <div className="mt-1 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                  <span className="text-[10px] text-emerald-400 font-medium uppercase">{currentUser?.role || 'OWNER'}</span>
+                </div>
+              </div>
+
+              <div className="py-1 text-xs space-y-0.5">
+                {/* 1. Profile */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsUserMenuOpen(false);
+                    if (onClose) onClose();
+                    onOpenProfile?.('info');
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-200 hover:text-white hover:bg-slate-800/80 transition text-left"
+                >
+                  <User size={15} className="text-blue-400 shrink-0" />
+                  <span className="font-medium">{isMy ? 'မိမိ Profile (ကိုယ်ရေးအချက်အလက်)' : 'My Profile'}</span>
+                </button>
+
+                {/* 2. Change Password */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsUserMenuOpen(false);
+                    if (onClose) onClose();
+                    onOpenProfile?.('password');
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-200 hover:text-white hover:bg-slate-800/80 transition text-left"
+                >
+                  <KeyRound size={15} className="text-amber-400 shrink-0" />
+                  <span className="font-medium">{isMy ? 'စကားဝှက် ပြောင်းမည် (Change Password)' : 'Change Password'}</span>
+                </button>
+
+                {/* 3. Settings */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsUserMenuOpen(false);
+                    handleNavClick('settings');
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-200 hover:text-white hover:bg-slate-800/80 transition text-left"
+                >
+                  <Settings size={15} className="text-emerald-400 shrink-0" />
+                  <span className="font-medium">{isMy ? 'လုပ်ငန်း & အဖွဲ့ဝင် ဆက်တင် (Settings)' : 'Business & Team Settings'}</span>
+                </button>
+
+                <div className="my-1 border-t border-slate-800" />
+
+                {/* 4. Log Out */}
+                {onLogout && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsUserMenuOpen(false);
+                      onLogout();
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-rose-400 hover:text-rose-300 hover:bg-rose-950/40 transition text-left"
+                  >
+                    <LogOut size={15} className="shrink-0" />
+                    <span className="font-medium">{isMy ? 'အကောင့်မှ ထွက်မည် (Log Out)' : 'Log Out'}</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* User Button Footer */}
+          <button
+            type="button"
+            onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+            className="w-full flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-800/70 transition text-left group"
+          >
+            <div className="flex items-center gap-2.5 overflow-hidden">
+              <div className="relative shrink-0">
+                <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-xs font-bold text-white shadow">
+                  {(currentUser?.name || 'M').charAt(0).toUpperCase()}
+                </div>
+                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-slate-900 rounded-full" />
+              </div>
+              <div className="text-left truncate">
+                <p className="text-xs font-semibold text-white truncate">{currentUser?.name || 'Michael (Owner)'}</p>
+                <p className="text-[10px] text-emerald-400 font-medium">Online ({currentUser?.role || 'OWNER'})</p>
+              </div>
+            </div>
+
+            <ChevronUp
+              size={16}
+              className={`text-slate-400 group-hover:text-white transition-transform duration-200 shrink-0 ${
+                isUserMenuOpen ? 'rotate-180 text-blue-400' : ''
+              }`}
+            />
+          </button>
         </div>
       </aside>
     </>

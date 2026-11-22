@@ -114,5 +114,37 @@
     ],
     "createdAt": "2026-02-10T00:00:00.000Z",
     "updatedAt": "2026-11-18T05:03:37.402Z"
+  },
+  {
+    "id": "user_agent_saung",
+    "name": "Saung (Support Agent)",
+    "email": "saung@chatechat.com",
+    "phone": "09791112233",
+    "passwordHash": "9a30f7bc21126a4952f90caa403619ac8a693c5cd87bec8fb9ff82d5bb5e7424",
+    "role": "AGENT",
+    "status": "ONLINE",
+    "maxConcurrentChats": 10,
+    "channels": [
+      "MESSENGER",
+      "TELEGRAM"
+    ],
+    "createdAt": "2026-03-01T00:00:00.000Z",
+    "updatedAt": "2026-11-22T07:17:23.984Z"
+  },
+  {
+    "id": "user_agent_yoon",
+    "name": "Yoon (Support Agent)",
+    "email": "yoon@chatechat.com",
+    "phone": "09792223344",
+    "passwordHash": "9a30f7bc21126a4952f90caa403619ac8a693c5cd87bec8fb9ff82d5bb5e7424",
+    "role": "AGENT",
+    "status": "ONLINE",
+    "maxConcurrentChats": 10,
+    "channels": [
+      "TELEGRAM",
+      "VIBER"
+    ],
+    "createdAt": "2026-03-01T00:00:00.000Z",
+    "updatedAt": "2026-11-22T07:17:23.987Z"
   }
 ]
