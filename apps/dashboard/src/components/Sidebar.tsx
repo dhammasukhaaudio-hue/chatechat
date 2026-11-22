@@ -6,11 +6,11 @@ import {
   Settings,
   CreditCard,
   Bot,
-  Zap,
   Globe,
   LogOut,
   X,
 } from 'lucide-react';
+import { ChateChatLogo } from './ChateChatLogo';
 import { ChannelQuotaDetails } from '../types';
 import { translations, Language } from '../lib/translations';
 
@@ -71,24 +71,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
       >
         {/* Brand Header */}
         <div className="safe-top-mobile pb-3.5 flex items-center justify-between px-5 border-b border-slate-800 shrink-0 lg:h-16 lg:pt-0 lg:pb-0">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-blue-500/20">
-              <Zap size={20} />
-            </div>
-            <div>
-              <h1 className="text-white font-bold text-base leading-tight tracking-tight">ChateChat</h1>
-              <p className="text-[11px] text-blue-400 font-medium">{t.brandSubtitle}</p>
-            </div>
+          <div className="flex items-center gap-2.5">
+            <ChateChatLogo size="md" showText={true} />
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             {/* Language Switcher Button */}
             <button
               onClick={() => setLang(lang === 'my' ? 'en' : 'my')}
-              className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-bold border border-slate-700 flex items-center gap-1.5 transition-colors"
+              className="px-2 py-1 bg-slate-800/80 hover:bg-slate-700/80 text-slate-200 rounded-lg text-xs font-semibold border border-slate-700 flex items-center gap-1 transition-colors"
               title="Switch Language"
             >
-              <Globe size={13} className="text-blue-400" />
+              <Globe size={12} className="text-cyan-400" />
               <span>{lang === 'my' ? '🇲🇲 MM' : '🇬🇧 EN'}</span>
             </button>
 
@@ -184,69 +178,45 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         </nav>
 
-        {/* Workspace / Organization Card */}
-        <div className="mx-3 mb-2.5 p-2.5 bg-slate-800/90 border border-slate-700/80 rounded-xl text-xs shrink-0">
-          <div className="flex items-center justify-between text-slate-300 font-semibold mb-1">
-            <span className="truncate text-[11px] text-white" title={currentUser?.organizationName || 'ChateChat Workspace'}>
-              🏢 {currentUser?.organizationName || 'ChateChat Workspace'}
+        {/* Workspace & Plan Quick Status (Frosted Minimalist Card) */}
+        <div className="mx-3 mb-3 p-3 bg-slate-800/70 backdrop-blur-md border border-slate-700/60 rounded-xl space-y-2 shrink-0">
+          <div className="flex items-center justify-between text-xs">
+            <span className="truncate text-white font-semibold text-[11px]" title={currentUser?.organizationName || 'ChateChat'}>
+              {currentUser?.organizationName || 'ChateChat'}
             </span>
-            <span className="text-[10px] bg-blue-500/20 text-blue-300 border border-blue-500/30 px-1.5 py-0.2 rounded font-mono font-bold shrink-0">
-              {currentUser?.teamCode || 'PRIVATE'}
+            <span className="text-[10px] bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 px-1.5 py-0.5 rounded font-mono font-bold shrink-0">
+              {currentUser?.teamCode || 'SOLO'}
             </span>
           </div>
-          <div className="flex items-center justify-between text-[10px] text-slate-400 mt-1">
-            <span>အဖွဲ့ဝင် Team Code:</span>
-            <span className="text-emerald-400 font-mono font-bold tracking-wider">{currentUser?.teamCode || 'SOLO'}</span>
+
+          <div className="flex items-center justify-between text-[11px] text-slate-400">
+            <span>{quotaDetails?.planConfig?.name || 'Pro'}</span>
+            <span className="text-slate-300 font-mono text-[10.5px]">
+              {quotaDetails?.activeChannelsCount || 2}/{quotaDetails?.maxChannels || 3} Channels
+            </span>
+          </div>
+
+          <div className="w-full bg-slate-700/60 h-1.5 rounded-full overflow-hidden">
+            <div
+              className="bg-gradient-to-r from-blue-500 to-cyan-400 h-full rounded-full transition-all duration-300"
+              style={{
+                width: `${Math.min(100, (((quotaDetails?.activeChannelsCount || 2) / (quotaDetails?.maxChannels || 3)) * 100))}%`,
+              }}
+            />
+          </div>
+
+          <div className="pt-1.5 flex items-center justify-between border-t border-slate-700/50 text-[10.5px]">
+            <a
+              href="/download/apk"
+              target="_blank"
+              download="ChateChat.apk"
+              className="text-cyan-400 hover:text-cyan-300 font-semibold flex items-center gap-1 transition"
+            >
+              <span>📲 Android App</span>
+            </a>
+            <span className="text-emerald-400 font-medium">● Online</span>
           </div>
         </div>
-
-        {/* Subscription Quota Card */}
-        <div className="p-3 mx-3 mb-3 bg-slate-800/70 border border-slate-700/60 rounded-xl shrink-0">
-          <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
-            <span className="flex items-center gap-1.5 font-medium text-slate-300">
-              <CreditCard size={14} className="text-blue-400" />
-              <span>{t.planTitle}</span>
-            </span>
-            <span className="text-[11px] font-bold text-emerald-400">{t.activeBadge}</span>
-          </div>
-          <p className="text-xs font-semibold text-white">
-            {quotaDetails?.planConfig?.name || '3 Channels Pro Plan'}
-          </p>
-          <p className="text-[11px] text-slate-400">
-            {(quotaDetails?.planConfig?.priceMmk || 12000).toLocaleString()} {t.perMonth}
-          </p>
-
-          {/* Channel Usage Bar */}
-          <div className="mt-2.5">
-            <div className="flex justify-between text-[11px] text-slate-400 mb-1">
-              <span>{t.connectedChannels}</span>
-              <span className="text-white font-medium">
-                {quotaDetails?.activeChannelsCount || 2} / {quotaDetails?.maxChannels || 3}
-              </span>
-            </div>
-            <div className="w-full bg-slate-700 h-1.5 rounded-full overflow-hidden">
-              <div
-                className="bg-blue-500 h-full rounded-full transition-all duration-300"
-                style={{
-                  width: `${
-                    ((quotaDetails?.activeChannelsCount || 2) / (quotaDetails?.maxChannels || 3)) * 100
-                  }%`,
-                }}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Mobile Android App APK Download */}
-        <a
-          href="/download/apk"
-          target="_blank"
-          download="ChateChat.apk"
-          title="Download Android APK"
-          className="mx-3 mb-2.5 p-2 bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1.5 transition shrink-0"
-        >
-          <span>📲 Download Android APK</span>
-        </a>
 
         {/* User / Agent Footer */}
         <div className="p-3 border-t border-slate-800 flex items-center justify-between shrink-0">

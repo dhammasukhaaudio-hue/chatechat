@@ -137,35 +137,24 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({
             {!phone && (
               <button
                 onClick={onRequestContact}
-                className="w-full mt-2 py-2 px-3 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors border border-blue-200"
+                className="w-full mt-1.5 py-1.5 px-3 bg-blue-50/80 hover:bg-blue-100/90 text-blue-700 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors border border-blue-200/60"
               >
-                <Send size={13} />
-                <span>ဖုန်းနံပါတ်နှင့် လိပ်စာ တောင်းဆိုရန်</span>
+                <Send size={12} />
+                <span>ဖုန်း/လိပ်စာ တောင်းမည်</span>
               </button>
             )}
           </div>
         )}
-
-        {/* Explainability banner for Staff & Founder */}
-        <div className="p-2.5 bg-amber-50/80 rounded-xl border border-amber-200/60 text-[11px] text-amber-900 space-y-1">
-          <div className="font-bold flex items-center gap-1 text-amber-800">
-            <Info size={13} />
-            <span>ဖုန်းနံပါတ် ရယူပုံစနစ်</span>
-          </div>
-          <p className="leading-relaxed text-amber-800/90 text-[10.5px]">
-            Telegram, Facebook, TikTok တို့သည် Privacy စည်းမျဉ်းအရ ဖုန်းနံပါတ်ကို အလိုအလျောက် မပေးပါ။ ဝယ်သူမှ စာထဲတွင် ရိုက်ပို့ခြင်း သို့မဟုတ် Telegram ၏ <strong>"ဖုန်းနံပါတ် ပေးပို့ရန် / Share My Phone number"</strong> ခလုတ်နှိပ်သည့်အခါ AI က အလိုအလျောက် ထုတ်ယူဖြည့်စွက်ပေးပါသည်။
-          </p>
-        </div>
       </div>
 
-      {/* Connected Channels (Cross-Platform Merging) */}
-      <div className="space-y-3">
-        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-          <Share2 size={13} />
-          <span>ပေါင်းစည်းထားသော လူမှုကွန်ရက်များ</span>
+      {/* Connected Channels */}
+      <div className="space-y-2">
+        <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+          <Share2 size={12} />
+          <span>ချန်နယ်များ</span>
         </h4>
 
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           {customer.identities && customer.identities.length > 0 ? (
             customer.identities.map((id) => (
               <div
@@ -179,29 +168,29 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({
               </div>
             ))
           ) : (
-            <div className="text-xs text-slate-400">ချန်နယ် ၁ ခုသာ ချိတ်ဆက်ထားပါသည်</div>
+            <div className="text-xs text-slate-400">ချန်နယ် ၁ ခု ချိတ်ဆက်ထားသည်</div>
           )}
         </div>
       </div>
 
       {/* E-Commerce Order History */}
-      <div className="space-y-3">
-        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-          <ShoppingBag size={13} />
-          <span>ဝယ်ယူမှု မှတ်တမ်း</span>
+      <div className="space-y-2">
+        <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+          <ShoppingBag size={12} />
+          <span>ဝယ်ယူမှု</span>
         </h4>
 
         <div className="grid grid-cols-2 gap-2 text-center">
-          <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-            <span className="text-[11px] text-slate-500">စုစုပေါင်း အော်ဒါ</span>
-            <p className="text-base font-bold text-slate-800 mt-0.5">
+          <div className="p-2.5 bg-slate-50/80 rounded-xl border border-slate-100">
+            <span className="text-[10px] text-slate-400 font-medium">အော်ဒါ</span>
+            <p className="text-sm font-bold text-slate-800 mt-0.5">
               {customer.totalOrders} ခု
             </p>
           </div>
 
-          <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-            <span className="text-[11px] text-slate-500">စုစုပေါင်း သုံးစွဲငွေ</span>
-            <p className="text-xs font-bold text-blue-600 mt-1">
+          <div className="p-2.5 bg-slate-50/80 rounded-xl border border-slate-100">
+            <span className="text-[10px] text-slate-400 font-medium">စုစုပေါင်း</span>
+            <p className="text-xs font-bold text-blue-600 mt-0.5">
               {customer.totalSpentMmk.toLocaleString()} MMK
             </p>
           </div>
@@ -209,16 +198,16 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({
       </div>
 
       {/* Tags */}
-      <div className="space-y-3">
-        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-          <Tag size={13} />
-          <span>တဂ်များ (Tags)</span>
+      <div className="space-y-2">
+        <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+          <Tag size={12} />
+          <span>တဂ်များ</span>
         </h4>
 
         <div className="flex flex-wrap gap-1.5">
           {customer.tags && customer.tags.length > 0 ? (
             customer.tags.map((t) => (
-              <span key={t} className="px-2.5 py-1 rounded-md text-xs font-semibold bg-blue-100 text-blue-800">
+              <span key={t} className="px-2 py-0.5 rounded-md text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200/50">
                 {t}
               </span>
             ))

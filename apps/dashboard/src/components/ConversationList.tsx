@@ -53,10 +53,10 @@ export const ConversationList: React.FC<ConversationListProps> = ({
           {onSimulateTelegramMessage && (
             <button
               onClick={onSimulateTelegramMessage}
-              className="px-2.5 py-1 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-lg text-[11px] font-bold shadow-sm flex items-center gap-1 transition"
-              title="Telegram Customer စာတို စမ်းသပ်ပို့မည်"
+              className="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-medium flex items-center gap-1 transition border border-slate-200/80"
+              title="Test Message"
             >
-              <span>+ Telegram စာတိုစမ်းမည်</span>
+              <span>+ စမ်းသပ်ရန်</span>
             </button>
           )}
         </div>
@@ -68,8 +68,8 @@ export const ConversationList: React.FC<ConversationListProps> = ({
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="အမည်၊ ဖုန်းနံပါတ်ဖြင့် ရှာဖွေပါ..."
-            className="w-full pl-9 pr-4 py-2 bg-slate-100 border-none rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-800 placeholder-slate-400"
+            placeholder="ရှာဖွေရန်..."
+            className="w-full pl-9 pr-4 py-2 bg-slate-100/80 border border-transparent focus:border-blue-400/50 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-800 placeholder-slate-400"
           />
         </div>
 

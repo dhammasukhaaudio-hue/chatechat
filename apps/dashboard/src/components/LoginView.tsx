@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Zap, Send, Phone, KeyRound, ShieldCheck, ArrowRight, RotateCw, CheckCircle2, AlertCircle, LogIn, UserPlus, UserCheck } from 'lucide-react';
+import { Send, Phone, KeyRound, ShieldCheck, ArrowRight, RotateCw, CheckCircle2, AlertCircle, LogIn, UserPlus, UserCheck } from 'lucide-react';
+import { ChateChatLogo } from './ChateChatLogo';
 import { getApiBaseUrl } from '../lib/api-config';
 
 interface LoginViewProps {
@@ -350,15 +351,15 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
         
         {/* Brand Header */}
         <div className="text-center space-y-2">
-          <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-tr from-blue-600 to-emerald-400 flex items-center justify-center text-white shadow-xl shadow-blue-500/20">
-            <Zap size={28} className="animate-pulse" />
+          <div className="flex justify-center mb-1">
+            <ChateChatLogo size="xl" showText={false} />
           </div>
           <div>
             <h1 className="text-xl font-bold tracking-tight text-white flex items-center justify-center gap-2">
-              ChateChat <span className="text-blue-400 font-semibold">(ချိတ်ချက်)</span>
+              ChateChat <span className="text-cyan-400 font-semibold">(ချိတ်ချက်)</span>
             </h1>
-            <p className="text-xs text-slate-400 mt-1">
-              User Interface Frontend (:3000) • Agent Workspace
+            <p className="text-xs text-slate-400 mt-0.5">
+              Omnichannel Messaging Workspace
             </p>
           </div>
         </div>

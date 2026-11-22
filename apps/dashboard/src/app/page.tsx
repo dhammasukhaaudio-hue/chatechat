@@ -10,6 +10,7 @@ import { ChannelsView } from '../components/ChannelsView';
 import { AiBotView } from '../components/AiBotView';
 import { SettingsView } from '../components/SettingsView';
 import { LoginView } from '../components/LoginView';
+import { ChateChatLogo } from '../components/ChateChatLogo';
 import { useSocket } from '../hooks/useSocket';
 import { Conversation, Message, CannedResponse, ChannelQuotaDetails, ChannelType, ConversationStatus, HandoverStatus } from '../types';
 import { Language } from '../lib/translations';
@@ -1215,12 +1216,9 @@ export default function InboxPage() {
                 <Menu size={20} />
               </button>
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-sm shadow">
-                  <Zap size={16} />
-                </div>
-                <span className="text-white font-bold text-sm leading-tight">ChateChat</span>
-                <span className="text-[10px] bg-blue-500/20 text-blue-300 border border-blue-500/30 px-1.5 py-0.5 rounded font-mono font-bold">
-                  {currentUser?.teamCode || 'SAFE-692'}
+                <ChateChatLogo size="xs" showText={true} />
+                <span className="text-[10px] bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 px-1.5 py-0.5 rounded font-mono font-bold">
+                  {currentUser?.teamCode || 'SOLO'}
                 </span>
               </div>
             </div>

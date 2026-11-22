@@ -15,6 +15,7 @@ import {
   ArrowLeft,
   Info,
 } from 'lucide-react';
+import { ChateChatLogo } from './ChateChatLogo';
 
 interface ChatAreaProps {
   conversation: Conversation | null;
@@ -96,23 +97,20 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
   if (!conversation) {
     return (
-      <div className="flex-1 bg-slate-50 flex flex-col items-center justify-center p-8 text-center text-slate-400 relative">
+      <div className="flex-1 bg-slate-50/70 flex flex-col items-center justify-center p-8 text-center text-slate-400 relative">
         {onBack && (
           <button
             onClick={onBack}
-            className="absolute top-4 left-4 p-2 text-slate-700 hover:text-slate-900 bg-white shadow-xs rounded-xl lg:hidden flex items-center gap-1.5 text-xs font-bold border border-slate-200"
+            className="absolute top-4 left-4 p-2 text-slate-700 hover:text-slate-900 bg-white/80 backdrop-blur-xs shadow-xs rounded-xl lg:hidden flex items-center gap-1.5 text-xs font-bold border border-slate-200"
           >
             <ArrowLeft size={16} />
-            <span>မက်ဆေ့ခ်ျများ စာရင်းသို့</span>
+            <span>မက်ဆေ့ခ်ျများ</span>
           </button>
         )}
-        <div className="w-16 h-16 rounded-2xl bg-white shadow-sm flex items-center justify-center text-slate-300 mb-4 border border-slate-200">
-          <Smile size={32} />
+        <div className="mb-4">
+          <ChateChatLogo size="xl" showText={false} />
         </div>
-        <h3 className="text-base font-bold text-slate-700">စကားပြောဆိုမှု မရွေးချယ်ရသေးပါ</h3>
-        <p className="text-sm mt-1 text-slate-500">
-          ဘယ်ဘက်စာရင်းမှ စကားစမြည်တစ်ခုကို ရွေးချယ်ပြီး ဝယ်သူနှင့် စကားစတင်ပြောကြားနိုင်ပါသည်
-        </p>
+        <h3 className="text-sm font-semibold text-slate-700">စကားဝိုင်းတစ်ခု ရွေးချယ်ပါ</h3>
       </div>
     );
   }
@@ -188,14 +186,13 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
           {isBotHandling ? (
             <button
               onClick={onAssignToMe}
-              className="px-2.5 md:px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[11px] md:text-xs font-semibold flex items-center gap-1 shadow-sm transition-colors"
+              className="px-2.5 md:px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1 shadow-sm transition-colors"
             >
               <UserCheck size={14} />
-              <span className="hidden sm:inline">ကိုယ်တိုင်လက်ခံပြောကြားမည်</span>
-              <span className="sm:hidden">လက်ခံမည်</span>
+              <span>လက်ခံမည်</span>
             </button>
           ) : (
-            <span className="inline-flex items-center gap-1 px-2 md:px-2.5 py-1 rounded-md text-[11px] md:text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 truncate max-w-[110px] sm:max-w-none">
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 truncate">
               <UserCheck size={13} className="shrink-0" />
               <span className="truncate">{conversation.assignedAgent?.name || 'မသူဇာ'}</span>
             </span>
@@ -242,9 +239,9 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                     <Lock size={14} className="text-amber-600 mt-0.5 flex-shrink-0" />
                     <div>
                       <div className="font-bold flex items-center gap-1.5 mb-1">
-                        <span>အတွင်းသီးသန့်မှတ်ချက် (ဝယ်သူ မမြင်နိုင်ပါ)</span>
-                        <span className="text-[10px] text-amber-600 font-normal">
-                          by {msg.senderName}
+                        <span>အတွင်းမှတ်ချက်</span>
+                        <span className="text-[10px] text-amber-700 font-normal">
+                          • {msg.senderName}
                         </span>
                       </div>
                       <p className="leading-relaxed">{msg.content}</p>
@@ -336,7 +333,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                   : 'text-slate-500 hover:text-slate-800'
               }`}
             >
-              ဝယ်သူထံသို့ စာပြန်ရန်
+              စာပြန်ရန်
             </button>
             <button
               onClick={() => setIsInternalNote(true)}
@@ -347,7 +344,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               }`}
             >
               <Lock size={12} />
-              အတွင်းသီးသန့်မှတ်ချက်
+              အတွင်းမှတ်ချက်
             </button>
           </div>
 
@@ -356,7 +353,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium"
           >
             <Zap size={13} className="text-amber-500" />
-            <span>ဖြတ်လမ်းများ ( / )</span>
+            <span>ဖြတ်လမ်း ( / )</span>
           </button>
         </div>
 
@@ -374,8 +371,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             onKeyDown={handleKeyDown}
             placeholder={
               isInternalNote
-                ? 'အတွင်းမှတ်ချက် ရေးသားပါ (အခြားအေးဂျင့်များသာ မြင်နိုင်ပါသည်)...'
-                : 'မက်ဆေ့ခ်ျ ရေးသားပါ (မြန်မာ/English)... Canned responses အတွက် / ရိုက်ပါ'
+                ? 'အတွင်းမှတ်ချက် ရေးရန်...'
+                : 'မက်ဆေ့ခ်ျ ရေးသားပါ... (/ shortcut)'
             }
             rows={2}
             className="flex-1 bg-transparent border-none outline-none resize-none text-sm text-slate-800 placeholder-slate-400"
