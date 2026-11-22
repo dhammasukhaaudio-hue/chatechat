@@ -44,9 +44,24 @@ app.use(
 app.use(express.urlencoded({ extended: true }));
 app.use(cors());
 
-// Health check endpoint for Render / Cloud Orchestrators
-app.get('/health', (_req, res) => {
-  res.status(200).json({ status: 'ok', service: 'chatechat-api', timestamp: new Date().toISOString() });
+// Health check endpoint for Render / UptimeRobot 24/7 Keep-Alive (Server & Database)
+app.get('/health', async (_req, res) => {
+  let dbStatus = 'connected';
+  try {
+    // Ping database to keep both Render and Supabase alive
+    if (prisma && prisma.user) {
+      await prisma.user.findFirst({ select: { id: true } });
+    }
+  } catch (err: any) {
+    dbStatus = 'offline_or_fallback';
+  }
+
+  res.json({
+    status: 'ok',
+    service: 'ChateChat Fullstack Platform (Frontend & Backend)',
+    database: dbStatus,
+    timestamp: new Date().toISOString(),
+  });
 });
 
 // Attach socket emitter and io instance to request object for controllers
@@ -56,15 +71,6 @@ app.use((req: any, _res, next) => {
     io.to(room).emit(event, data);
   };
   next();
-});
-
-// Health check endpoint for Render / UptimeRobot Keep-Alive
-app.get('/health', (_req, res) => {
-  res.json({
-    status: 'ok',
-    service: 'ChateChat Fullstack Platform (Frontend & Backend)',
-    timestamp: new Date().toISOString(),
-  });
 });
 
 // Super Admin & Payment Engine Back-Office Portal
