@@ -283,7 +283,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="flex items-center justify-between text-[11px] text-slate-400">
             <span>{quotaDetails?.planConfig?.name || 'Pro'}</span>
             <span className="text-slate-300 font-mono text-[10.5px]">
-              {quotaDetails?.activeChannelsCount || 2}/{quotaDetails?.maxChannels || 3} Channels
+              {quotaDetails?.activeChannelsCount ?? 0}/{quotaDetails?.maxChannels || 3} Channels
             </span>
           </div>
 
@@ -291,7 +291,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div
               className="bg-gradient-to-r from-blue-600 to-blue-400 h-full rounded-full transition-all duration-300"
               style={{
-                width: `${Math.min(100, (((quotaDetails?.activeChannelsCount || 2) / (quotaDetails?.maxChannels || 3)) * 100))}%`,
+                width: `${Math.min(100, ((((quotaDetails?.activeChannelsCount ?? 0)) / (quotaDetails?.maxChannels || 3)) * 100))}%`,
               }}
             />
           </div>

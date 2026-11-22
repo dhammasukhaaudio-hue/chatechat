@@ -26,6 +26,67 @@ interface ChannelsViewProps {
   onSendTestMessage?: (channelType: ChannelType, botName: string) => void;
 }
 
+export const getInitialChannels = (isMy: boolean, apiBase?: string): ChannelItem[] => {
+  const base = apiBase || getApiBaseUrl();
+  return [
+    {
+      type: 'MESSENGER',
+      name: 'Facebook Messenger',
+      accountName: isMy ? 'မချိတ်ဆက်ရသေးပါ' : 'Not Connected',
+      pageId: '-',
+      isActive: false,
+      webhookUrl: `${base}/api/v1/webhooks/messenger`,
+      description: isMy
+        ? 'Facebook Page သို့ လာရောက်မေးမြန်းသော Messenger စာတိုများအားလုံးကို အလိုအလျောက် ရယူပေးပါသည်'
+        : 'Syncs all inbound customer messages from your Meta Business Facebook Page',
+    },
+    {
+      type: 'TELEGRAM',
+      name: 'Telegram Bot API',
+      accountName: isMy ? 'မချိတ်ဆက်ရသေးပါ' : 'Not Connected',
+      pageId: '-',
+      isActive: false,
+      webhookUrl: `${base}/api/v1/webhooks/telegram/bot`,
+      description: isMy
+        ? 'Telegram Bot သို့ customer များ ပို့သမျှ စာတို၊ ဓာတ်ပုံနှင့် ဖုန်းနံပါတ်များကို ၂၄ နာရီ ကန့်သတ်ချက်မရှိ စာပြန်နိုင်ပါသည်'
+        : 'Connects official Telegram bot for 24/7 unlimited customer inquiries and broadcast',
+    },
+    {
+      type: 'VIBER',
+      name: 'Viber Business & Bot',
+      accountName: isMy ? 'မချိတ်ဆက်ရသေးပါ' : 'Not Connected',
+      pageId: '-',
+      isActive: false,
+      webhookUrl: `${base}/api/v1/webhooks/viber/bot`,
+      description: isMy
+        ? 'Viber Public Account သို့မဟုတ် Bot ဖြင့် ချိတ်ဆက်၍ မြန်မာနိုင်ငံရှိ Viber သုံးစွဲသူများနှင့် တိုက်ရိုက် စကားပြောနိုင်ပါသည်'
+        : 'Connect official Viber Bot to chat with Viber users in Myanmar',
+    },
+    {
+      type: 'TIKTOK',
+      name: 'TikTok Direct Messages',
+      accountName: isMy ? 'မချိတ်ဆက်ရသေးပါ' : 'Not Connected',
+      pageId: '-',
+      isActive: false,
+      webhookUrl: `${base}/api/v1/webhooks/tiktok/bot`,
+      description: isMy
+        ? 'TikTok Shop / TikTok Live ကြည့်ရှုပြီး လာရောက်မေးမြန်းသော Direct Message (DM) များကို လက်ခံဖြေကြားနိုင်ပါသည်'
+        : 'Manage TikTok Live and Shop buyer inquiries directly from your unified inbox',
+    },
+    {
+      type: 'WEB_WIDGET',
+      name: 'Website Live Chat Widget',
+      accountName: 'Embeddable Web Component',
+      pageId: 'script-tag-chatechat.js',
+      isActive: true,
+      webhookUrl: `${base}/widget`,
+      description: isMy
+        ? 'မိမိဆိုင်၏ Website တွင် JivoChat ကဲ့သို့ Floating Chat Widget အဖြစ် ထည့်သွင်းအသုံးပြုနိုင်ပါသည်'
+        : 'Lightweight pure JS floating chat widget embeddable on any eCommerce website',
+    },
+  ];
+};
+
 export const ChannelsView: React.FC<ChannelsViewProps> = ({ quotaDetails, lang, currentUser, onBotConnected, onSendTestMessage }) => {
   const isMy = lang === 'my';
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
@@ -34,8 +95,8 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({ quotaDetails, lang, 
   const orgId = (currentUser as any)?.organizationId || (currentUser?.name?.toLowerCase().includes('royal') || currentUser?.name?.toLowerCase() === 'mexes' ? 'org_royal' : `org_${(currentUser?.email || currentUser?.name || 'guest').toLowerCase().replace(/[^a-z0-9]/g, '_')}`);
   const storageKey = `chatechat_channels_${orgId}`;
 
-  // Channels state
-  const [channels, setChannels] = useState<ChannelItem[]>([]);
+  // Channels state - default initialized with 5 standard channels so cards are never blank!
+  const [channels, setChannels] = useState<ChannelItem[]>(() => getInitialChannels(isMy, getApiBaseUrl()));
   const [channelsLoaded, setChannelsLoaded] = useState(false);
 
   // Telegram Connection Modal State
@@ -56,120 +117,84 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({ quotaDetails, lang, 
 
   // Load Channels per user on mount
   useEffect(() => {
+    let currentChannels = getInitialChannels(isMy, getApiBaseUrl());
+
     try {
       const saved = localStorage.getItem(storageKey);
       if (saved) {
-        setChannels(JSON.parse(saved));
-        setChannelsLoaded(true);
-
-        // Auto-verify backend polling if telegram token is saved for this organization
-        try {
-          const savedToken = localStorage.getItem('chatechat_telegram_token_' + orgId) || (orgId === 'org_royal' ? localStorage.getItem('chatechat_telegram_token') : null);
-          if (savedToken) {
-            fetch(`${getApiBaseUrl()}/api/v1/webhooks/telegram/status?organizationId=${encodeURIComponent(orgId)}`)
-              .then((r) => r.json())
-              .then((status) => {
-                if (status && status.success && !status.isRunning) {
-                  fetch(`${getApiBaseUrl()}/api/v1/webhooks/connect/telegram`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      botToken: savedToken,
-                      organizationId: orgId,
-                      assignAllAgents: true,
-                    }),
-                  }).catch(() => {});
-                }
-              })
-              .catch(() => {});
-          }
-        } catch {}
-        return;
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const defaults = getInitialChannels(isMy, getApiBaseUrl());
+          currentChannels = defaults.map((def) => {
+            const existing = parsed.find((p: any) => p.type === def.type);
+            return existing ? { ...def, ...existing } : def;
+          });
+        }
       }
     } catch (e) {}
 
-    // Default channels for any user: all channels start completely CLEAN & DISCONNECTED!
-    const isDefaultAdmin = false;
-
-    const initialChannels: ChannelItem[] = [
-      {
-        type: 'MESSENGER',
-        name: 'Facebook Messenger',
-        accountName: isDefaultAdmin ? 'Royal Fashion Myanmar FB Page' : (isMy ? 'မချိတ်ဆက်ရသေးပါ' : 'Not Connected'),
-        pageId: isDefaultAdmin ? '109823478912345' : '-',
-        isActive: !!isDefaultAdmin,
-        webhookUrl: `${getApiBaseUrl()}/api/v1/webhooks/messenger`,
-        description: isMy
-          ? 'Facebook Page သို့ လာရောက်မေးမြန်းသော Messenger စာတိုများအားလုံးကို အလိုအလျောက် ရယူပေးပါသည်'
-          : 'Syncs all inbound customer messages from your Meta Business Facebook Page',
-      },
-      {
-        type: 'TELEGRAM',
-        name: 'Telegram Bot API',
-        accountName: isDefaultAdmin ? '@RoyalFashionBot' : (isMy ? 'မချိတ်ဆက်ရသေးပါ' : 'Not Connected'),
-        pageId: isDefaultAdmin ? 'bot6789012345' : '-',
-        isActive: !!isDefaultAdmin,
-        webhookUrl: `${getApiBaseUrl()}/api/v1/webhooks/telegram/bot`,
-        description: isMy
-          ? 'Telegram Bot သို့ customer များ ပို့သမျှ စာတို၊ ဓာတ်ပုံနှင့် ဖုန်းနံပါတ်များကို ၂၄ နာရီ ကန့်သတ်ချက်မရှိ စာပြန်နိုင်ပါသည်'
-          : 'Connects official Telegram bot for 24/7 unlimited customer inquiries and broadcast',
-      },
-      {
-        type: 'VIBER',
-        name: 'Viber Business & Bot',
-        accountName: isMy ? 'မချိတ်ဆက်ရသေးပါ' : 'Not Connected',
-        pageId: '-',
-        isActive: false,
-        webhookUrl: `${getApiBaseUrl()}/api/v1/webhooks/viber/bot`,
-        description: isMy
-          ? 'Viber Public Account သို့မဟုတ် Bot ဖြင့် ချိတ်ဆက်၍ မြန်မာနိုင်ငံရှိ Viber သုံးစွဲသူများနှင့် တိုက်ရိုက် စကားပြောနိုင်ပါသည်'
-          : 'Connect official Viber Bot to chat with Viber users in Myanmar',
-      },
-      {
-        type: 'TIKTOK',
-        name: 'TikTok Direct Messages',
-        accountName: isMy ? 'မချိတ်ဆက်ရသေးပါ' : 'Not Connected',
-        pageId: '-',
-        isActive: false,
-        webhookUrl: `${getApiBaseUrl()}/api/v1/webhooks/tiktok/bot`,
-        description: isMy
-          ? 'TikTok Shop / TikTok Live ကြည့်ရှုပြီး လာရောက်မေးမြန်းသော Direct Message (DM) များကို လက်ခံဖြေကြားနိုင်ပါသည်'
-          : 'Manage TikTok Live and Shop buyer inquiries directly from your unified inbox',
-      },
-      {
-        type: 'WEB_WIDGET',
-        name: 'Website Live Chat Widget',
-        accountName: 'Embeddable Web Component',
-        pageId: 'script-tag-chatechat.js',
-        isActive: true,
-        webhookUrl: `${getApiBaseUrl()}/widget`,
-        description: isMy
-          ? 'မိမိဆိုင်၏ Website တွင် JivoChat ကဲ့သို့ Floating Chat Widget အဖြစ် ထည့်သွင်းအသုံးပြုနိုင်ပါသည်'
-          : 'Lightweight pure JS floating chat widget embeddable on any eCommerce website',
-      },
-    ];
-
-    setChannels(initialChannels);
+    setChannels(currentChannels);
     setChannelsLoaded(true);
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(currentChannels));
+    } catch {}
+
+    // Auto-verify backend polling if telegram token is saved for this organization
+    try {
+      const savedToken = localStorage.getItem('chatechat_telegram_token_' + orgId) || (orgId === 'org_royal' ? localStorage.getItem('chatechat_telegram_token') : null);
+      if (savedToken) {
+        fetch(`${getApiBaseUrl()}/api/v1/webhooks/telegram/status?organizationId=${encodeURIComponent(orgId)}`)
+          .then((r) => r.json())
+          .then((status) => {
+            if (status && status.success && !status.isRunning) {
+              fetch(`${getApiBaseUrl()}/api/v1/webhooks/connect/telegram`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  botToken: savedToken,
+                  organizationId: orgId,
+                  assignAllAgents: true,
+                }),
+              }).catch(() => {});
+            }
+          })
+          .catch(() => {});
+      }
+    } catch {}
+
     // Sync with backend status to auto-reflect connected bot on any device (e.g. Mobile App)
     fetch(`${getApiBaseUrl()}/api/v1/webhooks/telegram/status?organizationId=${encodeURIComponent(orgId)}`)
       .then((r) => r.json())
       .then((status) => {
-        if (status && status.success && status.isActive && status.botUsername) {
-          setChannels((prev) => {
-            const updated = prev.map((c) =>
-              c.type === 'TELEGRAM'
-                ? {
-                    ...c,
-                    isActive: true,
-                    accountName: status.botUsername,
-                    connectedAt: 'Live 24/7 Polling',
-                  }
-                : c
-            );
-            try { localStorage.setItem(storageKey, JSON.stringify(updated)); } catch {}
-            return updated;
+        if (!status || !status.success) return;
+        setChannels((prev) => {
+          const updated = prev.map((c) => {
+            if (c.type === 'TELEGRAM') {
+              if (status.isActive && status.botUsername) {
+                return {
+                  ...c,
+                  isActive: true,
+                  accountName: status.botUsername,
+                  connectedAt: 'Live 24/7 Polling',
+                };
+              } else if (!status.isActive) {
+                return {
+                  ...c,
+                  isActive: false,
+                  accountName: isMy ? 'မချိတ်ဆက်ရသေးပါ' : 'Not Connected',
+                };
+              }
+            }
+            return c;
           });
+          try { localStorage.setItem(storageKey, JSON.stringify(updated)); } catch {}
+          return updated;
+        });
+
+        if (!status.isActive && orgId !== 'org_royal') {
+          try {
+            localStorage.removeItem('chatechat_telegram_token_' + orgId);
+          } catch {}
         }
       })
       .catch(() => {});
@@ -327,8 +352,8 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({ quotaDetails, lang, 
     saveChannels(updatedChannels);
   };
 
-  // Active channel count
-  const activeCount = channels.filter((c) => c.isActive).length;
+  // Active channel count (Social channels count towards subscription quota)
+  const activeCount = channels.filter((c) => c.isActive && c.type !== 'WEB_WIDGET').length;
 
   return (
     <div className="flex-1 bg-slate-50 flex flex-col overflow-y-auto p-6 md:p-8 font-sans">

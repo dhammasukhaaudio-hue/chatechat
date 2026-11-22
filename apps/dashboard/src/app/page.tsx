@@ -6,7 +6,7 @@ import { ConversationList } from '../components/ConversationList';
 import { ChatArea } from '../components/ChatArea';
 import { CustomerProfile } from '../components/CustomerProfile';
 import { CustomersView } from '../components/CustomersView';
-import { ChannelsView } from '../components/ChannelsView';
+import { ChannelsView, getInitialChannels } from '../components/ChannelsView';
 import { AiBotView } from '../components/AiBotView';
 import { SettingsView } from '../components/SettingsView';
 import { LoginView } from '../components/LoginView';
@@ -579,18 +579,27 @@ export default function InboxPage() {
         fetch(`${getApiBaseUrl()}/api/v1/webhooks/telegram/status?organizationId=${encodeURIComponent(orgId)}`)
           .then((r) => r.json())
           .then((status) => {
-            if (status && status.success && status.isActive && status.botUsername) {
-              try {
-                const savedCh = localStorage.getItem(channelStorageKey);
-                let list = savedCh ? JSON.parse(savedCh) : [];
-                const tgIdx = list.findIndex((c: any) => c.type === 'TELEGRAM');
-                if (tgIdx >= 0) {
+            try {
+              const savedCh = localStorage.getItem(channelStorageKey);
+              let list = savedCh ? JSON.parse(savedCh) : null;
+              if (!Array.isArray(list) || list.length === 0) {
+                list = getInitialChannels(lang === 'my', getApiBaseUrl());
+              }
+              const tgIdx = list.findIndex((c: any) => c.type === 'TELEGRAM');
+              if (tgIdx >= 0) {
+                if (status && status.success && status.isActive && status.botUsername) {
                   list[tgIdx].isActive = true;
                   list[tgIdx].accountName = status.botUsername;
+                } else if (status && status.success && !status.isActive) {
+                  list[tgIdx].isActive = false;
+                  list[tgIdx].accountName = lang === 'my' ? 'မချိတ်ဆက်ရသေးပါ' : 'Not Connected';
+                  if (orgId !== 'org_royal') {
+                    try { localStorage.removeItem('chatechat_telegram_token_' + orgId); } catch {}
+                  }
                 }
                 localStorage.setItem(channelStorageKey, JSON.stringify(list));
-              } catch {}
-            }
+              }
+            } catch {}
           })
           .catch(() => {});
 
@@ -744,7 +753,7 @@ export default function InboxPage() {
       // Auto-heal Telegram polling if backend restarted or container was recreated
       const checkAndAutoResumeTelegram = () => {
         try {
-          const savedToken = localStorage.getItem('chatechat_telegram_token_' + orgId) || localStorage.getItem('chatechat_telegram_token');
+          const savedToken = localStorage.getItem('chatechat_telegram_token_' + orgId) || (orgId === 'org_royal' ? localStorage.getItem('chatechat_telegram_token') : null);
           if (savedToken) {
             fetch(`${getApiBaseUrl()}/api/v1/webhooks/telegram/status?organizationId=${encodeURIComponent(orgId)}`)
               .then((r) => r.json())
@@ -910,10 +919,31 @@ export default function InboxPage() {
     },
   ]);
 
+  // Dynamic quota details based on actual connected channels
+  const [activeChannelsCount, setActiveChannelsCount] = useState<number>(0);
+
+  useEffect(() => {
+    const updateQuota = () => {
+      try {
+        const saved = localStorage.getItem(channelStorageKey);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) {
+            const count = parsed.filter((c: any) => c.isActive && c.type !== 'WEB_WIDGET').length;
+            setActiveChannelsCount(count);
+          }
+        }
+      } catch {}
+    };
+    updateQuota();
+    const interval = setInterval(updateQuota, 2500);
+    return () => clearInterval(interval);
+  }, [channelStorageKey]);
+
   const quotaDetails: ChannelQuotaDetails = {
     maxChannels: 3,
-    activeChannelsCount: 1,
-    remainingSlots: 2,
+    activeChannelsCount: activeChannelsCount,
+    remainingSlots: Math.max(0, 3 - activeChannelsCount),
     planConfig: {
       tier: 'TIER_3_CHANNELS',
       name: '3 Channels Pro Plan',
@@ -921,7 +951,7 @@ export default function InboxPage() {
       maxChannels: 3,
     },
     channels: [
-      { channelType: 'TELEGRAM', accountName: 'Telegram Bot API', isActive: true },
+      { channelType: 'TELEGRAM', accountName: 'Telegram Bot API', isActive: activeChannelsCount > 0 },
       { channelType: 'MESSENGER', accountName: 'Facebook Messenger', isActive: false },
       { channelType: 'VIBER', accountName: 'Viber Business & Bot', isActive: false },
       { channelType: 'TIKTOK', accountName: 'TikTok Direct Messages', isActive: false },

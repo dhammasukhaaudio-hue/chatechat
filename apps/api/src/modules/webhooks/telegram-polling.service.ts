@@ -167,12 +167,12 @@ class TelegramPollingService {
   }
 
   public getStatus(organizationId?: string) {
-    // If bot is active and shared, or matches the organization, allow access
+    // Multi-tenant check: bot is active only for matching organization (or if querying 'all' for super admin)
+    const currentConfigOrg = (this.config?.organizationId || 'org_royal').toLowerCase().trim();
+    const queryOrg = (organizationId || '').toLowerCase().trim();
     const isThisOrg =
-      !organizationId ||
-      organizationId === 'all' ||
-      (this.config?.organizationId || 'org_royal') === organizationId ||
-      this.config?.assignAllAgents !== false;
+      queryOrg === 'all' ||
+      (queryOrg !== '' && currentConfigOrg === queryOrg);
     return {
       isRunning: this.isRunning && isThisOrg && !!this.config?.isActive,
       botUsername: isThisOrg && this.config?.username ? `@${this.config.username}` : null,
@@ -724,7 +724,8 @@ ${webUrl}
           return clean;
         };
 
-        if (!organizationId || organizationId === 'all' || this.config?.organizationId === 'all' || this.config?.assignAllAgents) {
+        const reqOrg = (organizationId || '').toLowerCase().trim();
+        if (!reqOrg || reqOrg === 'all' || this.config?.organizationId === 'all') {
           for (const k of Object.keys(history)) {
             if (history[k]) {
               history[k].conv = this.ensureValidConv(k, history[k].conv);
@@ -733,11 +734,11 @@ ${webUrl}
           }
           return history;
         }
-        // Multi-tenant: filter chats strictly for the requesting organization, or fallback to shop chats
+        // Multi-tenant: filter chats strictly for the requesting organization
         const filtered: Record<string, { conv: any; messages: any[] }> = {};
         for (const [key, value] of Object.entries(history as Record<string, { conv: any; messages: any[] }>)) {
-          const convOrg = value?.conv?.organizationId || 'org_royal';
-          if (convOrg === organizationId || convOrg === 'org_royal' || convOrg === 'all') {
+          const convOrg = (value?.conv?.organizationId || 'org_royal').toLowerCase().trim();
+          if (convOrg === reqOrg || convOrg === 'all') {
             filtered[key] = {
               ...value,
               conv: this.ensureValidConv(key, value?.conv),
