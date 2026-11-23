@@ -199,5 +199,43 @@
     ],
     "createdAt": "2026-11-18T06:01:45.178Z",
     "updatedAt": "2026-11-22T09:00:00.000Z"
+  },
+  {
+    "id": "user_nitoot",
+    "name": "nitoot",
+    "email": "nitoot@chatechat.com",
+    "phone": "09798888001",
+    "passwordHash": "9a30f7bc21126a4952f90caa403619ac8a693c5cd87bec8fb9ff82d5bb5e7424",
+    "userType": "APP",
+    "shopName": "Nitoot Official Shop",
+    "organizationId": "org_nitoot",
+    "role": "SHOP_OWNER",
+    "status": "ONLINE",
+    "maxConcurrentChats": 10,
+    "channels": [
+      "TELEGRAM"
+    ],
+    "telegramUsername": "@nitoot_bot",
+    "createdAt": "2026-11-20T00:00:00.000Z",
+    "updatedAt": "2026-11-23T00:00:00.000Z"
+  },
+  {
+    "id": "user_toon",
+    "name": "toon",
+    "email": "toon@chatechat.com",
+    "phone": "09798888002",
+    "passwordHash": "9a30f7bc21126a4952f90caa403619ac8a693c5cd87bec8fb9ff82d5bb5e7424",
+    "userType": "APP",
+    "shopName": "Toon Official Shop",
+    "organizationId": "org_toon",
+    "role": "SHOP_OWNER",
+    "status": "ONLINE",
+    "maxConcurrentChats": 10,
+    "channels": [
+      "TELEGRAM"
+    ],
+    "telegramUsername": "@toon_bot",
+    "createdAt": "2026-11-20T00:00:00.000Z",
+    "updatedAt": "2026-11-23T00:00:00.000Z"
   }
 ]

@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import https from 'node:https';
 import { Server as SocketIOServer } from 'socket.io';
+import { PersistentStore } from '../common/persistent-store.service';
 
 export async function telegramFetch(url: string, options: any = {}): Promise<any> {
   const fetchOptions = { ...options };
@@ -110,7 +111,23 @@ class TelegramPollingService {
 
   constructor() {
     this.loadConfig();
+    this.restoreChatsFromDb();
     this.startIdleHandbackChecker();
+  }
+
+  private async restoreChatsFromDb() {
+    try {
+      if (!fs.existsSync(CHATS_FILE) || fs.readFileSync(CHATS_FILE, 'utf-8').trim() === '{}') {
+        const dbChats = await PersistentStore.get<Record<string, any>>('telegram_chats');
+        if (dbChats && Object.keys(dbChats).length > 0) {
+          if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+          fs.writeFileSync(CHATS_FILE, JSON.stringify(dbChats, null, 2), 'utf-8');
+          console.log(`🌐 [PERSISTENCE] Restored ${Object.keys(dbChats).length} Telegram chats from Supabase persistent store`);
+        }
+      }
+    } catch (e: any) {
+      console.warn('⚠️ [PERSISTENCE] Telegram chats restore warning:', e?.message);
+    }
   }
 
   /**
@@ -151,9 +168,16 @@ class TelegramPollingService {
     } catch (e) {
       console.warn('⚠️ Could not load telegram-bot.json:', e);
     }
+    // Restore from Supabase persistent store
+    PersistentStore.get<TelegramBotConfig>('telegram_bots').then((dbConfig) => {
+      if (dbConfig && !this.config) {
+        this.config = dbConfig;
+        this.saveConfig(false);
+      }
+    }).catch(() => {});
   }
 
-  private saveConfig() {
+  private saveConfig(syncDb = true) {
     try {
       if (!fs.existsSync(DATA_DIR)) {
         fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -163,6 +187,9 @@ class TelegramPollingService {
       }
     } catch (e) {
       console.error('❌ Failed to save telegram config:', e);
+    }
+    if (syncDb && this.config) {
+      PersistentStore.set('telegram_bots', this.config).catch(() => {});
     }
   }
 
@@ -638,6 +665,7 @@ ${webUrl}
       if (!fs.existsSync(CHATS_FILE)) return;
       if (!organizationId || organizationId === 'all') {
         fs.writeFileSync(CHATS_FILE, JSON.stringify({}, null, 2), 'utf-8');
+        PersistentStore.set('telegram_chats', {}).catch(() => {});
         return;
       }
       const history = JSON.parse(fs.readFileSync(CHATS_FILE, 'utf-8'));
@@ -649,6 +677,8 @@ ${webUrl}
         }
       }
       fs.writeFileSync(CHATS_FILE, JSON.stringify(history, null, 2), 'utf-8');
+      PersistentStore.set('telegram_chats', history).catch(() => {});
+      PersistentStore.set('telegram_chats', history).catch(() => {});
     } catch (e) {
       console.warn('⚠️ Could not clear chats in telegram-chats.json:', e);
     }
@@ -662,6 +692,7 @@ ${webUrl}
       if (history[convId] && history[convId].conv) {
         history[convId].conv.unreadCount = 0;
         fs.writeFileSync(CHATS_FILE, JSON.stringify(history, null, 2), 'utf-8');
+      PersistentStore.set('telegram_chats', history).catch(() => {});
       }
     } catch (e) {
       console.warn('⚠️ Could not mark chat as read:', e);
@@ -701,6 +732,7 @@ ${webUrl}
       }
 
       fs.writeFileSync(CHATS_FILE, JSON.stringify(history, null, 2), 'utf-8');
+      PersistentStore.set('telegram_chats', history).catch(() => {});
     } catch (e) {
       console.warn('⚠️ Could not save message to telegram-chats.json:', e);
     }

@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { PersistentStore } from '../common/persistent-store.service';
 
 export interface DeleteAuditLog {
   id: string;
@@ -52,15 +53,41 @@ export class AuditLogService {
         this.logs = JSON.parse(raw);
       } else {
         this.logs = [];
-        this.saveToFile();
+        this.saveToFile(false);
       }
     } catch (e) {
       console.warn('⚠️ Could not load delete-logs.json, initializing empty list:', e);
       this.logs = [];
     }
+
+    // Sync from Supabase persistent store
+    this.syncFromDatabase();
   }
 
-  private saveToFile() {
+  private async syncFromDatabase() {
+    try {
+      const dbLogs = await PersistentStore.get<DeleteAuditLog[]>('delete_logs');
+      if (Array.isArray(dbLogs) && dbLogs.length > 0) {
+        const idSet = new Set(this.logs.map((l) => l.id));
+        let added = false;
+        for (const log of dbLogs) {
+          if (!idSet.has(log.id)) {
+            this.logs.push(log);
+            added = true;
+          }
+        }
+        if (added) {
+          this.logs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+          this.saveToFile(false);
+        }
+      }
+      await PersistentStore.set('delete_logs', this.logs);
+    } catch (err: any) {
+      console.warn('⚠️ [PERSISTENCE] Delete logs sync warning:', err?.message);
+    }
+  }
+
+  private saveToFile(syncDb = true) {
     try {
       if (!fs.existsSync(DATA_DIR)) {
         fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -68,6 +95,9 @@ export class AuditLogService {
       fs.writeFileSync(AUDIT_FILE, JSON.stringify(this.logs, null, 2), 'utf-8');
     } catch (e) {
       console.error('❌ Failed to save delete-logs.json:', e);
+    }
+    if (syncDb) {
+      PersistentStore.set('delete_logs', this.logs).catch(() => {});
     }
   }
 

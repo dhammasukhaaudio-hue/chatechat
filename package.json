@@ -8,8 +8,9 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run build:dashboard && npm run build:api",
-    "build:api": "npm --workspace=@chatechat/api run build",
+    "build": "npm run build:db && npm run build:dashboard && npm run build:api",
+    "build:db": "npm --workspace=@chatechat/database run build",
+    "build:api": "npm run build:db && npm --workspace=@chatechat/api run build",
     "build:dashboard": "npm --workspace=@chatechat/dashboard run build",
     "start:api": "npm --workspace=@chatechat/api run start",
     "start:dashboard": "npm --workspace=@chatechat/dashboard run start",
