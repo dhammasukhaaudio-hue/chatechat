@@ -403,6 +403,15 @@ export default function InboxPage() {
   const readStorageKey = `chatechat_read_chats_${orgId}`;
   const readChatIdsRef = useRef<Set<string>>(new Set());
 
+  // Register and start native Android 24/7 background sync & lock screen notifications
+  useEffect(() => {
+    if (typeof window !== 'undefined' && (window as any).AndroidNativeAudio?.startBackgroundSync) {
+      try {
+        (window as any).AndroidNativeAudio.startBackgroundSync(getApiBaseUrl(), orgId);
+      } catch {}
+    }
+  }, [orgId]);
+
   useEffect(() => {
     try {
       const saved = localStorage.getItem(readStorageKey);

@@ -1475,13 +1475,31 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 </div>
               </div>
 
-              <div className="p-3 bg-blue-50/70 rounded-xl border border-blue-200/60 text-xs text-blue-800 flex items-start gap-2">
-                <span className="text-base shrink-0">💡</span>
-                <p>
-                  {isMy
-                    ? 'Android ဖုန်း Settings > Apps > ChateChat > Notifications > Messages (မက်ဆေ့ခ်ျများ) ထဲတွင် Viber ကဲ့သို့ မိမိကြိုက်နှစ်သက်ရာ ဖုန်းမြည်သံ (Notification Sound) ကို စိတ်ကြိုက် ပြောင်းလဲသတ်မှတ်နိုင်ပါသည်'
-                    : 'You can customize your notification ringtone in Android Phone Settings > Apps > ChateChat > Notifications > Messages.'}
-                </p>
+              <div className="p-3 bg-blue-50/70 rounded-xl border border-blue-200/60 text-xs text-blue-800 space-y-2">
+                <div className="flex items-start gap-2">
+                  <span className="text-base shrink-0">💡</span>
+                  <p>
+                    {isMy
+                      ? 'Android ဖုန်း Settings > Apps > ChateChat > Notifications > Messages (မက်ဆေ့ခ်ျများ) ထဲတွင် Viber ကဲ့သို့ မိမိကြိုက်နှစ်သက်ရာ ဖုန်းမြည်သံ (Notification Sound) ကို စိတ်ကြိုက် ပြောင်းလဲသတ်မှတ်နိုင်ပါသည်'
+                      : 'You can customize your notification ringtone in Android Phone Settings > Apps > ChateChat > Notifications > Messages.'}
+                  </p>
+                </div>
+                {typeof window !== 'undefined' && (window as any).AndroidNativeAudio?.requestBatteryOptimizationExemption && (
+                  <div className="pt-2 border-t border-blue-200/60 flex items-center justify-between gap-2">
+                    <span className="font-medium text-slate-700">
+                      {isMy ? 'ဖုန်း Lock ကျနေချိန်တွင် Noti အသံ အမြဲတန်းထွက်စေရန်:' : 'Keep notifications active when phone is locked:'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        try { (window as any).AndroidNativeAudio.requestBatteryOptimizationExemption(); } catch {}
+                      }}
+                      className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold text-[11px] shadow-sm transition active:scale-95 shrink-0"
+                    >
+                      {isMy ? '🔋 Battery Optimization ခွင့်ပြုရန်' : '🔋 Allow Unrestricted'}
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
