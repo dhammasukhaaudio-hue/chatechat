@@ -224,18 +224,21 @@ webhookRouter.get('/telegram/chats', (req: Request, res: Response) => {
   return res.json({ success: true, chats: telegramPollingService.getSavedChats(organizationId) });
 });
 
-webhookRouter.post('/telegram/disconnect', (_req: Request, res: Response) => {
-  telegramPollingService.stop();
+webhookRouter.post('/telegram/disconnect', (req: Request, res: Response) => {
+  const organizationId = (req.body?.organizationId || req.query.organizationId as string) || undefined;
+  telegramPollingService.stop(organizationId);
   return res.json({ success: true, message: 'Telegram Bot polling disconnected and paused' });
 });
 
-webhookRouter.post('/telegram/pause', (_req: Request, res: Response) => {
-  telegramPollingService.stop();
+webhookRouter.post('/telegram/pause', (req: Request, res: Response) => {
+  const organizationId = (req.body?.organizationId || req.query.organizationId as string) || undefined;
+  telegramPollingService.stop(organizationId);
   return res.json({ success: true, message: 'Telegram Bot paused' });
 });
 
-webhookRouter.post('/telegram/stop', (_req: Request, res: Response) => {
-  telegramPollingService.stop();
+webhookRouter.post('/telegram/stop', (req: Request, res: Response) => {
+  const organizationId = (req.body?.organizationId || req.query.organizationId as string) || undefined;
+  telegramPollingService.stop(organizationId);
   return res.json({ success: true, message: 'Telegram Bot stopped' });
 });
 

@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import https from 'node:https';
 import { Server as SocketIOServer } from 'socket.io';
+import { prisma } from '@chatechat/database';
 import { PersistentStore } from '../common/persistent-store.service';
 
 export async function telegramFetch(url: string, options: any = {}): Promise<any> {
@@ -83,6 +84,7 @@ const CHATS_FILE = path.join(DATA_DIR, 'telegram-chats.json');
 
 class TelegramPollingService {
   private config: TelegramBotConfig | null = null;
+  private configs: Record<string, TelegramBotConfig> = {};
   private isRunning: boolean = false;
   private io: SocketIOServer | null = null;
   private pollAbortController: AbortController | null = null;
@@ -117,13 +119,34 @@ class TelegramPollingService {
 
   private async restoreChatsFromDb() {
     try {
-      if (!fs.existsSync(CHATS_FILE) || fs.readFileSync(CHATS_FILE, 'utf-8').trim() === '{}') {
-        const dbChats = await PersistentStore.get<Record<string, any>>('telegram_chats');
-        if (dbChats && Object.keys(dbChats).length > 0) {
-          if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-          fs.writeFileSync(CHATS_FILE, JSON.stringify(dbChats, null, 2), 'utf-8');
-          console.log(`🌐 [PERSISTENCE] Restored ${Object.keys(dbChats).length} Telegram chats from Supabase persistent store`);
+      const dbChats = await PersistentStore.get<Record<string, any>>('telegram_chats');
+      if (dbChats && Object.keys(dbChats).length > 0) {
+        if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+        let localChats: Record<string, any> = {};
+        if (fs.existsSync(CHATS_FILE)) {
+          try { localChats = JSON.parse(fs.readFileSync(CHATS_FILE, 'utf-8')); } catch {}
         }
+        // Merge Supabase chats with local chats to preserve all history across updates
+        const merged: Record<string, any> = { ...dbChats };
+        for (const [k, v] of Object.entries(localChats)) {
+          if (!merged[k]) {
+            merged[k] = v;
+          } else {
+            const existingMsgs = merged[k].messages || [];
+            const newMsgs = v.messages || [];
+            const msgMap = new Map();
+            for (const m of existingMsgs) msgMap.set(m.id, m);
+            for (const m of newMsgs) msgMap.set(m.id, m);
+            merged[k] = {
+              conv: { ...merged[k].conv, ...v.conv },
+              messages: Array.from(msgMap.values()).sort(
+                (a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+              )
+            };
+          }
+        }
+        fs.writeFileSync(CHATS_FILE, JSON.stringify(merged, null, 2), 'utf-8');
+        console.log(`🌐 [PERSISTENCE] Restored & merged ${Object.keys(merged).length} Telegram chats from Supabase persistent store`);
       }
     } catch (e: any) {
       console.warn('⚠️ [PERSISTENCE] Telegram chats restore warning:', e?.message);
@@ -163,16 +186,36 @@ class TelegramPollingService {
     try {
       if (fs.existsSync(CONFIG_FILE)) {
         const raw = fs.readFileSync(CONFIG_FILE, 'utf-8');
-        this.config = JSON.parse(raw);
+        const parsed = JSON.parse(raw);
+        if (parsed.token) {
+          const org = (parsed.organizationId || 'org_royal').toLowerCase();
+          this.configs[org] = parsed;
+          this.config = parsed;
+        } else if (typeof parsed === 'object') {
+          this.configs = parsed;
+          this.config = Object.values(this.configs)[0] || null;
+        }
       }
     } catch (e) {
       console.warn('⚠️ Could not load telegram-bot.json:', e);
     }
     // Restore from Supabase persistent store
-    PersistentStore.get<TelegramBotConfig>('telegram_bots').then((dbConfig) => {
-      if (dbConfig && !this.config) {
-        this.config = dbConfig;
-        this.saveConfig(false);
+    PersistentStore.get<Record<string, TelegramBotConfig>>('telegram_bots').then((dbConfigs) => {
+      if (dbConfigs && typeof dbConfigs === 'object') {
+        let changed = false;
+        for (const [org, cfg] of Object.entries(dbConfigs)) {
+          if (!this.configs[org]) {
+            this.configs[org] = cfg;
+            changed = true;
+          }
+        }
+        if (changed) {
+          if (!this.config) {
+            this.config = Object.values(this.configs)[0] || null;
+          }
+          this.saveConfig(false);
+          console.log(`🌐 [PERSISTENCE] Restored ${Object.keys(this.configs).length} Telegram bots from Supabase persistent store`);
+        }
       }
     }).catch(() => {});
   }
@@ -183,40 +226,48 @@ class TelegramPollingService {
         fs.mkdirSync(DATA_DIR, { recursive: true });
       }
       if (this.config) {
-        fs.writeFileSync(CONFIG_FILE, JSON.stringify(this.config, null, 2), 'utf-8');
+        const orgKey = (this.config.organizationId || 'org_royal').toLowerCase();
+        this.configs[orgKey] = { ...this.config };
       }
+      fs.writeFileSync(CONFIG_FILE, JSON.stringify(this.configs, null, 2), 'utf-8');
     } catch (e) {
       console.error('❌ Failed to save telegram config:', e);
     }
-    if (syncDb && this.config) {
-      PersistentStore.set('telegram_bots', this.config).catch(() => {});
+    if (syncDb) {
+      PersistentStore.set('telegram_bots', this.configs).catch(() => {});
     }
   }
 
   public getStatus(organizationId?: string) {
-    // Multi-tenant check: bot is active only for matching organization (or if querying 'all' for super admin)
-    const currentConfigOrg = (this.config?.organizationId || 'org_royal').toLowerCase().trim();
-    const queryOrg = (organizationId || '').toLowerCase().trim();
-    const isThisOrg =
-      queryOrg === 'all' ||
-      (queryOrg !== '' && currentConfigOrg === queryOrg);
+    const queryOrg = (organizationId || 'org_royal').toLowerCase().trim();
+    const targetConfig = queryOrg === 'all'
+      ? (this.config || Object.values(this.configs)[0] || null)
+      : (this.configs[queryOrg] || (this.config?.organizationId?.toLowerCase() === queryOrg ? this.config : null));
+
+    const isThisOrg = queryOrg === 'all' || (targetConfig && targetConfig.organizationId?.toLowerCase() === queryOrg);
+    const isBotActive = isThisOrg && !!targetConfig?.isActive;
+
     return {
-      isRunning: this.isRunning && isThisOrg && !!this.config?.isActive,
-      botUsername: isThisOrg && this.config?.username ? `@${this.config.username}` : null,
-      botName: isThisOrg ? (this.config?.firstName || null) : null,
-      botId: isThisOrg ? (this.config?.botId || null) : null,
-      isActive: isThisOrg && !!this.config?.isActive,
+      isRunning: this.isRunning && isBotActive,
+      botUsername: isThisOrg && targetConfig?.username ? `@${targetConfig.username}` : null,
+      botName: isThisOrg ? (targetConfig?.firstName || null) : null,
+      botId: isThisOrg ? (targetConfig?.botId || null) : null,
+      isActive: isBotActive,
       lastMessageTimestamp: isThisOrg ? this.lastMessageTimestamp : null,
-      lastOffset: isThisOrg ? (this.config?.lastOffset || 0) : 0,
-      organizationId: this.config?.organizationId || 'org_royal',
-      forwardWebhookUrl: isThisOrg ? (this.config?.forwardWebhookUrl || null) : null,
-      disableAutoReply: isThisOrg ? !!this.config?.disableAutoReply : false,
-      mode: isThisOrg ? (this.config?.mode || 'POLLING') : 'POLLING',
-      webhookUrl: isThisOrg ? (this.config?.webhookUrl || `https://chatechat.onrender.com/api/v1/webhooks/telegram/${this.config?.botId || 'bot'}`) : null,
+      lastOffset: isThisOrg ? (targetConfig?.lastOffset || 0) : 0,
+      organizationId: targetConfig?.organizationId || queryOrg,
+      forwardWebhookUrl: isThisOrg ? (targetConfig?.forwardWebhookUrl || null) : null,
+      disableAutoReply: isThisOrg ? !!targetConfig?.disableAutoReply : false,
+      mode: isThisOrg ? (targetConfig?.mode || 'POLLING') : 'POLLING',
+      webhookUrl: isThisOrg ? (targetConfig?.webhookUrl || `https://chatechat.onrender.com/api/v1/webhooks/telegram/${targetConfig?.botId || 'bot'}`) : null,
     };
   }
 
-  public getSavedToken(): string | null {
+  public getSavedToken(organizationId?: string): string | null {
+    if (organizationId) {
+      const orgKey = organizationId.toLowerCase().trim();
+      if (this.configs[orgKey]?.token) return this.configs[orgKey].token;
+    }
     return this.config?.token || null;
   }
 
@@ -286,6 +337,7 @@ class TelegramPollingService {
       }
 
       // 3. Update configuration
+      const orgKey = (organizationId || 'org_royal').toLowerCase();
       this.config = {
         token: cleanToken,
         botId: bot.id.toString(),
@@ -293,14 +345,43 @@ class TelegramPollingService {
         firstName: bot.first_name || 'Telegram Bot',
         organizationId,
         isActive: true,
-        lastOffset: this.config?.lastOffset || 0,
+        lastOffset: this.configs[orgKey]?.lastOffset || this.config?.lastOffset || 0,
         forwardWebhookUrl: effectiveMode === 'POLLING' ? undefined : (options?.forwardWebhookUrl?.trim() || undefined),
         disableAutoReply: effectiveMode === 'POLLING' ? false : (options?.disableAutoReply ?? false),
         mode: effectiveMode,
         webhookUrl,
         assignAllAgents: options?.assignAllAgents ?? true,
       };
+      this.configs[orgKey] = { ...this.config };
       this.saveConfig();
+
+      if (prisma && typeof prisma.channelConnection?.upsert === 'function') {
+        const orgId = organizationId || 'org_royal';
+        prisma.channelConnection.upsert({
+          where: {
+            organizationId_channelType_identifier: {
+              organizationId: orgId,
+              channelType: 'TELEGRAM',
+              identifier: bot.username || bot.id.toString(),
+            }
+          },
+          update: {
+            accountName: bot.first_name || 'Telegram Bot',
+            isActive: true,
+            credentials: { token: cleanToken, botId: bot.id.toString() },
+            syncStatus: 'HEALTHY',
+          },
+          create: {
+            organizationId: orgId,
+            channelType: 'TELEGRAM',
+            accountName: bot.first_name || 'Telegram Bot',
+            identifier: bot.username || bot.id.toString(),
+            isActive: true,
+            credentials: { token: cleanToken, botId: bot.id.toString() },
+            syncStatus: 'HEALTHY',
+          }
+        }).catch((e: any) => console.warn('⚠️ [PERSISTENCE] Prisma channel_connection sync warning:', e?.message));
+      }
 
       return {
         success: true,
@@ -321,7 +402,7 @@ class TelegramPollingService {
   /**
    * Stop polling
    */
-  public stop() {
+  public stop(organizationId?: string) {
     this.isRunning = false;
     if (this.pollAbortController) {
       try {
@@ -329,10 +410,28 @@ class TelegramPollingService {
       } catch {}
       this.pollAbortController = null;
     }
-    if (this.config) {
+    if (organizationId) {
+      const orgKey = organizationId.toLowerCase().trim();
+      if (this.configs[orgKey]) {
+        this.configs[orgKey].isActive = false;
+      }
+      if (this.config && (this.config.organizationId || 'org_royal').toLowerCase() === orgKey) {
+        this.config.isActive = false;
+      }
+      if (prisma && typeof prisma.channelConnection?.updateMany === 'function') {
+        prisma.channelConnection.updateMany({
+          where: { organizationId, channelType: 'TELEGRAM' },
+          data: { isActive: false },
+        }).catch(() => {});
+      }
+    } else if (this.config) {
       this.config.isActive = false;
-      this.saveConfig();
+      const orgKey = (this.config.organizationId || 'org_royal').toLowerCase();
+      if (this.configs[orgKey]) {
+        this.configs[orgKey].isActive = false;
+      }
     }
+    this.saveConfig();
     console.log('🛑 [TELEGRAM] Polling stopped');
   }
 

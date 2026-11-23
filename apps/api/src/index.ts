@@ -3,11 +3,13 @@ if (typeof dns.setDefaultResultOrder === 'function') {
   dns.setDefaultResultOrder('ipv4first');
 }
 
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express from 'express';
 import http from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
 import { webhookRouter } from './modules/webhooks/webhook.controller';
@@ -20,8 +22,6 @@ import { getAdminPortalHtml } from './modules/admin/admin-view';
 import { SOCKET_EVENTS } from '@chatechat/shared-types';
 import { OutboundService } from './modules/chat/outbound.service';
 import { telegramPollingService } from './modules/webhooks/telegram-polling.service';
-
-dotenv.config();
 
 const app = express();
 const server = http.createServer(app);

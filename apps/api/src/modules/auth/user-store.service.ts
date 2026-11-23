@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import { prisma } from '@chatechat/database';
 import { PersistentStore } from '../common/persistent-store.service';
 
 export interface StoredUser {
@@ -357,26 +358,80 @@ class UserStoreService {
       if (Array.isArray(dbUsers) && dbUsers.length > 0) {
         let hasChanges = false;
         for (const remoteUser of dbUsers) {
-          const exists = this.users.some(
+          const localIndex = this.users.findIndex(
             (u) =>
               u.id === remoteUser.id ||
               u.email?.toLowerCase() === remoteUser.email?.toLowerCase() ||
               u.name?.toLowerCase() === remoteUser.name?.toLowerCase()
           );
-          if (!exists) {
+          if (localIndex === -1) {
             this.users.push(this.normalizeUser(remoteUser));
             hasChanges = true;
+          } else {
+            // Keep remote state (passwordHash, profile changes) if remote is newer or has updated fields
+            const local = this.users[localIndex];
+            if (
+              remoteUser.passwordHash !== local.passwordHash ||
+              (remoteUser.updatedAt && (!local.updatedAt || new Date(remoteUser.updatedAt) >= new Date(local.updatedAt)))
+            ) {
+              this.users[localIndex] = this.normalizeUser({ ...local, ...remoteUser });
+              hasChanges = true;
+            }
           }
         }
         if (hasChanges) {
-          console.log(`🌐 [PERSISTENCE] Restored ${this.users.length} users from Supabase persistent store`);
+          console.log(`🌐 [PERSISTENCE] Restored ${this.users.length} users with latest data from Supabase persistent store`);
           this.saveToFile(false);
         }
       }
-      // Upsert latest combined list back to Supabase
+      // Upsert latest combined list back to Supabase persistent store
       await PersistentStore.set('users', this.users);
+      // Sync into Prisma PostgreSQL users & organizations tables
+      await this.syncToPrismaTables();
     } catch (err: any) {
       console.warn('⚠️ [PERSISTENCE] Database user sync warning:', err?.message);
+    }
+  }
+
+  private async syncToPrismaTables() {
+    try {
+      if (prisma && typeof prisma.organization?.upsert === 'function') {
+        for (const u of this.users) {
+          const orgId = u.organizationId || 'org_royal';
+          const orgName = u.shopName || (orgId === 'org_royal' ? 'Royal Fashion Myanmar' : `${u.name}'s Shop`);
+          const slug = orgId.replace(/^org_/, '').replace(/[^a-z0-9-]/g, '-');
+
+          await prisma.organization.upsert({
+            where: { id: orgId },
+            update: { name: orgName },
+            create: { id: orgId, name: orgName, slug: `${slug}-${orgId}` },
+          }).catch(() => {});
+
+          await prisma.user.upsert({
+            where: { email: u.email },
+            update: {
+              name: u.name,
+              phone: u.phone,
+              passwordHash: u.passwordHash,
+              role: (u.role === 'SUPER_ADMIN' || u.role === 'ADMIN') ? 'ADMIN' : (u.role === 'OWNER' || u.role === 'SHOP_OWNER') ? 'OWNER' : 'AGENT',
+              status: u.status === 'ONLINE' ? 'ONLINE' : 'OFFLINE',
+              organizationId: orgId,
+            },
+            create: {
+              id: u.id,
+              email: u.email,
+              name: u.name,
+              phone: u.phone,
+              passwordHash: u.passwordHash,
+              role: (u.role === 'SUPER_ADMIN' || u.role === 'ADMIN') ? 'ADMIN' : (u.role === 'OWNER' || u.role === 'SHOP_OWNER') ? 'OWNER' : 'AGENT',
+              status: u.status === 'ONLINE' ? 'ONLINE' : 'OFFLINE',
+              organizationId: orgId,
+            },
+          }).catch(() => {});
+        }
+      }
+    } catch (e: any) {
+      console.warn('⚠️ [PERSISTENCE] Prisma tables sync warning:', e?.message);
     }
   }
 
@@ -391,6 +446,7 @@ class UserStoreService {
     }
     if (syncDb) {
       PersistentStore.set('users', this.users).catch(() => {});
+      this.syncToPrismaTables().catch(() => {});
     }
   }
 
@@ -523,8 +579,14 @@ class UserStoreService {
       );
       const memberIdsToDelete = new Set([targetUser.id, ...cascadeMembers.map((m) => m.id)]);
       this.users = this.users.filter((u) => !memberIdsToDelete.has(u.id));
+      if (prisma && typeof prisma.user?.deleteMany === 'function') {
+        prisma.user.deleteMany({ where: { id: { in: Array.from(memberIdsToDelete) } } }).catch(() => {});
+      }
     } else {
       this.users = this.users.filter((u) => u.id !== id);
+      if (prisma && typeof prisma.user?.deleteMany === 'function') {
+        prisma.user.deleteMany({ where: { id } }).catch(() => {});
+      }
     }
 
     this.saveToFile();
