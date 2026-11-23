@@ -42,6 +42,12 @@ export function useSocket({
         (window as any).playAlertChime();
         return;
       }
+      if ((window as any).AndroidNativeAudio) {
+        try {
+          (window as any).AndroidNativeAudio.playNotificationSound?.();
+          (window as any).AndroidNativeAudio.vibrate?.(220);
+        } catch {}
+      }
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
       if (!AudioCtx) return;
       const ctx = new AudioCtx();

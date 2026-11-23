@@ -266,6 +266,29 @@ let sharedAudioCtx: AudioContext | null = null;
 const playAlertChime = () => {
   try {
     if (typeof window === 'undefined') return;
+
+    // 1. Android Native APK Bridge (Plays system notification tone & triggers device vibration)
+    if ((window as any).AndroidNativeAudio) {
+      try {
+        if (typeof (window as any).AndroidNativeAudio.playNotificationSound === 'function') {
+          (window as any).AndroidNativeAudio.playNotificationSound();
+        }
+        if (typeof (window as any).AndroidNativeAudio.vibrate === 'function') {
+          (window as any).AndroidNativeAudio.vibrate(220);
+        }
+      } catch (nativeErr) {
+        console.warn('AndroidNativeAudio failed:', nativeErr);
+      }
+    }
+
+    // 2. Mobile Web / Browser haptic vibration fallback
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      try {
+        navigator.vibrate([120, 60, 140]);
+      } catch {}
+    }
+
+    // 3. Web Audio Context Synthesizer (2-Tone chime: G5 784Hz -> C6 1046.5Hz)
     const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
     if (!AudioCtx) return;
     if (!sharedAudioCtx || sharedAudioCtx.state === 'closed') {
@@ -276,14 +299,6 @@ const playAlertChime = () => {
       ctx.resume().catch(() => {});
     }
 
-    // Mobile haptic vibration if supported (Android / mobile devices)
-    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-      try {
-        navigator.vibrate([120, 60, 140]);
-      } catch {}
-    }
-
-    // Melodic two-tone alert chime (G5 784Hz -> C6 1046.5Hz)
     const now = ctx.currentTime;
     
     // First tone
@@ -291,7 +306,7 @@ const playAlertChime = () => {
     const gain1 = ctx.createGain();
     osc1.type = 'sine';
     osc1.frequency.setValueAtTime(783.99, now);
-    gain1.gain.setValueAtTime(0.18, now);
+    gain1.gain.setValueAtTime(0.20, now);
     gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
     osc1.connect(gain1);
     gain1.connect(ctx.destination);
@@ -303,7 +318,7 @@ const playAlertChime = () => {
     const gain2 = ctx.createGain();
     osc2.type = 'sine';
     osc2.frequency.setValueAtTime(1046.50, now + 0.12);
-    gain2.gain.setValueAtTime(0.22, now + 0.12);
+    gain2.gain.setValueAtTime(0.24, now + 0.12);
     gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.40);
     osc2.connect(gain2);
     gain2.connect(ctx.destination);
@@ -336,6 +351,7 @@ export default function InboxPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const activeConvIdRef = useRef<string | null>(activeConversationId);
+  const hasInitializedChatsRef = useRef<boolean>(false);
   useEffect(() => {
     activeConvIdRef.current = activeConversationId;
   }, [activeConversationId]);
@@ -670,6 +686,7 @@ export default function InboxPage() {
                 setMessages((prev) => {
                   let updated = { ...prev };
                   let hasNewMsg = false;
+                  let hasNewCustomerMsg = false;
                   for (const key of chatKeys) {
                     const entry = chats[key];
                     if (entry && Array.isArray(entry.messages)) {
@@ -732,8 +749,22 @@ export default function InboxPage() {
                       if (isDifferent) {
                         updated[key] = combined;
                         hasNewMsg = true;
+
+                        // Trigger alert chime when new customer messages arrive
+                        if (hasInitializedChatsRef.current) {
+                          const prevIdSet = new Set(prevList.map((m) => m.id));
+                          const newCustMsgs = combined.filter(
+                            (m) => !prevIdSet.has(m.id) && m.senderType === 'CUSTOMER'
+                          );
+                          if (newCustMsgs.length > 0) {
+                            hasNewCustomerMsg = true;
+                          }
+                        }
                       }
                     }
+                  }
+                  if (hasNewCustomerMsg) {
+                    playAlertChime();
                   }
                   if (hasNewMsg) {
                     try { localStorage.setItem(msgStorageKey, JSON.stringify(updated)); } catch {}
@@ -741,6 +772,7 @@ export default function InboxPage() {
                   }
                   return prev;
                 });
+                hasInitializedChatsRef.current = true;
               }
             }
           })
