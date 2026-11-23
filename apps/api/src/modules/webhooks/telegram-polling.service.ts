@@ -508,10 +508,13 @@ class TelegramPollingService {
 
     // =========================================================================
     // Automated Bot Responder: "/start", "hi", "hello", "apk", "download"
+    // STRICT GUARD: ONLY send ChateChat APK promotion if this bot is explicitly @chatechatbot
+    // Never send ChateChat APK download links to external bots (like @Salone4dOfficialBot or shops)
     // =========================================================================
     const isAutoReplyDisabled = !!this.config?.disableAutoReply;
+    const isChateChatBot = (this.config?.username || '').toLowerCase() === 'chatechatbot';
 
-    if (!isAutoReplyDisabled && !callback) {
+    if (!isAutoReplyDisabled && !callback && isChateChatBot) {
       const lowerText = text.trim().toLowerCase();
       const isStartCmd = lowerText.startsWith('/start');
       const isGreeting = lowerText === 'hi' || lowerText === 'hello' || lowerText === 'hey' || lowerText.includes('မင်္ဂလာပါ');
