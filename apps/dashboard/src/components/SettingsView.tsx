@@ -1447,7 +1447,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   type="button"
                   onClick={() => {
                     if (typeof (window as any).playAlertChime === 'function') {
-                      (window as any).playAlertChime();
+                      (window as any).playAlertChime(
+                        'ChateChat (အသံစမ်းသပ်မှု)',
+                        '🔊 မက်ဆေ့ခ်ျဝင်သံနှင့် အသိပေးချက် အောင်မြင်စွာ အလုပ်လုပ်နေပါသည် (Test Sound & Notification)'
+                      );
                     }
                   }}
                   className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm transition active:scale-95 shrink-0"
@@ -1470,6 +1473,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     {isMy ? 'မိုဘိုင်းဖုန်း တုန်ခါမှု အချက်ပေးစနစ် (Mobile Haptic Vibration)' : 'Mobile Haptic Vibration Alert'}
                   </span>
                 </div>
+              </div>
+
+              <div className="p-3 bg-blue-50/70 rounded-xl border border-blue-200/60 text-xs text-blue-800 flex items-start gap-2">
+                <span className="text-base shrink-0">💡</span>
+                <p>
+                  {isMy
+                    ? 'Android ဖုန်း Settings > Apps > ChateChat > Notifications > Messages (မက်ဆေ့ခ်ျများ) ထဲတွင် Viber ကဲ့သို့ မိမိကြိုက်နှစ်သက်ရာ ဖုန်းမြည်သံ (Notification Sound) ကို စိတ်ကြိုက် ပြောင်းလဲသတ်မှတ်နိုင်ပါသည်'
+                    : 'You can customize your notification ringtone in Android Phone Settings > Apps > ChateChat > Notifications > Messages.'}
+                </p>
               </div>
             </div>
           </div>

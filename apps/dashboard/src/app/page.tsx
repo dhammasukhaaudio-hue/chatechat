@@ -263,18 +263,23 @@ const INITIAL_MESSAGES: Record<string, Message[]> = {
 // Web Audio Alert Chime for Incoming Customer Messages & Mobile Notifications
 let sharedAudioCtx: AudioContext | null = null;
 
-const playAlertChime = () => {
+const playAlertChime = (title?: string, messageText?: string) => {
   try {
     if (typeof window === 'undefined') return;
 
-    // 1. Android Native APK Bridge (Plays system notification tone & triggers device vibration)
+    // 1. Android Native APK Bridge (Shows real Android System Notification + Heads-up Popup + Ringtone + Vibration)
     if ((window as any).AndroidNativeAudio) {
       try {
-        if (typeof (window as any).AndroidNativeAudio.playNotificationSound === 'function') {
+        if (typeof (window as any).AndroidNativeAudio.showNotification === 'function') {
+          (window as any).AndroidNativeAudio.showNotification(
+            title || 'ChateChat (ချိတ်ချက်)',
+            messageText || 'မက်ဆေ့ခ်ျအသစ် ရောက်ရှိလာပါသည်'
+          );
+        } else if (typeof (window as any).AndroidNativeAudio.playNotificationSound === 'function') {
           (window as any).AndroidNativeAudio.playNotificationSound();
         }
         if (typeof (window as any).AndroidNativeAudio.vibrate === 'function') {
-          (window as any).AndroidNativeAudio.vibrate(220);
+          (window as any).AndroidNativeAudio.vibrate(250);
         }
       } catch (nativeErr) {
         console.warn('AndroidNativeAudio failed:', nativeErr);
@@ -365,6 +370,12 @@ export default function InboxPage() {
   useEffect(() => {
     if (typeof window !== 'undefined' && window.innerWidth < 1024) {
       setActiveConversationId(null);
+    }
+    // Prompt Android system notification permission on mobile APK launch
+    if (typeof window !== 'undefined' && (window as any).AndroidNativeAudio?.requestNotificationPermission) {
+      try {
+        (window as any).AndroidNativeAudio.requestNotificationPermission();
+      } catch {}
     }
   }, []);
 
@@ -687,6 +698,7 @@ export default function InboxPage() {
                   let updated = { ...prev };
                   let hasNewMsg = false;
                   let hasNewCustomerMsg = false;
+                  let latestCustMsgSnippet: any = null;
                   for (const key of chatKeys) {
                     const entry = chats[key];
                     if (entry && Array.isArray(entry.messages)) {
@@ -758,13 +770,16 @@ export default function InboxPage() {
                           );
                           if (newCustMsgs.length > 0) {
                             hasNewCustomerMsg = true;
+                            latestCustMsgSnippet = newCustMsgs[newCustMsgs.length - 1];
                           }
                         }
                       }
                     }
                   }
                   if (hasNewCustomerMsg) {
-                    playAlertChime();
+                    const title = latestCustMsgSnippet?.senderName || 'Customer (Telegram)';
+                    const snippet = latestCustMsgSnippet?.content || 'မက်ဆေ့ခ်ျအသစ် ရောက်ရှိလာပါသည်';
+                    playAlertChime(title, snippet);
                   }
                   if (hasNewMsg) {
                     try { localStorage.setItem(msgStorageKey, JSON.stringify(updated)); } catch {}
