@@ -25,9 +25,9 @@ export const ChateChatLogo: React.FC<ChateChatLogoProps> = ({
 
   return (
     <div className={`inline-flex items-center gap-2.5 ${className}`}>
-      {/* 3D Frosted Glassmorphism Icon (Exact Variation 03 Render) */}
+      {/* 3D Frosted Grey Chat Bubble Logo (Transparent Standalone Icon) */}
       <div
-        className={`relative shrink-0 select-none overflow-hidden ${dim.rounded} shadow-[0_6px_20px_rgba(37,99,235,0.35)] border border-white/20`}
+        className="relative shrink-0 select-none flex items-center justify-center filter drop-shadow-[0_4px_12px_rgba(37,99,235,0.25)]"
         style={{ width: dim.px, height: dim.px }}
       >
         <img
@@ -35,7 +35,7 @@ export const ChateChatLogo: React.FC<ChateChatLogoProps> = ({
           alt="ChateChat Logo"
           width={dim.px}
           height={dim.px}
-          className="w-full h-full object-cover select-none pointer-events-none"
+          className="w-full h-full object-contain select-none pointer-events-none"
         />
       </div>
 
