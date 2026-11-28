@@ -262,28 +262,47 @@ const INITIAL_MESSAGES: Record<string, Message[]> = {
 
 // Web Audio Alert Chime for Incoming Customer Messages & Mobile Notifications
 let sharedAudioCtx: AudioContext | null = null;
+const notifiedMsgIds = new Set<string>();
+const recentNotifByContent = new Map<string, number>();
 
-const playAlertChime = (title?: string, messageText?: string) => {
+const playAlertChime = (title?: string, messageText?: string, messageId?: string) => {
   try {
     if (typeof window === 'undefined') return;
 
-    // 1. Android Native APK Bridge (Shows real Android System Notification + Heads-up Popup + Ringtone + Vibration)
+    const cleanId = messageId ? String(messageId).trim() : '';
+    if (cleanId) {
+      if (notifiedMsgIds.has(cleanId)) return;
+      if (notifiedMsgIds.size > 2000) notifiedMsgIds.clear();
+      notifiedMsgIds.add(cleanId);
+    }
+
+    const cleanTitle = (title || 'ChateChat (ချိတ်ချက်)').trim();
+    const cleanBody = (messageText || 'မက်ဆေ့ခ်ျအသစ် ရောက်ရှိလာပါသည်').trim();
+    const dedupeKey = `${cleanTitle}|${cleanBody}`;
+    const nowMs = Date.now();
+    recentNotifByContent.forEach((ts, k) => {
+      if (nowMs - ts > 60000) recentNotifByContent.delete(k);
+    });
+    const prevSameTs = recentNotifByContent.get(dedupeKey);
+    if (prevSameTs && nowMs - prevSameTs < 10000) {
+      return;
+    }
+    recentNotifByContent.set(dedupeKey, nowMs);
+
+    // 1. Android Native APK Bridge (Handles notification + system sound + vibration once)
     if ((window as any).AndroidNativeAudio) {
       try {
-        if (typeof (window as any).AndroidNativeAudio.showNotification === 'function') {
-          (window as any).AndroidNativeAudio.showNotification(
-            title || 'ChateChat (ချိတ်ချက်)',
-            messageText || 'မက်ဆေ့ခ်ျအသစ် ရောက်ရှိလာပါသည်'
-          );
+        if (typeof (window as any).AndroidNativeAudio.showNotificationWithId === 'function') {
+          (window as any).AndroidNativeAudio.showNotificationWithId(cleanId, cleanTitle, cleanBody);
+        } else if (typeof (window as any).AndroidNativeAudio.showNotification === 'function') {
+          (window as any).AndroidNativeAudio.showNotification(cleanTitle, cleanBody);
         } else if (typeof (window as any).AndroidNativeAudio.playNotificationSound === 'function') {
           (window as any).AndroidNativeAudio.playNotificationSound();
-        }
-        if (typeof (window as any).AndroidNativeAudio.vibrate === 'function') {
-          (window as any).AndroidNativeAudio.vibrate(250);
         }
       } catch (nativeErr) {
         console.warn('AndroidNativeAudio failed:', nativeErr);
       }
+      return;
     }
 
     // 2. Mobile Web / Browser haptic vibration fallback
@@ -357,6 +376,7 @@ export default function InboxPage() {
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const activeConvIdRef = useRef<string | null>(activeConversationId);
   const hasInitializedChatsRef = useRef<boolean>(false);
+  const deletedChatsRef = useRef<Map<string, number>>(new Map());
   useEffect(() => {
     activeConvIdRef.current = activeConversationId;
   }, [activeConversationId]);
@@ -365,6 +385,28 @@ export default function InboxPage() {
   const [showMobileProfile, setShowMobileProfile] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [profileInitialTab, setProfileInitialTab] = useState<'info' | 'password'>('info');
+  const [actionMenuConvId, setActionMenuConvId] = useState<string | null>(null);
+  const [statusToast, setStatusToast] = useState<string | null>(null);
+  const statusToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showToastMessage = (msg: string) => {
+    setStatusToast(msg);
+    if (statusToastTimerRef.current) clearTimeout(statusToastTimerRef.current);
+    statusToastTimerRef.current = setTimeout(() => {
+      setStatusToast(null);
+    }, 2500);
+  };
+
+  const activeNavRef = useRef(activeNav);
+  activeNavRef.current = activeNav;
+  const isMobileMenuOpenRef = useRef(isMobileMenuOpen);
+  isMobileMenuOpenRef.current = isMobileMenuOpen;
+  const showMobileProfileRef = useRef(showMobileProfile);
+  showMobileProfileRef.current = showMobileProfile;
+  const showProfileModalRef = useRef(showProfileModal);
+  showProfileModalRef.current = showProfileModal;
+  const actionMenuConvIdRef = useRef(actionMenuConvId);
+  actionMenuConvIdRef.current = actionMenuConvId;
 
   // Responsive: On mobile screens upon initial load, show conversation list instead of defaulting to a selected chat
   useEffect(() => {
@@ -377,6 +419,61 @@ export default function InboxPage() {
         (window as any).AndroidNativeAudio.requestNotificationPermission();
       } catch {}
     }
+  }, []);
+
+  // Handle Android hardware/gesture Back & Mobile browser back navigation
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    (window as any).__chatechatHandleBack = () => {
+      if (showProfileModalRef.current) {
+        setShowProfileModal(false);
+        return true;
+      }
+      if (showMobileProfileRef.current) {
+        setShowMobileProfile(false);
+        return true;
+      }
+      if (isMobileMenuOpenRef.current) {
+        setIsMobileMenuOpen(false);
+        return true;
+      }
+      if (actionMenuConvIdRef.current) {
+        setActionMenuConvId(null);
+        return true;
+      }
+      if (activeNavRef.current === 'inbox' && activeConvIdRef.current) {
+        setActiveConversationId(null);
+        activeConvIdRef.current = null;
+        return true;
+      }
+      if (activeNavRef.current !== 'inbox') {
+        setActiveNav('inbox');
+        return true;
+      }
+      return false;
+    };
+
+    const handlePopState = () => {
+      if (showMobileProfileRef.current) {
+        setShowMobileProfile(false);
+        return;
+      }
+      if (actionMenuConvIdRef.current) {
+        setActionMenuConvId(null);
+        return;
+      }
+      if (activeNavRef.current === 'inbox' && activeConvIdRef.current) {
+        setActiveConversationId(null);
+        activeConvIdRef.current = null;
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      delete (window as any).__chatechatHandleBack;
+    };
   }, []);
 
   // Authentication State for Frontend (:3000)
@@ -654,6 +751,12 @@ export default function InboxPage() {
                     const entry = chats[key];
                     if (entry && entry.conv) {
                       const rawConv = entry.conv;
+                      const resolvedConvId = rawConv.id || key;
+                      const deletedAt = deletedChatsRef.current.get(resolvedConvId);
+                      const convTime = rawConv.lastMessageAt ? new Date(rawConv.lastMessageAt).getTime() : 0;
+                      if (deletedAt && convTime <= deletedAt + 2000) {
+                        continue;
+                      }
                       const safeCustomer = rawConv.customer || {
                         id: rawConv.customerId || `cust_${key}`,
                         name: rawConv.customerName || (rawConv.externalThreadId ? `@${rawConv.externalThreadId}` : 'Telegram Customer'),
@@ -662,7 +765,7 @@ export default function InboxPage() {
                       };
                       const safeConv: Conversation = {
                         ...rawConv,
-                        id: rawConv.id || key,
+                        id: resolvedConvId,
                         channelType: rawConv.channelType || 'TELEGRAM',
                         customer: safeCustomer,
                       };
@@ -675,6 +778,7 @@ export default function InboxPage() {
                           updated[idx].lastMessageAt !== safeConv.lastMessageAt ||
                           updated[idx].lastMessageSnippet !== safeConv.lastMessageSnippet ||
                           updated[idx].handoverStatus !== safeConv.handoverStatus ||
+                          updated[idx].status !== safeConv.status ||
                           updated[idx].unreadCount !== targetUnread ||
                           !updated[idx].customer
                         ) {
@@ -710,6 +814,12 @@ export default function InboxPage() {
                   let latestCustMsgSnippet: any = null;
                   for (const key of chatKeys) {
                     const entry = chats[key];
+                    const convIdForEntry = entry?.conv?.id || key;
+                    const deletedAt = deletedChatsRef.current.get(convIdForEntry);
+                    const entryTime = entry?.conv?.lastMessageAt ? new Date(entry.conv.lastMessageAt).getTime() : 0;
+                    if (deletedAt && entryTime <= deletedAt + 2000) {
+                      continue;
+                    }
                     if (entry && Array.isArray(entry.messages)) {
                       // Deduplicate server messages by id AND content/sender/timestamp
                       const cleanServerMessages: Message[] = [];
@@ -767,28 +877,37 @@ export default function InboxPage() {
                         prevList.length !== combined.length ||
                         prevList[prevList.length - 1]?.id !== combined[combined.length - 1]?.id;
 
+                      if (!hasInitializedChatsRef.current) {
+                        for (const m of combined) {
+                          if (m.id) notifiedMsgIds.add(m.id);
+                        }
+                      }
+
                       if (isDifferent) {
                         updated[key] = combined;
                         hasNewMsg = true;
 
-                        // Trigger alert chime when new customer messages arrive
+                        // Trigger alert chime once for genuinely unseen inbound customer messages
                         if (hasInitializedChatsRef.current) {
                           const prevIdSet = new Set(prevList.map((m) => m.id));
                           const newCustMsgs = combined.filter(
-                            (m) => !prevIdSet.has(m.id) && m.senderType === 'CUSTOMER'
+                            (m) => !prevIdSet.has(m.id) && !notifiedMsgIds.has(m.id) && m.senderType === 'CUSTOMER'
                           );
                           if (newCustMsgs.length > 0) {
                             hasNewCustomerMsg = true;
+                            for (let i = 0; i < newCustMsgs.length - 1; i++) {
+                              if (newCustMsgs[i].id) notifiedMsgIds.add(newCustMsgs[i].id);
+                            }
                             latestCustMsgSnippet = newCustMsgs[newCustMsgs.length - 1];
                           }
                         }
                       }
                     }
                   }
-                  if (hasNewCustomerMsg) {
+                  if (hasNewCustomerMsg && latestCustMsgSnippet) {
                     const title = latestCustMsgSnippet?.senderName || 'Customer (Telegram)';
                     const snippet = latestCustMsgSnippet?.content || 'မက်ဆေ့ခ်ျအသစ် ရောက်ရှိလာပါသည်';
-                    playAlertChime(title, snippet);
+                    playAlertChime(title, snippet, latestCustMsgSnippet?.id);
                   }
                   if (hasNewMsg) {
                     try { localStorage.setItem(msgStorageKey, JSON.stringify(updated)); } catch {}
@@ -888,7 +1007,7 @@ export default function InboxPage() {
                   fetch(`${getApiBaseUrl()}/api/v1/webhooks/telegram/resolve`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ chatId: tgChatId }),
+                    body: JSON.stringify({ chatId: tgChatId, isAutoHandback: true, markResolved: false }),
                   }).catch(() => {});
                 }
               }
@@ -1021,7 +1140,28 @@ export default function InboxPage() {
     onIncomingMessage: (data) => {
       const { message, conversation } = data;
       if (!message || !message.conversationId) return;
+
+      // Isolate across organizations
+      if (
+        conversation?.organizationId &&
+        conversation.organizationId.toLowerCase() !== orgId.toLowerCase() &&
+        conversation.organizationId !== 'all'
+      ) {
+        return;
+      }
+
       const convId = message.conversationId;
+      const deletedAt = deletedChatsRef.current.get(convId);
+      const msgTime = message.createdAt ? new Date(message.createdAt).getTime() : Date.now();
+      if (deletedAt && msgTime <= deletedAt + 2000) {
+        return;
+      }
+
+      if (message.senderType === 'CUSTOMER' && !notifiedMsgIds.has(message.id)) {
+        const notifTitle = conversation?.customer?.name || message.senderName || 'Customer';
+        playAlertChime(notifTitle, message.content, message.id);
+      }
+
       const isCurrentlyActive = activeConvIdRef.current === convId;
 
       setMessages((prev) => {
@@ -1055,6 +1195,7 @@ export default function InboxPage() {
                 c.id === conversation.id
                   ? {
                       ...c,
+                      status: (message.senderType === 'CUSTOMER' ? 'ACTIVE' : c.status) as ConversationStatus,
                       lastMessageSnippet: message.content,
                       lastMessageAt: message.createdAt,
                       unreadCount: isCurrentlyActive ? 0 : (c.unreadCount || 0) + (message.senderType === 'CUSTOMER' ? 1 : 0),
@@ -1062,7 +1203,7 @@ export default function InboxPage() {
                     }
                   : c
               )
-            : [{ ...conversation, unreadCount: isCurrentlyActive ? 0 : 1 }, ...prev];
+            : [{ ...conversation, status: 'ACTIVE' as ConversationStatus, unreadCount: isCurrentlyActive ? 0 : 1 }, ...prev];
           next.sort((a, b) => {
             const timeA = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
             const timeB = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
@@ -1161,7 +1302,9 @@ export default function InboxPage() {
 
   const activeConversation = conversations.find((c) => c.id === activeConversationId) || null;
   const currentMessages = activeConversationId ? messages[activeConversationId] || [] : [];
-  const unreadTotal = conversations.reduce((acc, curr) => acc + (curr.unreadCount || 0), 0);
+  const unreadTotal = conversations
+    .filter((c) => c.status !== 'RESOLVED')
+    .reduce((acc, curr) => acc + (curr.unreadCount || 0), 0);
 
   const handleSendMessage = async (content: string, isInternal: boolean) => {
     if (!activeConversationId) return;
@@ -1287,27 +1430,23 @@ export default function InboxPage() {
     });
   };
 
-  const handleResolve = () => {
-    if (!activeConversationId) return;
-    const currentConv = conversations.find((c) => c.id === activeConversationId);
-    if (currentConv?.channelType === 'TELEGRAM') {
-      const tgChatId = currentConv.externalThreadId?.replace(/^tg_/, '');
-      if (tgChatId) {
-        fetch(`${getApiBaseUrl()}/api/v1/webhooks/telegram/resolve`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chatId: tgChatId }),
-        }).catch(() => {});
-      }
-    }
+  const handleResolveConversation = (targetId: string) => {
+    if (!targetId) return;
+    const targetConv = conversations.find((c) => c.id === targetId);
+
+    readChatIdsRef.current.add(targetId);
+    try {
+      localStorage.setItem(readStorageKey, JSON.stringify(Array.from(readChatIdsRef.current)));
+    } catch {}
 
     setConversations((prev) => {
       const next = prev.map((c) =>
-        c.id === activeConversationId
+        c.id === targetId
           ? {
               ...c,
               status: 'RESOLVED' as ConversationStatus,
               handoverStatus: 'BOT_HANDLING' as HandoverStatus,
+              unreadCount: 0,
             }
           : c
       );
@@ -1315,6 +1454,102 @@ export default function InboxPage() {
       try { localStorage.setItem(convStorageKey, JSON.stringify(next)); } catch {}
       return next;
     });
+
+    if (activeConvIdRef.current === targetId) {
+      setActiveConversationId(null);
+      activeConvIdRef.current = null;
+    }
+
+    if (targetConv?.channelType === 'TELEGRAM' || targetId.startsWith('conv_tg_')) {
+      const tgChatId = (targetConv?.externalThreadId || targetId).replace(/^conv_tg_/, '').replace(/^tg_/, '');
+      fetch(`${getApiBaseUrl()}/api/v1/webhooks/telegram/resolve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chatId: tgChatId, convId: targetId, markResolved: true }),
+      }).catch(() => {});
+    } else {
+      fetch(`${getApiBaseUrl()}/api/v1/chat/conversations/${encodeURIComponent(targetId)}/resolve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      }).catch(() => {});
+    }
+
+    showToastMessage('ပြီးစီးပြီ စာရင်းထဲသို့ ပြောင်းရွှေ့ပြီးပါပြီ');
+  };
+
+  const handleReopenConversation = (targetId: string) => {
+    if (!targetId) return;
+    const targetConv = conversations.find((c) => c.id === targetId);
+
+    setConversations((prev) => {
+      const next = prev.map((c) =>
+        c.id === targetId
+          ? {
+              ...c,
+              status: 'ACTIVE' as ConversationStatus,
+            }
+          : c
+      );
+      next.sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
+      try { localStorage.setItem(convStorageKey, JSON.stringify(next)); } catch {}
+      return next;
+    });
+
+    if (targetConv?.channelType === 'TELEGRAM' || targetId.startsWith('conv_tg_')) {
+      const tgChatId = (targetConv?.externalThreadId || targetId).replace(/^conv_tg_/, '').replace(/^tg_/, '');
+      fetch(`${getApiBaseUrl()}/api/v1/webhooks/telegram/reopen`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chatId: tgChatId, convId: targetId }),
+      }).catch(() => {});
+    }
+
+    showToastMessage('All Chat ထဲသို့ ပြန်ထည့်ပြီးပါပြီ');
+  };
+
+  const handleDeleteConversation = (targetId: string) => {
+    if (!targetId) return;
+    const targetConv = conversations.find((c) => c.id === targetId);
+    deletedChatsRef.current.set(targetId, Date.now());
+
+    setConversations((prev) => {
+      const next = prev.filter((c) => c.id !== targetId);
+      try { localStorage.setItem(convStorageKey, JSON.stringify(next)); } catch {}
+      return next;
+    });
+
+    setMessages((prev) => {
+      const next = { ...prev };
+      delete next[targetId];
+      try { localStorage.setItem(msgStorageKey, JSON.stringify(next)); } catch {}
+      return next;
+    });
+
+    if (activeConvIdRef.current === targetId) {
+      setActiveConversationId(null);
+      activeConvIdRef.current = null;
+    }
+
+    if (targetConv?.channelType === 'TELEGRAM' || targetId.startsWith('conv_tg_')) {
+      const tgChatId = (targetConv?.externalThreadId || targetId).replace(/^conv_tg_/, '').replace(/^tg_/, '');
+      fetch(`${getApiBaseUrl()}/api/v1/webhooks/telegram/delete-chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chatId: tgChatId, convId: targetId, organizationId: orgId }),
+      }).catch(() => {});
+    } else {
+      fetch(`${getApiBaseUrl()}/api/v1/chat/conversations/${encodeURIComponent(targetId)}/delete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      }).catch(() => {});
+    }
+
+    showToastMessage('စကားပြောမှတ်တမ်း ဖျက်ပြီးပါပြီ');
+  };
+
+  const handleResolve = () => {
+    if (!activeConversationId) return;
+    handleResolveConversation(activeConversationId);
   };
 
   // Simulate Customer Inbound Message from Connected Bot (e.g. Telegram / Messenger)
@@ -1423,7 +1658,12 @@ export default function InboxPage() {
   }
 
   return (
-    <div className="flex flex-col lg:flex-row h-full w-full max-w-full overflow-hidden overflow-x-hidden bg-slate-100 font-burmese">
+    <div className="flex flex-col lg:flex-row h-full w-full max-w-full overflow-hidden overflow-x-hidden bg-slate-100 font-burmese relative">
+      {statusToast && (
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-slate-900/95 text-white px-4 py-2 rounded-full text-xs font-semibold shadow-xl pointer-events-none animate-in fade-in duration-150">
+          {statusToast}
+        </div>
+      )}
       {/* 1. Navigation & Quota Sidebar (Desktop static sidebar, Mobile slide-over drawer) */}
       <Sidebar
         isOpen={isMobileMenuOpen}
@@ -1492,6 +1732,16 @@ export default function InboxPage() {
                   conversations={conversations}
                   activeId={activeConversationId}
                   onSelect={(id) => {
+                    if (
+                      typeof window !== 'undefined' &&
+                      window.innerWidth < 1024 &&
+                      !(window as any).AndroidNativeAudio &&
+                      !window.history.state?.chatechatChatOpen
+                    ) {
+                      try {
+                        window.history.pushState({ chatechatChatOpen: true, convId: id }, '');
+                      } catch {}
+                    }
                     setActiveConversationId(id);
                     activeConvIdRef.current = id;
                     readChatIdsRef.current.add(id);
@@ -1528,6 +1778,11 @@ export default function InboxPage() {
                     handleSimulateInboundMessage('TELEGRAM', botName);
                   }}
                   onClearAllChats={handleClearAllChats}
+                  onResolveConversation={handleResolveConversation}
+                  onReopenConversation={handleReopenConversation}
+                  onDeleteConversation={handleDeleteConversation}
+                  actionMenuConvId={actionMenuConvId}
+                  setActionMenuConvId={setActionMenuConvId}
                 />
               </div>
 

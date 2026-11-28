@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Conversation } from '../types';
 import { ChannelBadge } from './ChannelBadge';
-import { Search, Bot, UserCheck, Trash2 } from 'lucide-react';
+import { Search, Bot, UserCheck, Trash2, CheckCircle2, RotateCcw, X } from 'lucide-react';
 
 interface ConversationListProps {
   conversations: Conversation[];
@@ -13,6 +13,11 @@ interface ConversationListProps {
   setSearchQuery: (query: string) => void;
   onSimulateTelegramMessage?: () => void;
   onClearAllChats?: () => void;
+  onResolveConversation?: (id: string) => void;
+  onReopenConversation?: (id: string) => void;
+  onDeleteConversation?: (id: string) => void;
+  actionMenuConvId?: string | null;
+  setActionMenuConvId?: (id: string | null) => void;
 }
 
 export const ConversationList: React.FC<ConversationListProps> = ({
@@ -25,10 +30,91 @@ export const ConversationList: React.FC<ConversationListProps> = ({
   setSearchQuery,
   onSimulateTelegramMessage,
   onClearAllChats,
+  onResolveConversation,
+  onReopenConversation,
+  onDeleteConversation,
+  actionMenuConvId,
+  setActionMenuConvId,
 }) => {
+  const [internalActionId, setInternalActionId] = useState<string | null>(null);
+  const currentActionId = actionMenuConvId !== undefined ? actionMenuConvId : internalActionId;
+  const setCurrentActionId = setActionMenuConvId || setInternalActionId;
+
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressTriggeredRef = useRef(false);
+  const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
+
+  useEffect(() => {
+    setConfirmDelete(false);
+  }, [currentActionId]);
+
+  useEffect(() => {
+    return () => {
+      if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+    };
+  }, []);
+
+  const triggerHaptic = () => {
+    try {
+      if (typeof window !== 'undefined' && (window as any).AndroidNativeAudio?.vibrate) {
+        (window as any).AndroidNativeAudio.vibrate(35);
+      } else if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+        navigator.vibrate(35);
+      }
+    } catch {}
+  };
+
+  const startLongPress = (convId: string, clientX: number, clientY: number) => {
+    if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+    longPressTriggeredRef.current = false;
+    touchStartPosRef.current = { x: clientX, y: clientY };
+
+    longPressTimerRef.current = setTimeout(() => {
+      longPressTriggeredRef.current = true;
+      triggerHaptic();
+      setConfirmDelete(false);
+      setCurrentActionId(convId);
+    }, 500);
+  };
+
+  const moveLongPress = (clientX: number, clientY: number) => {
+    if (!touchStartPosRef.current || !longPressTimerRef.current) return;
+    const dx = clientX - touchStartPosRef.current.x;
+    const dy = clientY - touchStartPosRef.current.y;
+    if (Math.hypot(dx, dy) > 10) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  const cancelLongPress = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    touchStartPosRef.current = null;
+  };
+
+  const resolvedCount = conversations.filter((c) => c && c.status === 'RESOLVED').length;
+
   const filtered = conversations
     .filter((c) => {
       if (!c) return false;
+      if (activeFilter === 'resolved') {
+        if (c.status !== 'RESOLVED') return false;
+      } else if (activeFilter === 'unassigned') {
+        if (c.status === 'RESOLVED') return false;
+        if (c.handoverStatus === 'TRANSFERRED_TO_AGENT' && c.status !== 'UNASSIGNED') return false;
+      } else if (activeFilter === 'mine') {
+        if (c.status === 'RESOLVED') return false;
+        if (c.handoverStatus !== 'TRANSFERRED_TO_AGENT') return false;
+      } else {
+        // 'all' tab excludes completed (RESOLVED) chats
+        if (c.status === 'RESOLVED') return false;
+      }
+
       if (!searchQuery) return true;
       const query = searchQuery.toLowerCase();
       const nameMatch = c.customer?.name?.toLowerCase().includes(query);
@@ -47,8 +133,12 @@ export const ConversationList: React.FC<ConversationListProps> = ({
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
+  const actionMenuConv = currentActionId
+    ? conversations.find((c) => c.id === currentActionId) || null
+    : null;
+
   return (
-    <div className="w-full bg-white border-r border-slate-200 flex flex-col h-full select-none">
+    <div className="w-full bg-white border-r border-slate-200 flex flex-col h-full select-none relative">
       {/* Header & Search */}
       <div className="p-4 border-b border-slate-200 space-y-3">
         <div className="flex items-center justify-between">
@@ -103,7 +193,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
             { id: 'all', label: 'အားလုံး' },
             { id: 'unassigned', label: 'မခွဲရသေး' },
             { id: 'mine', label: 'ကျွန်ုပ်' },
-            { id: 'resolved', label: 'ပြီးစီး' },
+            { id: 'resolved', label: resolvedCount > 0 ? `ပြီးစီးပြီ (${resolvedCount})` : 'ပြီးစီးပြီ' },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -124,19 +214,52 @@ export const ConversationList: React.FC<ConversationListProps> = ({
       <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
         {filtered.length === 0 ? (
           <div className="p-8 text-center text-slate-400 text-sm">
-            မက်ဆေ့ခ်ျများ မရှိသေးပါ
+            {activeFilter === 'resolved'
+              ? 'ပြီးစီးပြီ မှတ်သားထားသော စကားဝိုင်းများ မရှိသေးပါ'
+              : 'မက်ဆေ့ခ်ျများ မရှိသေးပါ'}
           </div>
         ) : (
           filtered.map((conv) => {
             const isSelected = activeId === conv.id;
             const isBot = conv.handoverStatus === 'BOT_HANDLING';
+            const isResolved = conv.status === 'RESOLVED';
 
             return (
               <div
                 key={conv.id}
-                onClick={() => onSelect(conv.id)}
-                className={`p-3.5 cursor-pointer transition-colors relative flex gap-3 ${
-                  isSelected ? 'bg-blue-50/70' : 'hover:bg-slate-50'
+                onClick={() => {
+                  if (longPressTriggeredRef.current) {
+                    longPressTriggeredRef.current = false;
+                    return;
+                  }
+                  onSelect(conv.id);
+                }}
+                onTouchStart={(e) => {
+                  const t = e.touches[0];
+                  if (t) startLongPress(conv.id, t.clientX, t.clientY);
+                }}
+                onTouchMove={(e) => {
+                  const t = e.touches[0];
+                  if (t) moveLongPress(t.clientX, t.clientY);
+                }}
+                onTouchEnd={cancelLongPress}
+                onTouchCancel={cancelLongPress}
+                onMouseDown={(e) => {
+                  if (e.button === 0) startLongPress(conv.id, e.clientX, e.clientY);
+                }}
+                onMouseMove={(e) => moveLongPress(e.clientX, e.clientY)}
+                onMouseUp={cancelLongPress}
+                onMouseLeave={cancelLongPress}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  cancelLongPress();
+                  triggerHaptic();
+                  setConfirmDelete(false);
+                  setCurrentActionId(conv.id);
+                }}
+                style={{ WebkitTouchCallout: 'none' }}
+                className={`p-3.5 cursor-pointer transition-colors relative flex gap-3 select-none ${
+                  isSelected ? 'bg-blue-50/70' : 'hover:bg-slate-50 active:bg-slate-100'
                 }`}
               >
                 {/* Customer Avatar with status */}
@@ -165,7 +288,13 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                   </p>
 
                   {/* Status Badges */}
-                  <div className="flex items-center gap-1.5 mt-1.5">
+                  <div className="flex items-center flex-wrap gap-1.5 mt-1.5">
+                    {isResolved && (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded border border-emerald-200">
+                        <CheckCircle2 size={11} />
+                        ပြီးစီးပြီ
+                      </span>
+                    )}
                     {isBot ? (
                       <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200/60">
                         <Bot size={11} />
@@ -187,7 +316,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                 </div>
 
                 {/* Unread Counter */}
-                {conv.unreadCount > 0 && (
+                {conv.unreadCount > 0 && !isResolved && (
                   <div className="self-center">
                     <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-[11px] font-bold flex items-center justify-center">
                       {conv.unreadCount}
@@ -199,6 +328,133 @@ export const ConversationList: React.FC<ConversationListProps> = ({
           })
         )}
       </div>
+
+      {/* Long-Press Action Modal (Bottom Sheet on Mobile, Centered Dialog on Desktop) */}
+      {actionMenuConv && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+          <div
+            className="fixed inset-0 bg-black/50 backdrop-blur-xs"
+            onClick={() => setCurrentActionId(null)}
+          />
+          <div className="relative z-10 w-full sm:max-w-sm bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in slide-in-from-bottom duration-150">
+            {/* Modal Header */}
+            <div className="px-4 py-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
+              <div className="flex items-center gap-2 min-w-0">
+                <ChannelBadge channel={actionMenuConv.channelType} showLabel={false} />
+                <span className="font-bold text-sm text-slate-900 truncate">
+                  {actionMenuConv.customer?.name || 'ဧည့်သည်ဝယ်သူ'}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCurrentActionId(null)}
+                className="p-1 text-slate-400 hover:text-slate-700 rounded-lg"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="p-3 space-y-2">
+              {!confirmDelete ? (
+                <>
+                  {actionMenuConv.status !== 'RESOLVED' ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onResolveConversation?.(actionMenuConv.id);
+                        setCurrentActionId(null);
+                      }}
+                      className="w-full p-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-100 border border-emerald-200 text-left flex items-center gap-3 transition"
+                    >
+                      <CheckCircle2 size={20} className="text-emerald-600 shrink-0" />
+                      <div>
+                        <div className="text-sm font-bold text-emerald-900">
+                          ပြီးစီးပြီ (Mark as Done)
+                        </div>
+                        <div className="text-[11px] text-emerald-700">
+                          All chat မှ ဖျောက်ပြီး ပြီးစီးပြီ စာရင်းထဲ ထည့်မည်
+                        </div>
+                      </div>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onReopenConversation?.(actionMenuConv.id);
+                        setCurrentActionId(null);
+                      }}
+                      className="w-full p-3 rounded-xl bg-blue-50 hover:bg-blue-100 active:bg-blue-100 border border-blue-200 text-left flex items-center gap-3 transition"
+                    >
+                      <RotateCcw size={20} className="text-blue-600 shrink-0" />
+                      <div>
+                        <div className="text-sm font-bold text-blue-900">
+                          All Chat ထဲ ပြန်ထည့်မည်
+                        </div>
+                        <div className="text-[11px] text-blue-700">
+                          ပြီးစီးပြီ စာရင်းမှ Active Inbox သို့ ပြန်ပြောင်းမည်
+                        </div>
+                      </div>
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDelete(true)}
+                    className="w-full p-3 rounded-xl bg-rose-50 hover:bg-rose-100 active:bg-rose-100 border border-rose-200 text-left flex items-center gap-3 transition"
+                  >
+                    <Trash2 size={20} className="text-rose-600 shrink-0" />
+                    <div>
+                      <div className="text-sm font-bold text-rose-900">
+                        ဖျက်မည် (Delete Chat)
+                      </div>
+                      <div className="text-[11px] text-rose-700">
+                        ဤစကားပြောမှတ်တမ်းကို ဖျက်သိမ်းမည်
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setCurrentActionId(null)}
+                    className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition"
+                  >
+                    ပယ်ဖျက်မည်
+                  </button>
+                </>
+              ) : (
+                <div className="p-2 space-y-3">
+                  <p className="text-xs sm:text-sm text-slate-700 font-medium text-center leading-relaxed">
+                    <span className="font-bold text-slate-900">
+                      {actionMenuConv.customer?.name || 'ဤဝယ်သူ'}
+                    </span>{' '}
+                    ၏ စကားပြောမှတ်တမ်းကို အပြီးဖျက်ရန် သေချာပါသလား?
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDelete(false)}
+                      className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition"
+                    >
+                      မဖျက်တော့ပါ
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onDeleteConversation?.(actionMenuConv.id);
+                        setCurrentActionId(null);
+                      }}
+                      className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition"
+                    >
+                      ဟုတ်ကဲ့၊ ဖျက်မည်
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

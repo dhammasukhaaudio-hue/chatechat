@@ -34,47 +34,6 @@ export function useSocket({
   const onConversationResolvedRef = useRef(onConversationResolved);
   onConversationResolvedRef.current = onConversationResolved;
 
-  // Native Web Audio chime for incoming messages
-  const playChime = () => {
-    try {
-      if (typeof window === 'undefined') return;
-      if (typeof (window as any).playAlertChime === 'function') {
-        (window as any).playAlertChime();
-        return;
-      }
-      if ((window as any).AndroidNativeAudio) {
-        try {
-          (window as any).AndroidNativeAudio.playNotificationSound?.();
-          (window as any).AndroidNativeAudio.vibrate?.(220);
-        } catch {}
-      }
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioCtx) return;
-      const ctx = new AudioCtx();
-      if (ctx.state === 'suspended') ctx.resume().catch(() => {});
-      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-        try { navigator.vibrate([120, 60, 140]); } catch {}
-      }
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(880, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.15);
-
-      gain.gain.setValueAtTime(0.18, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
-
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-
-      osc.start();
-      osc.stop(ctx.currentTime + 0.35);
-    } catch {
-      // Audio autoplay policy
-    }
-  };
-
   useEffect(() => {
     const socketUrl = getApiBaseUrl();
     const socket = io(socketUrl, {
@@ -90,7 +49,6 @@ export function useSocket({
 
     const handleIncoming = (data: any) => {
       console.log('⚡ [SOCKET EVENT RECEIVED] Inbound customer message:', data);
-      playChime();
       if (onIncomingMessageRef.current) onIncomingMessageRef.current(data);
     };
 

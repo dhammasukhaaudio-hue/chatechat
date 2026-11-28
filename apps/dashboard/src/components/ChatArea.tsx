@@ -11,9 +11,10 @@ import {
   UserCheck,
   FileCheck,
   Paperclip,
-  Smile,
   ArrowLeft,
   Info,
+  Copy,
+  Check,
 } from 'lucide-react';
 import { ChateChatLogo } from './ChateChatLogo';
 
@@ -85,6 +86,9 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   const [inputText, setInputText] = useState('');
   const [isInternalNote, setIsInternalNote] = useState(false);
   const [showCannedDrawer, setShowCannedDrawer] = useState(false);
+  const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
+  const [showCopyToast, setShowCopyToast] = useState(false);
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -94,6 +98,67 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  useEffect(() => {
+    return () => {
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    };
+  }, []);
+
+  const handleCopyText = async (msgId: string, rawContent: string) => {
+    const plainText = (typeof rawContent === 'string' ? rawContent : String(rawContent || ''))
+      .replace(/<\/?[^>]+(>|$)/g, '');
+    if (!plainText) return;
+
+    let copied = false;
+
+    try {
+      if (typeof window !== 'undefined' && (window as any).AndroidNativeAudio?.copyToClipboard) {
+        copied = !!(window as any).AndroidNativeAudio.copyToClipboard(plainText);
+      }
+    } catch {}
+
+    if (!copied && typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(plainText);
+        copied = true;
+      } catch {}
+    }
+
+    if (!copied && typeof document !== 'undefined') {
+      try {
+        const textarea = document.createElement('textarea');
+        textarea.value = plainText;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'fixed';
+        textarea.style.top = '-9999px';
+        textarea.style.left = '-9999px';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        copied = document.execCommand('copy');
+        document.body.removeChild(textarea);
+      } catch {}
+    }
+
+    if (copied) {
+      try {
+        if (typeof window !== 'undefined' && (window as any).AndroidNativeAudio?.vibrate) {
+          (window as any).AndroidNativeAudio.vibrate(30);
+        } else if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+          navigator.vibrate(30);
+        }
+      } catch {}
+
+      setCopiedMsgId(msgId);
+      setShowCopyToast(true);
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+      copyTimerRef.current = setTimeout(() => {
+        setCopiedMsgId(null);
+        setShowCopyToast(false);
+      }, 2000);
+    }
+  };
 
   if (!conversation) {
     return (
@@ -136,6 +201,14 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
   return (
     <div className="flex-1 min-w-0 w-full max-w-full bg-white flex flex-col h-full overflow-hidden relative">
+      {/* Subtle Copy Toast */}
+      {showCopyToast && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 bg-slate-900/95 text-white px-3.5 py-1.5 rounded-full text-xs font-medium shadow-lg flex items-center gap-1.5 pointer-events-none animate-in fade-in duration-150">
+          <Check size={14} className="text-emerald-400" />
+          <span>စာသား ကူးယူပြီးပါပြီ</span>
+        </div>
+      )}
+
       {/* Chat Area Header */}
       <header className="safe-top-mobile pb-2 sm:pb-3 border-b border-slate-200 px-2 sm:px-4 lg:px-6 flex items-center justify-between bg-white z-10 shrink-0 lg:h-16 lg:pt-0 lg:pb-0 w-full max-w-full overflow-hidden">
         <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0 flex-1 mr-1 sm:mr-2 overflow-hidden">
@@ -217,10 +290,10 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         ) : (
           messages.map((msg) => {
             const isCustomer = msg.senderType === 'CUSTOMER';
-            const isAgent = msg.senderType === 'AGENT';
             const isBot = msg.senderType === 'BOT';
             const isSystem = msg.senderType === 'SYSTEM';
             const isInternal = msg.isInternal;
+            const isCopied = copiedMsgId === msg.id;
 
             if (isSystem) {
               return (
@@ -237,14 +310,29 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 <div key={msg.id} className="mx-auto max-w-lg my-2 w-full">
                   <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5 sm:p-3 text-xs text-amber-900 shadow-xs flex items-start gap-2">
                     <Lock size={13} className="text-amber-600 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <div className="font-bold flex items-center gap-1.5 mb-1">
-                        <span>အတွင်းမှတ်ချက်</span>
-                        <span className="text-[10px] text-amber-700 font-normal">
-                          • {msg.senderName}
-                        </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-bold flex items-center justify-between gap-1.5 mb-1">
+                        <div className="flex items-center gap-1.5">
+                          <span>အတွင်းမှတ်ချက်</span>
+                          <span className="text-[10px] text-amber-700 font-normal">
+                            • {msg.senderName}
+                          </span>
+                        </div>
+                        {msg.content && (
+                          <button
+                            type="button"
+                            onClick={() => handleCopyText(msg.id, msg.content)}
+                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium text-amber-700 hover:bg-amber-100 transition"
+                            title="ကူးယူမည်"
+                          >
+                            {isCopied ? <Check size={11} className="text-emerald-600" /> : <Copy size={11} />}
+                            <span>{isCopied ? 'ကူးယူပြီး' : 'ကူးယူ'}</span>
+                          </button>
+                        )}
                       </div>
-                      <p className="leading-relaxed [overflow-wrap:anywhere] break-words">{msg.content}</p>
+                      <p className="leading-relaxed [overflow-wrap:anywhere] break-words select-text cursor-text selectable-text">
+                        {msg.content}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -275,7 +363,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 </div>
 
                 <div
-                  className={`p-2.5 sm:p-3.5 rounded-2xl text-xs sm:text-sm leading-relaxed shadow-xs [overflow-wrap:anywhere] break-words whitespace-pre-wrap ${
+                  className={`p-2.5 sm:p-3.5 rounded-2xl text-xs sm:text-sm leading-relaxed shadow-xs [overflow-wrap:anywhere] break-words whitespace-pre-wrap select-text cursor-text selectable-text ${
                     isCustomer
                       ? 'bg-white text-slate-800 border border-slate-200/80 rounded-tl-sm'
                       : isBot
@@ -292,15 +380,35 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                       />
                     </div>
                   )}
-                  <div className="whitespace-pre-wrap leading-relaxed [overflow-wrap:anywhere] break-words">{renderFormattedContent(msg.content, isCustomer, isBot)}</div>
+                  <div className="whitespace-pre-wrap leading-relaxed [overflow-wrap:anywhere] break-words select-text cursor-text selectable-text">
+                    {renderFormattedContent(msg.content, isCustomer, isBot)}
+                  </div>
                 </div>
 
-                {!isCustomer && (
-                  <div className="flex items-center gap-1 mt-0.5 text-[10px] text-slate-400 mr-0.5">
-                    <CheckCheck size={12} className="text-blue-500" />
-                    <span>ပေးပို့ပြီး</span>
-                  </div>
-                )}
+                {/* Footer meta & one-tap Copy button for BOTH Customer and Agent/Bot messages */}
+                <div className="flex items-center gap-2 mt-1 px-0.5 text-[10px] text-slate-400">
+                  {!isCustomer && (
+                    <span className="inline-flex items-center gap-1">
+                      <CheckCheck size={12} className="text-blue-500" />
+                      <span>ပေးပို့ပြီး</span>
+                    </span>
+                  )}
+                  {msg.content && (
+                    <button
+                      type="button"
+                      onClick={() => handleCopyText(msg.id, msg.content)}
+                      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md transition ${
+                        isCopied
+                          ? 'text-emerald-600 bg-emerald-50 font-semibold'
+                          : 'text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 active:bg-slate-200'
+                      }`}
+                      title="စာသား ကူးယူမည်"
+                    >
+                      {isCopied ? <Check size={11} /> : <Copy size={11} />}
+                      <span>{isCopied ? 'ကူးယူပြီး' : 'ကူးယူ'}</span>
+                    </button>
+                  )}
+                </div>
               </div>
             );
           })

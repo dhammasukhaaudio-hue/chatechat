@@ -626,10 +626,15 @@ class TelegramPollingService {
     // Save to persistent file
     this.saveMessageToHistory(convId, conversation, message);
 
-    // Emit live event once to all connected agents across the workspace
+    // Emit live event once to all connected agents in this organization
     if (this.io) {
-      console.log(`⚡ [SOCKET.IO] Emitting chat:incoming_message for conv: ${convId}`);
-      this.io.emit('chat:incoming_message', { conversation, message });
+      const normalizedOrg = (orgId || 'org_royal').toLowerCase().trim();
+      console.log(`⚡ [SOCKET.IO] Emitting chat:incoming_message for conv: ${convId} (org:${normalizedOrg})`);
+      if (normalizedOrg && normalizedOrg !== 'all') {
+        this.io.to(`org:${normalizedOrg}`).emit('chat:incoming_message', { conversation, message });
+      } else {
+        this.io.emit('chat:incoming_message', { conversation, message });
+      }
     }
 
     // =========================================================================
@@ -777,7 +782,6 @@ ${webUrl}
       }
       fs.writeFileSync(CHATS_FILE, JSON.stringify(history, null, 2), 'utf-8');
       PersistentStore.set('telegram_chats', history).catch(() => {});
-      PersistentStore.set('telegram_chats', history).catch(() => {});
     } catch (e) {
       console.warn('⚠️ Could not clear chats in telegram-chats.json:', e);
     }
@@ -791,10 +795,79 @@ ${webUrl}
       if (history[convId] && history[convId].conv) {
         history[convId].conv.unreadCount = 0;
         fs.writeFileSync(CHATS_FILE, JSON.stringify(history, null, 2), 'utf-8');
-      PersistentStore.set('telegram_chats', history).catch(() => {});
+        PersistentStore.set('telegram_chats', history).catch(() => {});
       }
     } catch (e) {
       console.warn('⚠️ Could not mark chat as read:', e);
+    }
+  }
+
+  public resolveConversation(targetId: string) {
+    try {
+      const convId = targetId.startsWith('conv_') ? targetId : `conv_tg_${targetId}`;
+      if (!fs.existsSync(CHATS_FILE)) {
+        return { success: true, convId, status: 'RESOLVED' };
+      }
+      const history = JSON.parse(fs.readFileSync(CHATS_FILE, 'utf-8'));
+      let orgId = this.config?.organizationId || 'org_royal';
+      if (history[convId] && history[convId].conv) {
+        history[convId].conv.status = 'RESOLVED';
+        history[convId].conv.handoverStatus = 'BOT_HANDLING';
+        history[convId].conv.unreadCount = 0;
+        if (history[convId].conv.organizationId) {
+          orgId = history[convId].conv.organizationId;
+        }
+        fs.writeFileSync(CHATS_FILE, JSON.stringify(history, null, 2), 'utf-8');
+        PersistentStore.set('telegram_chats', history).catch(() => {});
+      }
+      if (this.io) {
+        const normalizedOrg = orgId.toLowerCase().trim();
+        this.io.to(`org:${normalizedOrg}`).emit('conversation:resolved', { conversationId: convId });
+      }
+      return { success: true, convId, status: 'RESOLVED' };
+    } catch (e) {
+      console.warn('⚠️ Could not resolve conversation:', e);
+      return { success: false, convId: targetId, status: 'RESOLVED' };
+    }
+  }
+
+  public reopenConversation(targetId: string) {
+    try {
+      const convId = targetId.startsWith('conv_') ? targetId : `conv_tg_${targetId}`;
+      if (!fs.existsSync(CHATS_FILE)) {
+        return { success: true, convId, status: 'ACTIVE' };
+      }
+      const history = JSON.parse(fs.readFileSync(CHATS_FILE, 'utf-8'));
+      if (history[convId] && history[convId].conv) {
+        history[convId].conv.status = 'ACTIVE';
+        fs.writeFileSync(CHATS_FILE, JSON.stringify(history, null, 2), 'utf-8');
+        PersistentStore.set('telegram_chats', history).catch(() => {});
+      }
+      return { success: true, convId, status: 'ACTIVE' };
+    } catch (e) {
+      console.warn('⚠️ Could not reopen conversation:', e);
+      return { success: false, convId: targetId, status: 'ACTIVE' };
+    }
+  }
+
+  public deleteConversation(targetId: string) {
+    try {
+      const convId = targetId.startsWith('conv_') ? targetId : `conv_tg_${targetId}`;
+      if (fs.existsSync(CHATS_FILE)) {
+        const history = JSON.parse(fs.readFileSync(CHATS_FILE, 'utf-8'));
+        if (history[convId]) {
+          delete history[convId];
+          fs.writeFileSync(CHATS_FILE, JSON.stringify(history, null, 2), 'utf-8');
+          PersistentStore.set('telegram_chats', history).catch(() => {});
+        }
+      }
+      if (prisma && typeof prisma.conversation?.deleteMany === 'function') {
+        prisma.conversation.deleteMany({ where: { id: convId } }).catch(() => {});
+      }
+      return { success: true, convId };
+    } catch (e) {
+      console.warn('⚠️ Could not delete conversation:', e);
+      return { success: false, convId: targetId };
     }
   }
 
@@ -925,7 +998,7 @@ ${webUrl}
     this.saveMessageToHistory(convId, updatePayload, sysMsg);
 
     if (this.io) {
-      const orgId = this.config?.organizationId || 'org_royal';
+      const orgId = (this.config?.organizationId || 'org_royal').toLowerCase().trim();
       this.io.to(`org:${orgId}`).emit('chat:incoming_message', {
         conversation: { id: convId, handoverStatus: status },
         message: sysMsg,
@@ -954,7 +1027,7 @@ ${webUrl}
     this.saveMessageToHistory(convId, { lastMessageSnippet: text, lastMessageAt: nowIso }, botMsg);
 
     if (this.io) {
-      const orgId = organizationId || this.config?.organizationId || 'org_royal';
+      const orgId = (organizationId || this.config?.organizationId || 'org_royal').toLowerCase().trim();
       const payload = {
         conversation: { id: convId, lastMessageSnippet: text, lastMessageAt: nowIso },
         message: botMsg,

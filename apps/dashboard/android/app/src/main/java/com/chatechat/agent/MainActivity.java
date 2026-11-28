@@ -4,6 +4,8 @@ import android.Manifest;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -21,6 +23,7 @@ import android.provider.Settings;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
+import androidx.activity.OnBackPressedCallback;
 import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
@@ -34,8 +37,10 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -54,7 +59,11 @@ public class MainActivity extends BridgeActivity {
 
     private ScheduledExecutorService backgroundPoller = null;
     private final Set<String> seenMessageIds = Collections.synchronizedSet(new HashSet<>());
-    private boolean isInitialPollComplete = false;
+    private final Set<String> notifiedMessageIds = Collections.synchronizedSet(new HashSet<>());
+    private final Map<String, Long> recentContentNotifications = Collections.synchronizedMap(new HashMap<>());
+    private final Object notificationLock = new Object();
+    private volatile boolean isInitialPollComplete = false;
+    private volatile boolean isAppInForeground = false;
 
     public class NativeAudioInterface {
 
@@ -64,19 +73,58 @@ public class MainActivity extends BridgeActivity {
                 saveSetting(PREF_BASE_URL, baseUrl.trim());
             }
             if (organizationId != null && !organizationId.trim().isEmpty()) {
-                saveSetting(PREF_ORG_ID, organizationId.trim());
+                String newOrg = organizationId.trim();
+                String prevOrg = getSetting(PREF_ORG_ID, "");
+                if (!newOrg.equals(prevOrg)) {
+                    synchronized (notificationLock) {
+                        seenMessageIds.clear();
+                        notifiedMessageIds.clear();
+                        recentContentNotifications.clear();
+                        isInitialPollComplete = false;
+                    }
+                    saveSetting(PREF_ORG_ID, newOrg);
+                }
             }
             startNativePoller();
         }
 
         @JavascriptInterface
+        public void showNotificationWithId(String messageId, String title, String message) {
+            triggerNotification(messageId, title, message);
+        }
+
+        @JavascriptInterface
         public void showNotification(String title, String message) {
-            triggerNotification(title, message);
+            triggerNotification(null, title, message);
         }
 
         @JavascriptInterface
         public void playNotificationSound() {
-            triggerNotification("ChateChat", "မက်ဆေ့ခ်ျအသစ် ရောက်ရှိလာပါသည် (New Message)");
+            triggerNotification(null, "ChateChat", "မက်ဆေ့ခ်ျအသစ် ရောက်ရှိလာပါသည် (New Message)");
+        }
+
+        @JavascriptInterface
+        public void markMessageSeen(String messageId) {
+            if (messageId != null && !messageId.trim().isEmpty()) {
+                String clean = messageId.trim();
+                synchronized (notificationLock) {
+                    seenMessageIds.add(clean);
+                    notifiedMessageIds.add(clean);
+                }
+            }
+        }
+
+        @JavascriptInterface
+        public boolean copyToClipboard(String text) {
+            try {
+                ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                if (clipboard != null) {
+                    ClipData clip = ClipData.newPlainText("ChateChat Message", text != null ? text : "");
+                    clipboard.setPrimaryClip(clip);
+                    return true;
+                }
+            } catch (Exception ignored) {}
+            return false;
         }
 
         @JavascriptInterface
@@ -102,6 +150,25 @@ public class MainActivity extends BridgeActivity {
         promptNotificationPermission();
         setupNativeInterface();
         startNativePoller();
+
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                WebView webView = getBridge() != null ? getBridge().getWebView() : null;
+                if (webView != null) {
+                    webView.evaluateJavascript(
+                        "(function(){ try { return typeof window.__chatechatHandleBack === 'function' ? window.__chatechatHandleBack() : false; } catch(e) { return false; } })()",
+                        value -> {
+                            if (!"true".equals(value)) {
+                                moveTaskToBack(true);
+                            }
+                        }
+                    );
+                } else {
+                    moveTaskToBack(true);
+                }
+            }
+        });
     }
 
     @Override
@@ -114,6 +181,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onResume() {
         super.onResume();
+        isAppInForeground = true;
         setupNativeInterface();
         startNativePoller();
     }
@@ -121,6 +189,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onPause() {
         super.onPause();
+        isAppInForeground = false;
         // Keep WebView timers running if possible and ensure poller stays active during screen lock
         try {
             WebView webView = getBridge() != null ? getBridge().getWebView() : null;
@@ -250,18 +319,25 @@ public class MainActivity extends BridgeActivity {
                                 String senderType = msg.optString("senderType", "");
 
                                 if (!msgId.isEmpty() && "CUSTOMER".equalsIgnoreCase(senderType)) {
-                                    if (!seenMessageIds.contains(msgId)) {
-                                        seenMessageIds.add(msgId);
-                                        // If initial poll, populate seen set silently
-                                        if (isInitialPollComplete) {
-                                            String content = msg.optString("content", "မက်ဆေ့ခ်ျအသစ် ရောက်ရှိလာပါသည်");
-                                            String senderName = "Customer (Telegram)";
-                                            if (chatEntry.has("conv") && chatEntry.getJSONObject("conv").has("customer")) {
-                                                JSONObject cust = chatEntry.getJSONObject("conv").getJSONObject("customer");
-                                                senderName = cust.optString("name", senderName);
+                                    boolean shouldNotify = false;
+                                    synchronized (notificationLock) {
+                                        if (!seenMessageIds.contains(msgId)) {
+                                            seenMessageIds.add(msgId);
+                                            if (!isInitialPollComplete) {
+                                                notifiedMessageIds.add(msgId);
+                                            } else if (!notifiedMessageIds.contains(msgId)) {
+                                                shouldNotify = true;
                                             }
-                                            triggerNotification(senderName, content);
                                         }
+                                    }
+                                    if (shouldNotify) {
+                                        String content = msg.optString("content", "မက်ဆေ့ခ်ျအသစ် ရောက်ရှိလာပါသည်");
+                                        String senderName = "Customer (Telegram)";
+                                        if (chatEntry.has("conv") && chatEntry.getJSONObject("conv").has("customer")) {
+                                            JSONObject cust = chatEntry.getJSONObject("conv").getJSONObject("customer");
+                                            senderName = cust.optString("name", senderName);
+                                        }
+                                        triggerNotification(msgId, senderName, content);
                                     }
                                 }
                             }
@@ -276,22 +352,55 @@ public class MainActivity extends BridgeActivity {
         }
     }
 
-    private void triggerNotification(String title, String message) {
+    private void triggerNotification(String messageId, String title, String message) {
         try {
+            String cleanId = messageId != null ? messageId.trim() : "";
+            String cleanTitle = (title != null && !title.trim().isEmpty()) ? title.trim() : "ChateChat";
+            String cleanMsg = (message != null && !message.trim().isEmpty()) ? message.trim() : "မက်ဆေ့ခ်ျအသစ် ရောက်ရှိလာပါသည်";
+
+            synchronized (notificationLock) {
+                if (!cleanId.isEmpty()) {
+                    if (notifiedMessageIds.contains(cleanId)) {
+                        return;
+                    }
+                    if (notifiedMessageIds.size() > 2000) {
+                        notifiedMessageIds.clear();
+                    }
+                    notifiedMessageIds.add(cleanId);
+                    seenMessageIds.add(cleanId);
+                }
+
+                long now = System.currentTimeMillis();
+                Iterator<Map.Entry<String, Long>> it = recentContentNotifications.entrySet().iterator();
+                while (it.hasNext()) {
+                    if (now - it.next().getValue() > 60000L) {
+                        it.remove();
+                    }
+                }
+                String contentKey = cleanTitle + "|" + cleanMsg;
+                Long lastSameTime = recentContentNotifications.get(contentKey);
+                if (lastSameTime != null && (now - lastSameTime) < 10000L) {
+                    return;
+                }
+                recentContentNotifications.put(contentKey, now);
+            }
+
             createNotificationChannel();
 
-            // 1. Wake the CPU and Screen up immediately (especially when device is locked)
-            PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
-            if (pm != null) {
-                try {
-                    PowerManager.WakeLock wakeLock = pm.newWakeLock(
-                            PowerManager.SCREEN_BRIGHT_WAKE_LOCK |
-                            PowerManager.ACQUIRE_CAUSES_WAKEUP |
-                            PowerManager.ON_AFTER_RELEASE,
-                            "ChateChat:LockScreenWakeLock"
-                    );
-                    wakeLock.acquire(4000); // 4 seconds wake lock
-                } catch (Exception ignored) {}
+            // 1. Wake CPU & screen when device is locked/backgrounded
+            if (!isAppInForeground) {
+                PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+                if (pm != null) {
+                    try {
+                        PowerManager.WakeLock wakeLock = pm.newWakeLock(
+                                PowerManager.SCREEN_BRIGHT_WAKE_LOCK |
+                                PowerManager.ACQUIRE_CAUSES_WAKEUP |
+                                PowerManager.ON_AFTER_RELEASE,
+                                "ChateChat:LockScreenWakeLock"
+                        );
+                        wakeLock.acquire(4000);
+                    } catch (Exception ignored) {}
+                }
             }
 
             // 2. Prepare PendingIntent to open app on tap
@@ -308,9 +417,9 @@ public class MainActivity extends BridgeActivity {
             // 3. Build Heads-Up Floating & Lock-screen Notification
             NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
                     .setSmallIcon(R.mipmap.ic_launcher)
-                    .setContentTitle(title != null && !title.trim().isEmpty() ? title : "ChateChat")
-                    .setContentText(message != null && !message.trim().isEmpty() ? message : "မက်ဆေ့ခ်ျအသစ် ရောက်ရှိလာပါသည်")
-                    .setStyle(new NotificationCompat.BigTextStyle().bigText(message))
+                    .setContentTitle(cleanTitle)
+                    .setContentText(cleanMsg)
+                    .setStyle(new NotificationCompat.BigTextStyle().bigText(cleanMsg))
                     .setPriority(NotificationCompat.PRIORITY_MAX)
                     .setCategory(NotificationCompat.CATEGORY_MESSAGE)
                     .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
@@ -319,24 +428,29 @@ public class MainActivity extends BridgeActivity {
                     .setVibrate(new long[]{0, 250, 100, 300})
                     .setAutoCancel(true)
                     .setContentIntent(pendingIntent)
-                    .setFullScreenIntent(pendingIntent, true); // Pop up on lock screen
+                    .setFullScreenIntent(pendingIntent, true);
 
             NotificationManagerCompat notificationManager = NotificationManagerCompat.from(this);
+            boolean postedNotification = false;
             if (ActivityCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED || Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-                notificationManager.notify(notificationCounter++, builder.build());
+                int notifId = !cleanId.isEmpty() ? Math.abs(cleanId.hashCode()) : notificationCounter++;
+                notificationManager.notify(notifId, builder.build());
+                postedNotification = true;
             }
 
-            // 4. Play ringtone and vibrate
-            try {
-                if (defaultSoundUri != null) {
-                    Ringtone r = RingtoneManager.getRingtone(getApplicationContext(), defaultSoundUri);
-                    if (r != null) {
-                        r.play();
+            // 4. On Android 8.0+, NotificationChannel handles sound & vibration once when posted.
+            // Only fall back to manual Ringtone + Vibrator if notification could not be posted or pre-Oreo.
+            if (!postedNotification || Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+                try {
+                    if (defaultSoundUri != null) {
+                        Ringtone r = RingtoneManager.getRingtone(getApplicationContext(), defaultSoundUri);
+                        if (r != null) {
+                            r.play();
+                        }
                     }
-                }
-            } catch (Exception ignored) {}
-
-            doVibrate(250);
+                } catch (Exception ignored) {}
+                doVibrate(250);
+            }
 
         } catch (Exception e) {
             e.printStackTrace();

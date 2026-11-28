@@ -174,9 +174,10 @@ io.on('connection', (socket) => {
 
   // Agent joins organization and conversation rooms
   socket.on(SOCKET_EVENTS.AGENT_AUTH, ({ organizationId, agentId }: { organizationId: string; agentId: string }) => {
-    socket.join(`org:${organizationId}`);
+    const normalizedOrg = (organizationId || 'org_royal').toLowerCase().trim();
+    socket.join(`org:${normalizedOrg}`);
     socket.join(`agent:${agentId}`);
-    console.log(`👨‍💻 Agent ${agentId} authenticated into org:${organizationId}`);
+    console.log(`👨‍💻 Agent ${agentId} authenticated into org:${normalizedOrg}`);
   });
 
   socket.on(SOCKET_EVENTS.AGENT_JOIN_CONVERSATION, ({ conversationId }: { conversationId: string }) => {

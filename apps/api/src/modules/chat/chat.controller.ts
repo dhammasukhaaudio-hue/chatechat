@@ -197,6 +197,32 @@ chatRouter.post('/conversations/:id/resolve', async (req: Request, res: Response
 });
 
 /**
+ * 5b. POST /api/v1/chat/conversations/:id/delete & DELETE /api/v1/chat/conversations/:id
+ * Delete a conversation and its messages
+ */
+chatRouter.post('/conversations/:id/delete', async (req: Request, res: Response) => {
+  const { id } = req.params;
+  try {
+    await prisma.message.deleteMany({ where: { conversationId: id } }).catch(() => {});
+    await prisma.conversation.deleteMany({ where: { id } }).catch(() => {});
+    return res.json({ success: true, id });
+  } catch (error: any) {
+    return res.json({ success: true, id });
+  }
+});
+
+chatRouter.delete('/conversations/:id', async (req: Request, res: Response) => {
+  const { id } = req.params;
+  try {
+    await prisma.message.deleteMany({ where: { conversationId: id } }).catch(() => {});
+    await prisma.conversation.deleteMany({ where: { id } }).catch(() => {});
+    return res.json({ success: true, id });
+  } catch (error: any) {
+    return res.json({ success: true, id });
+  }
+});
+
+/**
  * 6. GET /api/v1/canned-responses
  * Fetch Burmese shortcuts (/kpay, /deli, /price)
  */

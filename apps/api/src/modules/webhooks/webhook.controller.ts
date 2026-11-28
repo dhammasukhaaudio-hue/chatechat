@@ -63,7 +63,7 @@ webhookRouter.post('/messenger', async (req: Request, res: Response) => {
  */
 webhookRouter.post('/telegram/:channelId', async (req: Request, res: Response, next) => {
   const { channelId } = req.params;
-  const reservedPaths = ['disconnect', 'pause', 'stop', 'send-message', 'bot-reply', 'takeover', 'resolve', 'status', 'chats', 'clear-chats', 'mark-read'];
+  const reservedPaths = ['disconnect', 'pause', 'stop', 'send-message', 'bot-reply', 'takeover', 'resolve', 'reopen', 'delete-chat', 'status', 'chats', 'clear-chats', 'mark-read'];
   if (reservedPaths.includes(channelId)) {
     return next();
   }
@@ -82,7 +82,7 @@ webhookRouter.post('/telegram/:channelId', async (req: Request, res: Response, n
       req.headers,
       rawBody,
       req.body,
-      (req as any).socketEmitter
+      undefined
     ).catch(() => {});
   } catch (error: any) {
     console.error(`❌ Error processing Telegram webhook for ${channelId}:`, error.message);
@@ -346,14 +346,52 @@ webhookRouter.post('/telegram/takeover', async (req: Request, res: Response) => 
 });
 
 /**
- * 8. AGENT RESOLVE (Hand control back to Bot)
+ * 8. AGENT RESOLVE (Mark conversation as Done / Resolved OR auto-handback to Bot)
  */
 webhookRouter.post('/telegram/resolve', async (req: Request, res: Response) => {
   try {
-    const { chatId } = req.body;
-    if (!chatId) return res.status(400).json({ error: 'chatId is required' });
-    await telegramPollingService.setHandoverStatus(chatId, 'BOT_HANDLING');
-    return res.status(200).json({ success: true, handoverStatus: 'BOT_HANDLING' });
+    const { chatId, convId, markResolved, isAutoHandback } = req.body || {};
+    const target = convId || chatId;
+    if (!target) return res.status(400).json({ error: 'chatId or convId is required' });
+
+    if (isAutoHandback === true || markResolved === false) {
+      const cleanChatId = (chatId || convId.toString().replace(/^conv_tg_/, '')).toString();
+      await telegramPollingService.setHandoverStatus(cleanChatId, 'BOT_HANDLING', undefined, true);
+      return res.status(200).json({ success: true, handoverStatus: 'BOT_HANDLING' });
+    }
+
+    const result = telegramPollingService.resolveConversation(target.toString());
+    return res.status(200).json({ handoverStatus: 'BOT_HANDLING', ...result });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * 8b. REOPEN RESOLVED CONVERSATION BACK TO ALL CHAT
+ */
+webhookRouter.post('/telegram/reopen', async (req: Request, res: Response) => {
+  try {
+    const { chatId, convId } = req.body || {};
+    const target = convId || chatId;
+    if (!target) return res.status(400).json({ error: 'chatId or convId is required' });
+    const result = telegramPollingService.reopenConversation(target.toString());
+    return res.status(200).json(result);
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * 8c. DELETE SINGLE TELEGRAM CONVERSATION
+ */
+webhookRouter.post('/telegram/delete-chat', async (req: Request, res: Response) => {
+  try {
+    const { chatId, convId } = req.body || {};
+    const target = convId || chatId;
+    if (!target) return res.status(400).json({ error: 'chatId or convId is required' });
+    const result = telegramPollingService.deleteConversation(target.toString());
+    return res.status(200).json(result);
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err.message });
   }
